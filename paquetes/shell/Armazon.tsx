@@ -321,7 +321,7 @@ function Cascara() {
 
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <div className="flex flex-1 flex-col overflow-auto">
-            {hoja === null ? null : <CabeceraDePantalla hoja={hoja} />}
+            {hoja === null ? null : <CabeceraDePantalla hoja={hoja} instruccion={hoja.destino.instruccion} />}
             <div className="flex max-w-[1180px] flex-1 flex-col gap-[14px] px-[18px] pb-0 pt-4">
               {deLaHoja === null ? (
                 <Outlet />
