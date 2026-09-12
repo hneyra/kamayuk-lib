@@ -63,7 +63,12 @@ const CATALOGO: Catalogo = [
     nota: 'Lo que entra y lo que sale',
     icono: 'capas',
     destinos: [
-      { clave: 'alm-panel', rotulo: 'Panel del almacen', seEscribe: false },
+      {
+        clave: 'alm-panel',
+        rotulo: 'Panel del almacen',
+        seEscribe: false,
+        instruccion: 'revise lo que entro y lo que salio hoy.',
+      },
       { clave: 'alm-entradas', rotulo: 'Entradas', seEscribe: true, slug: 'entradas' },
     ],
   },
@@ -219,6 +224,33 @@ describe('el carril en pantalla estrecha', () => {
     // y sigue estando en el arbol de accesibilidad de algunos lectores.
     expect(screen.queryByRole('complementary')).toBeNull();
     expect(screen.queryByRole('button', { name: /Almacen/ })).toBeNull();
+  });
+});
+
+/**
+ * **La barra de instruccion** (#15).
+ *
+ * Su defecto era el mas silencioso posible: `CabeceraDePantalla` sabia dibujarla y `Armazon` no
+ * se la pasaba nunca, asi que **no se dibujaba en ningun sistema** — y la cabecera salia entera y
+ * correcta sin ella, con su miga, su titulo y su nota. Una pantalla a la que le falta la
+ * instruccion parece una pantalla, no un defecto. Lo destapo `rentas`#90 al montar la aplicacion
+ * de verdad: cuarenta pruebas pidiendo un texto que nadie dibujaba.
+ */
+describe('la barra de instruccion', () => {
+  it('sale con el modulo en negrita delante, que es como V8 la escribe', () => {
+    montar({ hash: '#/alm-panel' });
+    const barra = screen.getByText(/revise lo que entro y lo que salio hoy/);
+    expect(barra).toBeTruthy();
+    // El modulo va delante y en negrita: es lo que dice de QUE procedimiento se habla.
+    expect(barra.querySelector('strong')?.textContent).toBe('Almacen:');
+  });
+
+  it('y un destino SIN instruccion no dibuja la barra, en vez de dibujarla vacia', () => {
+    // Un filo que encierra nada es peor que ningun filo: se lee como un hueco donde falta algo.
+    montar({ hash: '#/flo-turnos' });
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Turnos');
+    expect(screen.queryByText(/revise lo que entro/)).toBeNull();
+    expect(document.querySelector('[data-slot="cabecera-de-pantalla"] .bg-sup')).toBeNull();
   });
 });
 

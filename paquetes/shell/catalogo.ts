@@ -49,6 +49,20 @@ export interface Destino {
    * de aquí salen «Limpiar»+«Guardar» o «Exportar»+«Imprimir» (AC8).
    */
   readonly seEscribe: boolean;
+  /**
+   * **Qué hay que HACER en esta pantalla** — la barra gris de V8, bajo el título.
+   *
+   * Es distinta de la nota del módulo, que dice qué ES. Mezcladas en una sola frase, lo segundo
+   * se pierde, y es lo único que alguien que abre la pantalla por primera vez necesita.
+   *
+   * Es dato del SISTEMA y no del marco: son cuarenta frases distintas en un sistema como
+   * `rentas`, escritas para enseñar el procedimiento de cada pantalla. Por eso viaja en el
+   * catálogo y no la inventa el armazón.
+   *
+   * Opcional de verdad: sin ella la barra **no se dibuja**, en vez de dibujarse vacía. Un filo
+   * que encierra nada es peor que ningún filo.
+   */
+  readonly instruccion?: string;
 }
 
 /** Un módulo del árbol, con sus hojas. */
