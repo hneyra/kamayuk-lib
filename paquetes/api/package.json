@@ -1,0 +1,12 @@
+{
+  "name": "@kamayuk/api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "solicitar() y el catalogo de errores emparejado con el backend (ADR-0030 §4). La raiz la pone el sistema que consume: aqui NO se nombra ninguna.",
+  "type": "module",
+  "types": "index.ts",
+  "main": "index.ts",
+  "exports": {
+    ".": "./index.ts"
+  }
+}
