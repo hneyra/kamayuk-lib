@@ -1,0 +1,401 @@
+/* ============================================================================
+   LAS SEIS PALETAS. ARCHIVO GENERADO — no se edita a mano.
+
+   Tres identidades por dos modos. Sale de `temas/generar.ts` aplicando las reglas de
+   `temas/derivar.ts` a la paleta del artboard, y `temas/contraste.test.ts` comprueba que
+   volver a generarlo da EXACTAMENTE esto. Un valor tocado a mano sale rojo.
+
+   Los dos ejes son independientes a proposito:
+
+       data-tema   institucional | alto-contraste | sepia     <- la identidad, del servicio
+       data-modo   claro | oscuro | (ausente = el del sistema) <- la apariencia, de la persona
+
+   El oscuro se escribe dos veces —bajo `prefers-color-scheme` y bajo `[data-modo='oscuro']`—
+   y el primero lleva `:not([data-modo='claro'])`: sin eso, quien pide claro en un equipo puesto
+   en oscuro no podria salir de ahi.
+   ============================================================================ */
+
+/* institucional/claro */
+:root,
+[data-tema='institucional'] {
+    --color-fondo: #f2f6f9;
+    --color-superficie: #ffffff;
+    --color-sup: #f7fbfe;
+    --color-tinta: #16232c;
+    --color-tinta-2: #3a4a55;
+    --color-tinta-3: #5a6b78;
+    --color-tinta-4: #93a3af;
+    --color-azul: #005284;
+    --color-azul-oscuro: #00365a;
+    --color-azul-hover: #00365a;
+    --color-azul-suave: #e4f4fd;
+    --color-acento: #52bdef;
+    --color-sobre-azul: #ffffff;
+    --color-linea: #d6dee4;
+    --color-linea-2: #e3e9ee;
+    --color-borde-campo: #c3cfd9;
+    --color-borde-boton: #d6dee4;
+    --color-borde-hover: #7e96a8;
+    --color-foco: #d3ebfa;
+    --color-ok-fondo: #dcefe3;
+    --color-ok-tinta: #1f5b39;
+    --color-atencion-fondo: #fff4d9;
+    --color-atencion-tinta: #7a5200;
+    --color-mal-fondo: #fbe4e0;
+    --color-mal-tinta: #8f2a17;
+    --color-info-fondo: #e4f4fd;
+    --color-info-tinta: #004670;
+    --color-mal-borde: #a8321e;
+    --color-mal-campo: #fff9f8;
+    --color-esqueleto: #e3e9ee;
+    --color-esqueleto-brillo: #f7fbfe;
+    --color-sobre-barra: #ffffff;
+    --color-sobre-barra-2: #9fc6df;
+    --color-barra-control: rgba(255, 255, 255, 0.09);
+    --color-barra-realce: rgba(255, 255, 255, 0.2);
+    --color-barra-hover: rgba(255, 255, 255, 0.18);
+    --color-velo: rgba(0, 54, 90, 0.4);
+    --color-velo-paleta: rgba(22, 35, 44, 0.38);
+}
+
+/* institucional/oscuro — para quien no ha elegido modo */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-modo='claro']) {
+      --color-fondo: #111213;
+      --color-superficie: #1b1b1b;
+      --color-sup: #151718;
+      --color-tinta: #e8f4fd;
+      --color-tinta-2: #b7c4ce;
+      --color-tinta-3: #94a0aa;
+      --color-tinta-4: #69737b;
+      --color-azul: #69a5d6;
+      --color-azul-oscuro: #00213c;
+      --color-azul-hover: #96c3eb;
+      --color-azul-suave: #1f292e;
+      --color-acento: #266b8b;
+      --color-sobre-azul: #0d0d0d;
+      --color-linea: #474c4f;
+      --color-linea-2: #4a4e50;
+      --color-borde-campo: #42494f;
+      --color-borde-boton: #474c4f;
+      --color-borde-hover: #303f4a;
+      --color-foco: #414f58;
+      --color-ok-fondo: #25312a;
+      --color-ok-tinta: #a1d7b3;
+      --color-atencion-fondo: #2a2313;
+      --color-atencion-tinta: #dfb67c;
+      --color-mal-fondo: #372a27;
+      --color-mal-tinta: #ffa590;
+      --color-info-fondo: #1f292e;
+      --color-info-tinta: #a2d8ff;
+      --color-mal-borde: #5f1306;
+      --color-mal-campo: #181615;
+      --color-esqueleto: #060809;
+      --color-esqueleto-brillo: #151718;
+      --color-sobre-barra: #f5f5f5;
+      --color-sobre-barra-2: #b4c7d4;
+      --color-barra-control: rgba(255, 255, 255, 0.14);
+      --color-barra-realce: rgba(255, 255, 255, 0.26);
+      --color-barra-hover: rgba(255, 255, 255, 0.24);
+      --color-velo: rgba(0, 0, 0, 0.62);
+      --color-velo-paleta: rgba(0, 0, 0, 0.58);
+  }
+}
+
+/* institucional/oscuro — para quien lo eligio */
+:root[data-modo='oscuro'] {
+    --color-fondo: #111213;
+    --color-superficie: #1b1b1b;
+    --color-sup: #151718;
+    --color-tinta: #e8f4fd;
+    --color-tinta-2: #b7c4ce;
+    --color-tinta-3: #94a0aa;
+    --color-tinta-4: #69737b;
+    --color-azul: #69a5d6;
+    --color-azul-oscuro: #00213c;
+    --color-azul-hover: #96c3eb;
+    --color-azul-suave: #1f292e;
+    --color-acento: #266b8b;
+    --color-sobre-azul: #0d0d0d;
+    --color-linea: #474c4f;
+    --color-linea-2: #4a4e50;
+    --color-borde-campo: #42494f;
+    --color-borde-boton: #474c4f;
+    --color-borde-hover: #303f4a;
+    --color-foco: #414f58;
+    --color-ok-fondo: #25312a;
+    --color-ok-tinta: #a1d7b3;
+    --color-atencion-fondo: #2a2313;
+    --color-atencion-tinta: #dfb67c;
+    --color-mal-fondo: #372a27;
+    --color-mal-tinta: #ffa590;
+    --color-info-fondo: #1f292e;
+    --color-info-tinta: #a2d8ff;
+    --color-mal-borde: #5f1306;
+    --color-mal-campo: #181615;
+    --color-esqueleto: #060809;
+    --color-esqueleto-brillo: #151718;
+    --color-sobre-barra: #f5f5f5;
+    --color-sobre-barra-2: #b4c7d4;
+    --color-barra-control: rgba(255, 255, 255, 0.14);
+    --color-barra-realce: rgba(255, 255, 255, 0.26);
+    --color-barra-hover: rgba(255, 255, 255, 0.24);
+    --color-velo: rgba(0, 0, 0, 0.62);
+    --color-velo-paleta: rgba(0, 0, 0, 0.58);
+}
+
+/* alto-contraste/claro */
+[data-tema='alto-contraste'] {
+    --color-fondo: #fafbfb;
+    --color-superficie: #ffffff;
+    --color-sup: #fcfdfe;
+    --color-tinta: #000001;
+    --color-tinta-2: #070b0d;
+    --color-tinta-3: #171b1e;
+    --color-tinta-4: #4f565c;
+    --color-azul: #002044;
+    --color-azul-oscuro: #041727;
+    --color-azul-hover: #113552;
+    --color-azul-suave: #e1e9ee;
+    --color-acento: #214d63;
+    --color-sobre-azul: #ffffff;
+    --color-linea: #444647;
+    --color-linea-2: #464849;
+    --color-borde-campo: #404345;
+    --color-borde-boton: #444647;
+    --color-borde-hover: #32383d;
+    --color-foco: #43484c;
+    --color-ok-fondo: #e8f1eb;
+    --color-ok-tinta: #022914;
+    --color-atencion-fondo: #eae4d7;
+    --color-atencion-tinta: #3c2300;
+    --color-mal-fondo: #f7ebe9;
+    --color-mal-tinta: #480600;
+    --color-info-fondo: #e1e9ee;
+    --color-info-tinta: #001c36;
+    --color-mal-borde: #42251f;
+    --color-mal-campo: #fefdfd;
+    --color-esqueleto: #f4f5f6;
+    --color-esqueleto-brillo: #fcfdfe;
+    --color-sobre-barra: #ffffff;
+    --color-sobre-barra-2: #e1e5e8;
+    --color-barra-control: rgba(255, 255, 255, 0.09);
+    --color-barra-realce: rgba(255, 255, 255, 0.2);
+    --color-barra-hover: rgba(255, 255, 255, 0.18);
+    --color-velo: rgba(0, 54, 90, 0.4);
+    --color-velo-paleta: rgba(22, 35, 44, 0.38);
+}
+
+/* alto-contraste/oscuro — para quien no ha elegido modo */
+@media (prefers-color-scheme: dark) {
+  [data-tema='alto-contraste']:not([data-modo='claro']) {
+      --color-fondo: #060707;
+      --color-superficie: #0d0d0d;
+      --color-sup: #090a0a;
+      --color-tinta: #fbffff;
+      --color-tinta-2: #e4eaee;
+      --color-tinta-3: #d3d8dd;
+      --color-tinta-4: #80878d;
+      --color-azul: #89beeb;
+      --color-azul-oscuro: #010a16;
+      --color-azul-hover: #aed6fa;
+      --color-azul-suave: #181d20;
+      --color-acento: #4f7b92;
+      --color-sobre-azul: #020202;
+      --color-linea: #818384;
+      --color-linea-2: #7f8082;
+      --color-borde-campo: #838689;
+      --color-borde-boton: #818384;
+      --color-borde-hover: #8d9499;
+      --color-foco: #7b8186;
+      --color-ok-fondo: #111814;
+      --color-ok-tinta: #c9f3d6;
+      --color-atencion-fondo: #231f15;
+      --color-atencion-tinta: #f9d9ab;
+      --color-mal-fondo: #1c1413;
+      --color-mal-tinta: #ffccba;
+      --color-info-fondo: #181d20;
+      --color-info-tinta: #caf4ff;
+      --color-mal-borde: #ba948c;
+      --color-mal-campo: #0a0a0a;
+      --color-esqueleto: #020202;
+      --color-esqueleto-brillo: #090a0a;
+      --color-sobre-barra: #ffffff;
+      --color-sobre-barra-2: #e8ecee;
+      --color-barra-control: rgba(255, 255, 255, 0.14);
+      --color-barra-realce: rgba(255, 255, 255, 0.26);
+      --color-barra-hover: rgba(255, 255, 255, 0.24);
+      --color-velo: rgba(0, 0, 0, 0.62);
+      --color-velo-paleta: rgba(0, 0, 0, 0.58);
+  }
+}
+
+/* alto-contraste/oscuro — para quien lo eligio */
+[data-tema='alto-contraste'][data-modo='oscuro'] {
+    --color-fondo: #060707;
+    --color-superficie: #0d0d0d;
+    --color-sup: #090a0a;
+    --color-tinta: #fbffff;
+    --color-tinta-2: #e4eaee;
+    --color-tinta-3: #d3d8dd;
+    --color-tinta-4: #80878d;
+    --color-azul: #89beeb;
+    --color-azul-oscuro: #010a16;
+    --color-azul-hover: #aed6fa;
+    --color-azul-suave: #181d20;
+    --color-acento: #4f7b92;
+    --color-sobre-azul: #020202;
+    --color-linea: #818384;
+    --color-linea-2: #7f8082;
+    --color-borde-campo: #838689;
+    --color-borde-boton: #818384;
+    --color-borde-hover: #8d9499;
+    --color-foco: #7b8186;
+    --color-ok-fondo: #111814;
+    --color-ok-tinta: #c9f3d6;
+    --color-atencion-fondo: #231f15;
+    --color-atencion-tinta: #f9d9ab;
+    --color-mal-fondo: #1c1413;
+    --color-mal-tinta: #ffccba;
+    --color-info-fondo: #181d20;
+    --color-info-tinta: #caf4ff;
+    --color-mal-borde: #ba948c;
+    --color-mal-campo: #0a0a0a;
+    --color-esqueleto: #020202;
+    --color-esqueleto-brillo: #090a0a;
+    --color-sobre-barra: #ffffff;
+    --color-sobre-barra-2: #e8ecee;
+    --color-barra-control: rgba(255, 255, 255, 0.14);
+    --color-barra-realce: rgba(255, 255, 255, 0.26);
+    --color-barra-hover: rgba(255, 255, 255, 0.24);
+    --color-velo: rgba(0, 0, 0, 0.62);
+    --color-velo-paleta: rgba(0, 0, 0, 0.58);
+}
+
+/* sepia/claro */
+[data-tema='sepia'] {
+    --color-fondo: #f7efe3;
+    --color-superficie: #fbf2e6;
+    --color-sup: #f9f0e5;
+    --color-tinta: #291c17;
+    --color-tinta-2: #53433d;
+    --color-tinta-3: #77645e;
+    --color-tinta-4: #ac9a96;
+    --color-azul: #003b66;
+    --color-azul-oscuro: #492200;
+    --color-azul-hover: #275173;
+    --color-azul-suave: #f0dbdb;
+    --color-acento: #c97467;
+    --color-sobre-azul: #fef7ee;
+    --color-linea: #c1b7ab;
+    --color-linea-2: #c0b5aa;
+    --color-borde-campo: #c5b9ac;
+    --color-borde-boton: #c1b7ab;
+    --color-borde-hover: #d7bfa4;
+    --color-foco: #c8b49d;
+    --color-ok-fondo: #fae1e0;
+    --color-ok-tinta: #713b44;
+    --color-atencion-fondo: #f8d4d3;
+    --color-atencion-tinta: #7e3e4a;
+    --color-mal-fondo: #fae0df;
+    --color-mal-tinta: #872b40;
+    --color-info-fondo: #f0dbdb;
+    --color-info-tinta: #6d323d;
+    --color-mal-borde: #ffb000;
+    --color-mal-campo: #f9f0e5;
+    --color-esqueleto: #f2eade;
+    --color-esqueleto-brillo: #f9f0e5;
+    --color-sobre-barra: #f5f5f5;
+    --color-sobre-barra-2: #dbc6b6;
+    --color-barra-control: rgba(255, 255, 255, 0.09);
+    --color-barra-realce: rgba(255, 255, 255, 0.2);
+    --color-barra-hover: rgba(255, 255, 255, 0.18);
+    --color-velo: rgba(0, 54, 90, 0.4);
+    --color-velo-paleta: rgba(22, 35, 44, 0.38);
+}
+
+/* sepia/oscuro — para quien no ha elegido modo */
+@media (prefers-color-scheme: dark) {
+  [data-tema='sepia']:not([data-modo='claro']) {
+      --color-fondo: #1c1813;
+      --color-superficie: #231e19;
+      --color-sup: #201b16;
+      --color-tinta: #f6e3dd;
+      --color-tinta-2: #cdb9b2;
+      --color-tinta-3: #ae9992;
+      --color-tinta-4: #877672;
+      --color-azul: #518cbc;
+      --color-azul-oscuro: #330d00;
+      --color-azul-hover: #8ab6dd;
+      --color-azul-suave: #362828;
+      --color-acento: #9e4e42;
+      --color-sobre-azul: #121212;
+      --color-linea: #565048;
+      --color-linea-2: #58514a;
+      --color-borde-campo: #574c41;
+      --color-borde-boton: #565048;
+      --color-borde-hover: #554129;
+      --color-foco: #614f3b;
+      --color-ok-fondo: #3f2e2d;
+      --color-ok-tinta: #fbbac3;
+      --color-atencion-fondo: #392121;
+      --color-atencion-tinta: #f7acb7;
+      --color-mal-fondo: #3f2d2d;
+      --color-mal-tinta: #ffa8b8;
+      --color-info-fondo: #362828;
+      --color-info-tinta: #ffc1cb;
+      --color-mal-borde: #751400;
+      --color-mal-campo: #201b16;
+      --color-esqueleto: #130e09;
+      --color-esqueleto-brillo: #201b16;
+      --color-sobre-barra: #eeeeee;
+      --color-sobre-barra-2: #d5c0af;
+      --color-barra-control: rgba(255, 255, 255, 0.14);
+      --color-barra-realce: rgba(255, 255, 255, 0.26);
+      --color-barra-hover: rgba(255, 255, 255, 0.24);
+      --color-velo: rgba(0, 0, 0, 0.62);
+      --color-velo-paleta: rgba(0, 0, 0, 0.58);
+  }
+}
+
+/* sepia/oscuro — para quien lo eligio */
+[data-tema='sepia'][data-modo='oscuro'] {
+    --color-fondo: #1c1813;
+    --color-superficie: #231e19;
+    --color-sup: #201b16;
+    --color-tinta: #f6e3dd;
+    --color-tinta-2: #cdb9b2;
+    --color-tinta-3: #ae9992;
+    --color-tinta-4: #877672;
+    --color-azul: #518cbc;
+    --color-azul-oscuro: #330d00;
+    --color-azul-hover: #8ab6dd;
+    --color-azul-suave: #362828;
+    --color-acento: #9e4e42;
+    --color-sobre-azul: #121212;
+    --color-linea: #565048;
+    --color-linea-2: #58514a;
+    --color-borde-campo: #574c41;
+    --color-borde-boton: #565048;
+    --color-borde-hover: #554129;
+    --color-foco: #614f3b;
+    --color-ok-fondo: #3f2e2d;
+    --color-ok-tinta: #fbbac3;
+    --color-atencion-fondo: #392121;
+    --color-atencion-tinta: #f7acb7;
+    --color-mal-fondo: #3f2d2d;
+    --color-mal-tinta: #ffa8b8;
+    --color-info-fondo: #362828;
+    --color-info-tinta: #ffc1cb;
+    --color-mal-borde: #751400;
+    --color-mal-campo: #201b16;
+    --color-esqueleto: #130e09;
+    --color-esqueleto-brillo: #201b16;
+    --color-sobre-barra: #eeeeee;
+    --color-sobre-barra-2: #d5c0af;
+    --color-barra-control: rgba(255, 255, 255, 0.14);
+    --color-barra-realce: rgba(255, 255, 255, 0.26);
+    --color-barra-hover: rgba(255, 255, 255, 0.24);
+    --color-velo: rgba(0, 0, 0, 0.62);
+    --color-velo-paleta: rgba(0, 0, 0, 0.58);
+}

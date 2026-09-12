@@ -16,6 +16,14 @@
    un sistema— seria `@kamayuk/ui` dependiendo de `rentas`, que es exactamente lo
    que la regla de ADR-0030 §4 prohibe.
 
+   EL RADIO SE LLAMA `--radius`, QUE ES LO QUE SHADCN LEE
+   -------------------------------------------------------
+   El artboard lo llama `--radio` y vale 3 px. Se emite ademas como `--radius` a secas porque los
+   componentes de shadcn leen `var(--radius)` y de ahi derivan sus `sm`/`md`/`lg`. Con el token
+   solo bajo el nombre del artboard, shadcn caeria en su `0.625rem` por omision y nada luciria
+   como V8 — medido en `kamayuk-lib`#6, donde quedo declarado a medias por no haber todavia un
+   componente con el que comprobarlo. Aqui ya lo hay (#8).
+
    EL NOMBRE LLEVA `--color-` DELANTE, Y NO ES DECORACION
    ------------------------------------------------------
    Es lo que hace que Tailwind v4 genere las utilidades: de `--color-azul` salen
@@ -72,15 +80,19 @@
   --color-velo: rgba(0, 54, 90, 0.4);
   --color-velo-paleta: rgba(22, 35, 44, 0.38);
 
-  /* EL RADIO PISA EL DE SHADCN, que parte de 0.5rem. Sin esto nada luce como V8. */
-  --radius-radio: 3px;
-  --radius-radio-sm: 3px;
+  /* EL RADIO. Los tres tamanos de shadcn valen lo mismo porque el artboard usa un solo radio. */
+  --radius-sm: 3px;
+  --radius-md: 3px;
+  --radius-lg: 3px;
 
   --shadow-sombra-1: 0 1px 2px rgba(22, 35, 44, 0.06);
   --shadow-sombra-2: 0 6px 22px rgba(0, 54, 90, 0.18);
 }
 
 :root {
-  /* El artboard declara `color-scheme: light` y no define paleta oscura. La deriva UI-3. */
+  /* El artboard declara `color-scheme: light`; el oscuro lo declara `temas.css`. */
   color-scheme: light;
+
+  /* El knob que shadcn lee. Es el `--radio` del artboard, con el nombre que shadcn busca. */
+  --radius: 3px;
 }
