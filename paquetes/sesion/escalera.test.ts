@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ErrorDeLaApi } from '@kamayuk/api';
+import { ErrorDeLaApi } from '../api/index.ts';
 import { peldanoDe } from './escalera.ts';
 
 /**

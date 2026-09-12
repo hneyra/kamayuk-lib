@@ -5,7 +5,7 @@
 // poner esta linea. El entorno se declara por archivo y no en `vitest.config.ts` porque las
 // demas pruebas de estos paquetes SI necesitan DOM.
 
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
@@ -104,7 +104,7 @@ describe('LA MUESTRA: la guarda muerde, y se demuestra', () => {
     // siempre y se acabaria desactivando; si la muestra no existiera, no habria con que
     // demostrar que muerde.
     expect(leer(MUESTRA[0] ?? '').length).toBeGreaterThan(0);
-    expect(PRODUCCION.filter((a) => a.includes('muestras'))).toEqual([]);
+    expect(PRODUCCION.filter((a) => a.includes(`${sep}muestras${sep}`))).toEqual([]);
   });
 
   it.each(SUPOSICIONES.map((s) => [s.clave, s] as const))(

@@ -1,25 +1,16 @@
-import { fileURLToPath } from 'node:url';
-
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 
-/** La misma tabla que el `paths` de `tsconfig.json`. Si las dos dejan de decir lo mismo, la
- *  guarda `enlace-vivo` lo dice: el compilador resolveria un archivo y el ejecutor otro, que
- *  es la clase de desacuerdo que sale verde en `yarn typecheck` y rojo sólo en produccion. */
-const paquete = (nombre: string) => fileURLToPath(new URL(`./paquetes/${nombre}/index.ts`, import.meta.url));
-
+/**
+ * SIN `resolve.alias`, y por lo mismo que `tsconfig.json` no tiene `paths`.
+ *
+ * Los paquetes se importan entre si por ruta relativa, que es lo unico que resuelve igual aqui y
+ * en el consumidor. Un alias los haria resolver aqui por una via que ningun consumidor usa — y
+ * entonces las pruebas verdes de este repositorio dejarian de decir nada sobre si el paquete
+ * funciona enchufado (#4).
+ */
 export default defineConfig({
   plugins: [react()],
-  resolve: {
-    alias: {
-      '@kamayuk/api': paquete('api'),
-      '@kamayuk/formato': paquete('formato'),
-      '@kamayuk/sesion': paquete('sesion'),
-      '@kamayuk/shell': paquete('shell'),
-      '@kamayuk/ui': paquete('ui'),
-      '@kamayuk/verificaciones': paquete('verificaciones'),
-    },
-  },
   test: {
     environment: 'jsdom',
     // Sin globales: un `describe` que aparece de la nada no dice de donde sale, y el

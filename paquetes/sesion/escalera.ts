@@ -42,7 +42,7 @@
  * prueban sin montar nada, y la pantalla que los ensena se prueba una vez.
  */
 
-import { ErrorDeLaApi } from '@kamayuk/api';
+import { ErrorDeLaApi } from '../api/index.ts';
 
 /** Que decir, y que ofrecer, ante un fallo de la API. */
 export interface Peldano {
