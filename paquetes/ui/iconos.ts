@@ -103,6 +103,14 @@ export const ICONOS = {
     'M18 9a6 6 0 1 0-12 0c0 5-2 6.5-2 6.5h16S18 14 18 9',
     'M13.7 19.5a2 2 0 0 1-3.4 0',
   ],
+  /**
+   * La «i» en su circulo: el aviso que informa y no pide nada.
+   *
+   * Comparte lienzo y proporcion con `alerta` a proposito — los dos encabezan un aviso y uno al
+   * lado del otro tienen que pesar lo mismo; si el triangulo fuera mayor, el aviso informativo se
+   * leeria como menos importante de lo que es.
+   */
+  informacion: ['M20.4 12a8.4 8.4 0 1 1-16.8 0 8.4 8.4 0 0 1 16.8 0', 'M12 11.2v5', 'M12 7.9h.02'],
 } as const satisfies Record<string, Trazos>;
 
 /** El nombre de un icono publicado. */
