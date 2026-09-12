@@ -64,6 +64,31 @@ export function archivosDeProduccion(raiz: string = PAQUETES): string[] {
   return salida;
 }
 
+/**
+ * TODOS los archivos de los paquetes, pruebas incluidas, menos las muestras.
+ *
+ * La guarda del nombre publico mira tambien las pruebas: una prueba que importe por el nombre
+ * publico resuelve aqui y documentaria, en el sitio donde se lee como si fuera el uso correcto,
+ * justo la via que ningun consumidor tiene.
+ */
+export function archivosDeLosPaquetes(raiz: string = PAQUETES): string[] {
+  const salida: string[] = [];
+  const recorrer = (directorio: string): void => {
+    for (const entrada of readdirSync(directorio)) {
+      if (APARTADAS.has(entrada)) continue;
+      const completa = join(directorio, entrada);
+      if (statSync(completa).isDirectory()) {
+        recorrer(completa);
+        continue;
+      }
+      if (!EXTENSIONES.has(extname(entrada))) continue;
+      salida.push(completa);
+    }
+  };
+  recorrer(raiz);
+  return salida;
+}
+
 export function leer(archivo: string): string {
   return readFileSync(archivo, 'utf8');
 }

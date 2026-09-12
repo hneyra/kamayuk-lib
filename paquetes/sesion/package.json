@@ -2,14 +2,11 @@
   "name": "@kamayuk/sesion",
   "version": "0.1.0",
   "private": true,
-  "description": "OIDC con codigo de autorizacion y PKCE S256, renovacion silenciosa, audiencias y logout de los cuatro (ADR-0030 §3). El realm, el cliente y el destino son parametros.",
+  "description": "OIDC con codigo de autorizacion y PKCE S256, renovacion silenciosa, audiencias y logout de los cuatro (ADR-0030 \u00a73). El realm, el cliente y el destino son parametros.",
   "type": "module",
   "types": "index.ts",
   "main": "index.ts",
   "exports": {
     ".": "./index.ts"
-  },
-  "peerDependencies": {
-    "@kamayuk/api": "0.1.0"
   }
 }

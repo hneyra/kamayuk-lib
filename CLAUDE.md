@@ -23,7 +23,7 @@ Lo decide [ADR-0038](https://github.com/hneyra/infrastructure/blob/main/docs/30-
 | `paquetes/sesion` — `@kamayuk/sesion` | **Existe.** `crearIdentidad(config)` con PKCE S256 y `peldanoDe()` con sus **siete** peldaños. **33 pruebas.** Venía de `rentas`, el único de los cuatro que se autenticaba, y **nada dentro nombraba a `rentas`**: lo único que lo ataba eran tres datos, hoy parámetros |
 | `paquetes/ui` — `@kamayuk/ui` | **Vacío.** Le tocan los tokens, los tres temas por dos modos y los componentes de shadcn |
 | `paquetes/shell` — `@kamayuk/shell` | **Vacío.** Le toca el marco. **No se extrae: se reescribe** — hay cuatro implementaciones divergentes (445 líneas de diferencia sólo entre `rentas` y `normativa`, y `catastro` con todo dentro de un archivo de 1 238) |
-| `paquetes/verificaciones` — `@kamayuk/verificaciones` | **Existe a medias.** `sin-suponer-un-sistema` con su muestra. **13 pruebas.** Le faltan las nueve prohibiciones de ESLint, los tokens contra el artboard y el contraste |
+| `paquetes/verificaciones` — `@kamayuk/verificaciones` | **Existe.** Las **nueve prohibiciones** de ESLint con sus nueve muestras, `sin-suponer-un-sistema` y `sin-nombre-publico-entre-paquetes`. **39 pruebas.** Le faltan los tokens contra el artboard y el contraste |
 | La guarda de la fila del registro | **Existe**, con su autoprueba de **nueve muestras**, adaptada a la forma de este repositorio |
 
 ## La regla que gobierna este repositorio
@@ -66,23 +66,47 @@ docs/
   00-gobierno/                la guarda de la fila y su autoprueba
 ```
 
-Los paquetes se resuelven entre sí **por el mismo nombre con el que los ve un consumidor**
-(`@kamayuk/formato`, no una ruta relativa), y eso está en dos sitios que tienen que decir lo mismo:
-el `paths` de `tsconfig.json` y el `alias` de `vitest.config.ts`. Un `import` por ruta relativa
-funcionaría aquí y se rompería en el consumidor, que es donde nadie lo estaría mirando.
+Los paquetes se importan entre sí **por ruta relativa**, y no hay `paths` ni `alias`. Es lo
+contrario de lo que este archivo decía hasta #4, y el motivo está medido: un import por el nombre
+público resolvía **aquí** —este repositorio es raíz de workspaces y yarn crea
+`node_modules/@kamayuk/*`— y se rompía en el consumidor, que resuelve el symlink **a su ruta real**
+(`preserveSymlinks` está apagado por omisión en Vite y en `tsc`). Sin `node_modules`:
+
+```
+paquetes/sesion/escalera.ts(45,30): error TS2307: Cannot find module '@kamayuk/api'   RC=2
+```
+
+Un rojo que **sólo sale en CI**, dentro de un archivo de otro repositorio, y cuya primera lectura
+manda a mirar donde no es. Lo vigila `sin-nombre-publico-entre-paquetes`, con su muestra. Y está
+demostrado al revés: apartado `node_modules/@kamayuk` entero, `tsc` da RC=0 y las 160 pruebas pasan.
 
 ## Reglas que no se negocian
 
 Son las del producto, y valen aquí igual que en los cinco sistemas. Las que este repositorio puede
 romper, y por eso vigila:
 
+**Las nueve prohibiciones de ESLint viven aquí desde #4**, en
+`paquetes/verificaciones/prohibiciones.mjs`, y este repositorio se lint a sí mismo con ellas. El
+motivo de mudarlas es un hueco medido: el código enlazado **no lo lintaba nadie** —el config de cada
+sistema ignora `node_modules`, que es donde el `link:` lo deja—, así que entraba al bundle código
+que formatea dinero y compone peticiones sin ninguna de las cuatro prohibiciones de importes.
+
 | # | Regla | Dónde muerde |
 |---|---|---|
-| 1 | **Importes en texto decimal, jamás `number`** | `@kamayuk/formato`: ni un `Number` ni un `Date` en todo el paquete |
-| 2 | **Ningún método recibe `municipalidadId`** | `@kamayuk/api`: el cliente no compone nada, y hay prueba que espía lo que sale por el cable |
-| 8 | **`alicuota`, nunca `tasa`** | prohibición de ESLint (pendiente de traer) |
-| — | **Sin tildes ni enie en identificadores** | `eslint.config.js` |
+| 1 | **Importes en texto decimal, jamás `number`** | cuatro prohibiciones, más `@kamayuk/formato`: ni un `Number` ni un `Date` en todo el paquete |
+| 2 | **Ningún método recibe `municipalidadId`** | prohibición `municipalidad-en-el-cliente`, más una prueba que espía lo que sale por el cable |
+| 8 | **`alicuota`, nunca `tasa`** | prohibición `tasa-en-vez-de-alicuota` |
+| — | **`fetch` sólo donde debe** | `fetch-fuera-del-cliente`, con **dos** excepciones declaradas |
+| — | **Sin tildes ni enie en identificadores** | `identificador-con-tilde` |
 | — | **Nada supone un sistema** | `sin-suponer-un-sistema`, con su muestra |
+| — | **Ningún paquete se importa por su nombre público** | `sin-nombre-publico-entre-paquetes`, con su muestra |
+
+**`fetch` tiene DOS sitios legítimos, y son dos desde #4.** Lo destapó la propia prohibición al
+mudarse: `paquetes/sesion/identidad.ts:282` llama a `fetch` para el canje PKCE, y ese canje **no
+puede pasar por `solicitar()`** — va a Keycloak, con otro tipo de contenido, sin el token (que es
+justo lo que va a buscar) y sin el `problem+json` del backend. Mientras el cliente HTTP y la puerta
+de identidad vivieron en el mismo `src/api/` de un sistema, una sola excepción las cubría y esto no
+se veía. La lista se **comprueba entera**, no se cuenta.
 
 **Si agregas una regla, agrega también la muestra que la viola.** Una regla que no puede fallar no
 protege nada.

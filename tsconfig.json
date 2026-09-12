@@ -6,21 +6,23 @@
   "exclude": ["paquetes/verificaciones/muestras/**", "dist", "node_modules"],
   "compilerOptions": {
     "types": ["node", "@testing-library/jest-dom"],
-    // Los seis paquetes se resuelven entre si POR EL MISMO NOMBRE con el que los ve un
-    // sistema que los consume. Sin esto, un `import` de `@kamayuk/formato` dentro de
-    // `@kamayuk/ui` funcionaria aqui por ruta relativa y se rompería en el consumidor, que
-    // es donde nadie lo estaria mirando.
+    // NO HAY `baseUrl` NI `paths`, Y ES LA DECISION DE ESTE ARCHIVO.
     //
-    // Y es la mitad de arriba de la guarda `enlace-vivo`: la otra mitad es el `link:` del
-    // `package.json` de cada sistema, y las dos tienen que decir lo mismo.
-    "baseUrl": ".",
-    "paths": {
-      "@kamayuk/api": ["./paquetes/api/index.ts"],
-      "@kamayuk/formato": ["./paquetes/formato/index.ts"],
-      "@kamayuk/sesion": ["./paquetes/sesion/index.ts"],
-      "@kamayuk/shell": ["./paquetes/shell/index.ts"],
-      "@kamayuk/ui": ["./paquetes/ui/index.ts"],
-      "@kamayuk/verificaciones": ["./paquetes/verificaciones/index.ts"]
-    }
+    // Los tuvo, con este argumento: «los seis paquetes se resuelven entre si POR EL MISMO NOMBRE
+    // con el que los ve un sistema que los consume; sin esto, un import relativo funcionaria aqui
+    // y se rompería en el consumidor». El argumento era correcto y la solucion, no: el `paths`
+    // evitaba el fallo por ruta relativa **introduciendo el fallo por alias**, que se rompe en el
+    // consumidor por otra puerta.
+    //
+    // Medido (#4): con `paths`, `@kamayuk/sesion` importaba `@kamayuk/api` por su nombre publico y
+    // aqui resolvia por la tabla. En un consumidor, Vite y `tsc` resuelven el symlink a su RUTA
+    // REAL —`preserveSymlinks` esta apagado por omision en los dos— y buscan subiendo por
+    // `kamayuk-lib/`, no por el arbol del consumidor. Sin `kamayuk-lib/node_modules`:
+    //     paquetes/sesion/index.ts(1,30): error TS2307: Cannot find module '@kamayuk/api'   RC=2
+    // O sea un rojo que solo sale en CI, dentro de un archivo de OTRO repositorio.
+    //
+    // Ahora los imports ENTRE paquetes son relativos —que resuelven siempre, sin instalar nada— y
+    // estas dos tablas sobran. Mientras estuvieron, enmascaraban justo el fallo que evitan.
+    // Lo vigila `sin-nombre-publico-entre-paquetes`, con su muestra.
   }
 }
