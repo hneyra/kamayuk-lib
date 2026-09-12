@@ -1,0 +1,13 @@
+{
+  "name": "@kamayuk/verificaciones",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Las barreras del frontend y sus muestras que las violan: las nueve prohibiciones de ESLint, los tokens contra el artboard, el contraste y las webfonts. Parametrizadas por catalogo de destinos.",
+  "type": "module",
+  "types": "index.ts",
+  "main": "index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./prohibiciones": "./prohibiciones.mjs"
+  }
+}

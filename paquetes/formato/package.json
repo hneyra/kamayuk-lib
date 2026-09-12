@@ -1,0 +1,12 @@
+{
+  "name": "@kamayuk/formato",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Fechas, importes, codigo predial y placa. Texto decimal, jamas number (regla 1, RNF-055). Sin dependencias: es la hoja limpia del grafo.",
+  "type": "module",
+  "types": "index.ts",
+  "main": "index.ts",
+  "exports": {
+    ".": "./index.ts"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "extends": "./tsconfig.base.json",
+  "include": ["paquetes/**/*.ts", "paquetes/**/*.tsx", "paquetes/**/*.mjs", "*.config.ts", "vitest.setup.ts"],
+  // Las muestras violan las reglas A PROPOSITO y varias no compilan. Se lintan desde la
+  // prueba, con su texto y una ruta sintetica; el compilador no tiene nada que hacer aqui.
+  "exclude": ["paquetes/verificaciones/muestras/**", "dist", "node_modules"],
+  "compilerOptions": {
+    "types": ["node", "@testing-library/jest-dom"],
+    // Los seis paquetes se resuelven entre si POR EL MISMO NOMBRE con el que los ve un
+    // sistema que los consume. Sin esto, un `import` de `@kamayuk/formato` dentro de
+    // `@kamayuk/ui` funcionaria aqui por ruta relativa y se rompería en el consumidor, que
+    // es donde nadie lo estaria mirando.
+    //
+    // Y es la mitad de arriba de la guarda `enlace-vivo`: la otra mitad es el `link:` del
+    // `package.json` de cada sistema, y las dos tienen que decir lo mismo.
+    "baseUrl": ".",
+    "paths": {
+      "@kamayuk/api": ["./paquetes/api/index.ts"],
+      "@kamayuk/formato": ["./paquetes/formato/index.ts"],
+      "@kamayuk/sesion": ["./paquetes/sesion/index.ts"],
+      "@kamayuk/shell": ["./paquetes/shell/index.ts"],
+      "@kamayuk/ui": ["./paquetes/ui/index.ts"],
+      "@kamayuk/verificaciones": ["./paquetes/verificaciones/index.ts"]
+    }
+  }
+}

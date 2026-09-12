@@ -1,0 +1,53 @@
+# Las librerias comunes: lint, tipos y pruebas.
+#
+# NO NECESITA NINGUN CLON HERMANO, y conviene decirlo porque es al reves que en todos los demas
+# repositorios del producto: aqui no hay `includeBuild` ni `link:` que resolver contra el disco.
+# `kamayuk-lib` es el extremo del grafo — lo consumen los cinco sistemas y el no consume a nadie—,
+# asi que se clona donde toca y ya.
+#
+# Lo que si cambia por existir este repositorio es el CI de los CUATRO frontends: pasan de cero
+# clones hermanos a uno, y su anfitrion tiene que bajar a un `path:` para que el hermano quepa al
+# lado. Eso se toca en cada sistema, no aqui.
+
+name: Paquetes
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "paquetes/**"
+      - "*.json"
+      - "*.ts"
+      - "eslint.config.js"
+      - ".github/workflows/paquetes.yml"
+  pull_request:
+    paths:
+      - "paquetes/**"
+      - "*.json"
+      - "*.ts"
+      - "eslint.config.js"
+      - ".github/workflows/paquetes.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verificar:
+    name: Lint, tipos y pruebas
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: yarn
+
+      # `--frozen-lockfile`: si el `yarn.lock` no cuadra con los `package.json`, se para aqui en
+      # vez de resolver otra cosa en silencio y probar un arbol que nadie tiene en su maquina.
+      - name: Instalar
+        run: yarn install --frozen-lockfile
+
+      - name: Verificar
+        run: yarn verificar
