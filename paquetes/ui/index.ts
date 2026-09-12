@@ -4,15 +4,15 @@
  * Es lo que ADR-0030 §4 llama `@kamayuk/ui`. **Capa 1** (`kamayuk-lib`#6): la paleta, los tres
  * componentes que el dominio ata y los trazos de icono. **Capa 2** (#8): los tres temas por dos
  * modos. **Capa 3** (#11): las once piezas de shadcn que el interprete de V8 pide en cada
- * pantalla, y la tabla de que pieza dibuja cada uno de los siete tipos de campo.
+ * pantalla, y la tabla de que pieza dibuja cada uno de los siete tipos de campo. **Capa 4**
+ * (#13): las SIETE piezas que el armazon de V8 necesita —`Miga`, `Plegable`, `Menu`,
+ * `Confirmacion`, `Cajon`, `PaletaDeMando` y `Avisos`—, que dibuja `@kamayuk/shell`.
  *
  * <h2>Lo que NO trae todavia, dicho aqui y no descubierto luego</h2>
  *
  * · **`Chart` y `DataTable`.** Cada uno arrastra una libreria entera —recharts, TanStack Table— y
  *   el artboard los declara para PANTALLAS CONCRETAS, no para la espina del interprete. Entran con
  *   la pantalla que los pide.
- * · **Las piezas del marco** —`Command`, `AlertDialog`, `DropdownMenu`, `Breadcrumb`,
- *   `Collapsible`, `Sheet`, `Sonner`—: son del armazon y van con `@kamayuk/shell`.
  * · **Las caras tipograficas.** El artboard no carga ninguna webfont: pide
  *   `Arial, Helvetica, sans-serif`. Los dos `woff2` de Source Sans 3 que `normativa` y `catastro`
  *   duplican byte a byte entraran como punto de entrada aparte, para quien los quiera.
@@ -74,3 +74,59 @@ export { cn } from './utilidades.ts';
 export { ProveedorDeTema, useTema, IDENTIDADES, MODOS } from './temas/ProveedorDeTema.tsx';
 export type { ConfiguracionDeTema, Modo } from './temas/ProveedorDeTema.tsx';
 export type { Identidad } from './temas/derivar.ts';
+export { Miga, PasoDeLaMiga } from './shadcn/miga.tsx';
+export type { MigaProps, PasoDeLaMigaProps } from './shadcn/miga.tsx';
+export { Plegable, DisparadorDelPlegable, CuerpoDelPlegable } from './shadcn/plegable.tsx';
+export type {
+  PlegableProps,
+  DisparadorDelPlegableProps,
+  CuerpoDelPlegableProps,
+} from './shadcn/plegable.tsx';
+export { Menu, DisparadorDelMenu, ListaDelMenu, OpcionDelMenu, SeparadorDelMenu } from './shadcn/menu.tsx';
+export type { ListaDelMenuProps, OpcionDelMenuProps, SeparadorDelMenuProps } from './shadcn/menu.tsx';
+export {
+  Confirmacion,
+  DisparadorDeConfirmacion,
+  PanelDeConfirmacion,
+  TituloDeConfirmacion,
+  NotaDeConfirmacion,
+  SalidasDeConfirmacion,
+  HuecoDeConfirmacion,
+  Confirmar,
+  Descartar,
+  Cancelar,
+} from './shadcn/confirmacion.tsx';
+export type {
+  PanelDeConfirmacionProps,
+  TituloDeConfirmacionProps,
+  NotaDeConfirmacionProps,
+  SalidasDeConfirmacionProps,
+  ConfirmarProps,
+  DescartarProps,
+  CancelarProps,
+} from './shadcn/confirmacion.tsx';
+export {
+  Cajon,
+  DisparadorDelCajon,
+  CerrarElCajon,
+  PanelDelCajon,
+  TituloDelCajon,
+  NotaDelCajon,
+} from './shadcn/cajon.tsx';
+export type { PanelDelCajonProps, TituloDelCajonProps, NotaDelCajonProps } from './shadcn/cajon.tsx';
+export {
+  PaletaDeMando,
+  BuscadorDeLaPaleta,
+  ListaDeLaPaleta,
+  OpcionDeLaPaleta,
+  VacioDeLaPaleta,
+} from './shadcn/paleta-de-mando.tsx';
+export type {
+  PaletaDeMandoProps,
+  BuscadorDeLaPaletaProps,
+  ListaDeLaPaletaProps,
+  OpcionDeLaPaletaProps,
+  VacioDeLaPaletaProps,
+} from './shadcn/paleta-de-mando.tsx';
+export { Avisos, avisar } from './shadcn/avisos.tsx';
+export type { AvisosProps } from './shadcn/avisos.tsx';

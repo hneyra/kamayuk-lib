@@ -17,7 +17,7 @@
     "verificar": "yarn lint && yarn typecheck && yarn test && yarn test:capas",
     "registro": "node docs/00-gobierno/verificar-fila-del-registro.mjs",
     "registro:autoprueba": "node docs/00-gobierno/verificar-las-muestras-del-registro.mjs",
-    "test:capas": "vitest run --dangerouslyIgnoreUnhandledErrors paquetes/ui/shadcn/capa-del-desplegable.test.tsx paquetes/ui/shadcn/capa-emergente.test.tsx"
+    "test:capas": "vitest run --dangerouslyIgnoreUnhandledErrors paquetes/ui/shadcn/capa-del-desplegable.test.tsx paquetes/ui/shadcn/capa-emergente.test.tsx paquetes/ui/shadcn/capa-del-menu.test.tsx"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",
@@ -32,6 +32,7 @@
     "@vitejs/plugin-react": "^5.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
     "date-fns": "^4.4.0",
     "eslint": "^9.39.0",
     "eslint-plugin-jsx-a11y": "^6.10.2",
@@ -44,6 +45,7 @@
     "react-dom": "19.3.0",
     "react-hook-form": "^7.88.0",
     "react-router-dom": "^7.18.3",
+    "sonner": "^2.0.0",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.3",
     "typescript": "~5.9.0",

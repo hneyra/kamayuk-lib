@@ -2,8 +2,8 @@
 //
 // Lee el `package.json` y el arbol de archivos. No es un DOM lo que necesita.
 
-import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, relative, sep } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
@@ -32,20 +32,60 @@ import { describe, expect, it } from 'vitest';
  * Que un archivo de capa quede **fuera de los dos guiones a la vez**: excluido de `test` por el
  * patron y no nombrado en `test:capas`. No daria ningun rojo — daria menos pruebas, que es la
  * forma mas silenciosa de perder cobertura. Ya paso una vez en `rentas` con el artboard (#78).
+ *
+ * <h2>Y desde #13 barre `paquetes/` ENTERO, no un directorio</h2>
+ *
+ * Hasta el armazon, las dos unicas capas vivian en `paquetes/ui/shadcn` y la guarda miraba ahi. Eso
+ * era un hueco medido, no una simplificacion: el patron de `--exclude` de `test` es **global** —lleva
+ * el comodin de directorio delante—, asi que un `capa-*.test.tsx` en `paquetes/shell` —o en otro—
+ * quedaba excluido de `test` igual que los demas y **la guarda no lo veia** para exigir que
+ * `test:capas` lo nombrara. O sea: el archivo no lo corria nadie, que es exactamente el modo de
+ * fallo que esta guarda existe para impedir, escondido en el sitio donde la guarda no miraba.
  */
 
 const paquete = JSON.parse(readFileSync('package.json', 'utf8')) as {
   scripts: Record<string, string>;
 };
 
-const DONDE = 'paquetes/ui/shadcn';
-const enElDisco = readdirSync(DONDE).filter((n) => n.startsWith('capa-') && n.endsWith('.test.tsx'));
+const PAQUETES = 'paquetes';
+const APARTADAS = new Set(['node_modules', 'dist', 'muestras']);
+
+/** Todos los archivos de capa del arbol, con su ruta desde la raiz. Ver el javadoc. */
+function archivosDeCapa(directorio: string): string[] {
+  const salida: string[] = [];
+  for (const entrada of readdirSync(directorio)) {
+    if (APARTADAS.has(entrada)) continue;
+    const completa = join(directorio, entrada);
+    if (statSync(completa).isDirectory()) {
+      salida.push(...archivosDeCapa(completa));
+      continue;
+    }
+    if (entrada.startsWith('capa-') && entrada.endsWith('.test.tsx')) {
+      salida.push(completa);
+    }
+  }
+  return salida;
+}
+
+const enElDisco = archivosDeCapa(PAQUETES);
 
 describe('las pruebas de capa corren, y corren aparte', () => {
   it('EL CENTINELA: hay archivos de capa que vigilar', () => {
     // Sin esto, borrarlos todos dejaria las comprobaciones de abajo recorriendo la lista vacia y
     // pasando en verde — que es como una guarda se queda sin sujeto sin que nadie la borre.
     expect(enElDisco.length, 'no quedo ni un archivo `capa-*.test.tsx`').toBeGreaterThanOrEqual(2);
+  });
+
+  it('EL CENTINELA: el barrido es de `paquetes/` entero y no de un directorio', () => {
+    // La guarda mira donde el `--exclude` de `test` muerde, que es TODO el arbol. Si alguien la
+    // volviera a acotar a un directorio, un archivo de capa fuera de el dejaria de correrlo nadie
+    // sin que esto se pusiera rojo. Se comprueba recorriendo: `paquetes/` tiene subdirectorios de
+    // mas de un nivel y el recorrido tiene que llegar a ellos.
+    expect(enElDisco.every((n) => n.startsWith(`${PAQUETES}${sep}`))).toBe(true);
+    expect(
+      enElDisco.some((n) => relative(PAQUETES, n).split(sep).length > 2),
+      'el recorrido no bajo de un nivel: no esta recorriendo, esta listando',
+    ).toBe(true);
   });
 
   it('`test` los EXCLUYE, que es lo que evita el rojo intermitente', () => {
@@ -57,7 +97,7 @@ describe('las pruebas de capa corren, y corren aparte', () => {
     // Uno por uno y no por comodin, a proposito: anadir un archivo de capa obliga a decir cual, que
     // es la unica senal de que la suite lenta crecio.
     const guion = paquete.scripts['test:capas'] ?? '';
-    const sinCorrer = enElDisco.filter((n) => !guion.includes(join(DONDE, n)));
+    const sinCorrer = enElDisco.filter((n) => !guion.includes(n));
     expect(
       sinCorrer,
       'Hay archivos de capa que NO los corre nadie: `test` los excluye y `test:capas` no los ' +

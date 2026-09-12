@@ -21,8 +21,8 @@ Lo decide [ADR-0038](https://github.com/hneyra/infrastructure/blob/main/docs/30-
 | `paquetes/formato` — `@kamayuk/formato` | **Existe.** Fechas, importes y documento de identidad, copiado **verbatim** de `rentas/frontend/src/dominio/`. **67 pruebas.** Es la hoja limpia del grafo: no importa nada de nadie. Le faltan `codigo predial` y `placa`, que ADR-0030 §4 le encarga y **no se inventan**: entran el día que el sistema dueño del dato diga cuál es su forma |
 | `paquetes/api` — `@kamayuk/api` | **Existe.** `ErrorDeLaApi` y `crearCliente({ prefijo, token })`. **21 pruebas.** **No se extrajo: se diseñó** — medido el 2026-09-12, los tres clientes de `rentas`, `normativa` y `catastro` tenían **tres clases de error incompatibles** y compartían 45 líneas de 135 |
 | `paquetes/sesion` — `@kamayuk/sesion` | **Existe.** `crearIdentidad(config)` con PKCE S256 y `peldanoDe()` con sus **siete** peldaños. **33 pruebas.** Venía de `rentas`, el único de los cuatro que se autenticaba, y **nada dentro nombraba a `rentas`**: lo único que lo ataba eran tres datos, hoy parámetros |
-| `paquetes/ui` — `@kamayuk/ui` | **Capa 1 hecha (#6).** Los **42** tokens del artboard en un `@theme` de Tailwind v4 —38 colores, 2 radios, 2 sombras—, `Importe`/`Insignia`/`FechaDeCalculo`/`Icono` y los trazos con nombre genérico. **15 pruebas** más las barreras de tipo. **Capa 2 hecha (#8)**: seis paletas —tres identidades × dos modos— derivadas de la del artboard con reglas en OKLCH, el `ProveedorDeTema` y el primer componente de shadcn. **56 pruebas.** Los demas componentes de shadcn entran cuando se usen |
-| `paquetes/shell` — `@kamayuk/shell` | **Vacío.** Le toca el marco. **No se extrae: se reescribe** — hay cuatro implementaciones divergentes (445 líneas de diferencia sólo entre `rentas` y `normativa`, y `catastro` con todo dentro de un archivo de 1 238) |
+| `paquetes/ui` — `@kamayuk/ui` | **Capa 1 hecha (#6).** Los **42** tokens del artboard en un `@theme` de Tailwind v4 —38 colores, 2 radios, 2 sombras—, `Importe`/`Insignia`/`FechaDeCalculo`/`Icono` y los trazos con nombre genérico. **15 pruebas** más las barreras de tipo. **Capa 2 hecha (#8)**: seis paletas —tres identidades × dos modos— derivadas de la del artboard con reglas en OKLCH, el `ProveedorDeTema` y el primer componente de shadcn. **56 pruebas.** **Capa 3 hecha (#11)**: las once piezas de shadcn que el interprete de V8 pide en cada pantalla, mas la tabla de que pieza dibuja cada uno de los siete tipos de campo. **Capa 4 hecha (#13)**: las siete piezas del armazon —`Miga`, `Plegable`, `Menu`, `Confirmacion`, `Cajon`, `PaletaDeMando` y `Avisos`—, sobre Radix, `cmdk` y `sonner`. Los demas componentes de shadcn entran cuando se usen |
+| `paquetes/shell` — `@kamayuk/shell` | **Existe (#13).** El armazón de V8: barra global, carril de módulos plegable con filtro, paleta de mando (`Ctrl/Cmd+K`), cabecera con miga, acciones al pie y el aviso de cambios sin guardar. **No se extrajo: se reescribió** — había cuatro implementaciones divergentes (445 líneas de diferencia sólo entre `rentas` y `normativa`, y `catastro` con todo dentro de un archivo de 1 238). **El catálogo de módulos y destinos entra por parámetro** y el enrutado es por hash con `createHashRouter`, con **una ruta por destino ofrecido**: lo que el catálogo no trae no se ofrece en el árbol, ni en la paleta, ni en la miga, **ni por el hash**. **46 pruebas** |
 | `paquetes/verificaciones` — `@kamayuk/verificaciones` | **Existe.** Las **nueve prohibiciones** de ESLint con sus nueve muestras, `sin-suponer-un-sistema` y `sin-nombre-publico-entre-paquetes`. **39 pruebas.** Le faltan los tokens contra el artboard y el contraste |
 | La guarda de la fila del registro | **Existe**, con su autoprueba de **nueve muestras**, adaptada a la forma de este repositorio |
 
@@ -58,8 +58,8 @@ paquetes/
   formato/   valores.ts, formato.ts, aritmetica.ts, documento.ts
   api/       cliente.ts (ErrorDeLaApi + crearCliente)
   sesion/    identidad.ts (crearIdentidad), escalera.ts (peldanoDe)
-  ui/        vacio
-  shell/     vacio
+  ui/        los tokens, los tres temas y los componentes de shadcn (once + siete)
+  shell/     el armazon: catalogo.ts, busqueda.ts, acciones.ts y las siete piezas que los dibujan
   verificaciones/  texto.ts, suposiciones.ts, sus pruebas y sus muestras/
 docs/
   agent/HISTORY.md            el registro «Verificar antes de afirmar»
@@ -120,8 +120,9 @@ y mensajes de commit en español.
 
 ```bash
 yarn install
-yarn verificar               # lint, tipos y pruebas
-yarn test                    # solo las pruebas
+yarn verificar               # lint, tipos y pruebas, mas las de capa
+yarn test                    # solo las pruebas (SIN las de capa)
+yarn test:capas              # las que abren una capa con posicionador. Ver `las-capas-corren.test.ts`
 yarn registro                # la guarda de la fila del registro
 yarn registro:autoprueba     # sus nueve muestras
 ```
