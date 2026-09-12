@@ -4,7 +4,8 @@
 // necesita DOM: una prueba que necesita disco y DOM a la vez no puede declarar entorno, y
 // mezclarlas dejaba `render` con «document is not defined».
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
@@ -18,6 +19,7 @@ import { describe, expect, it } from 'vitest';
  */
 
 const estilos = readFileSync('paquetes/ui/estilos/estilos.css', 'utf8');
+const DONDE = 'paquetes/ui/shadcn';
 
 describe('el radio es el del producto, no el de shadcn', () => {
   it('`--radius` esta declarado y vale lo que el artboard dice', () => {
@@ -34,5 +36,36 @@ describe('el radio es el del producto, no el de shadcn', () => {
     }
   });
 
+  /**
+   * Y NINGUNA pieza se escribe su propio radio (#11, AC4).
+   *
+   * Un `rounded-[3px]` a mano se ve identico HOY y deja de seguir al token el dia que el artboard
+   * cambie de radio — que es la forma de deriva que no se ve mirando la pantalla. `Boton` ya lo
+   * tenia vigilado para si mismo; con once piezas mas, vigilarlo pieza a pieza es como se olvida
+   * una.
+   */
+  const PIEZAS = readdirSync(DONDE)
+    .filter((n) => n.endsWith('.tsx') && !n.includes('.test.'))
+    .map((n) => [n, readFileSync(join(DONDE, n), 'utf8')] as const);
+
+  it('EL CENTINELA: hay piezas que mirar', () => {
+    // Sin esto, cambiar la extension o mover el directorio dejaria la comprobacion de abajo
+    // recorriendo la lista vacia y pasando en verde.
+    expect(PIEZAS.length, 'no se leyo ni una pieza').toBeGreaterThanOrEqual(11);
+  });
+
+  it('ninguna pieza se escribe su propio radio: todas salen del token', () => {
+    const culpables = PIEZAS.flatMap(([nombre, fuente]) =>
+      // El comentario se quita antes: una pieza puede EXPLICAR por que no escribe un radio a mano.
+      [...fuente.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/.*$/gm, ' ')
+        .matchAll(/rounded-\[[^\]]+\]|border-radius:\s*[^v][^;]*/g)]
+        .map((m) => `  ${nombre}: «${m[0]}»`),
+    );
+    expect(
+      culpables,
+      'Hay piezas con el radio escrito a mano. Se ven igual hoy y dejan de seguir al artboard\n' +
+        `manana:\n${culpables.join('\n')}`,
+    ).toEqual([]);
+  });
 });
 

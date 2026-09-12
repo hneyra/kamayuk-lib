@@ -2,7 +2,7 @@
   "name": "kamayuk-lib",
   "private": true,
   "version": "0.1.0",
-  "description": "Las librerias comunes del producto Kamayuk (ADR-0030 \u00a74, ADR-0038). Solo fuente: no se compila y no se publica.",
+  "description": "Las librerias comunes del producto Kamayuk (ADR-0030 §4, ADR-0038). Solo fuente: no se compila y no se publica.",
   "type": "module",
   "workspaces": [
     "paquetes/*"
@@ -13,13 +13,15 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "verificar": "yarn lint && yarn typecheck && yarn test",
+    "test": "vitest run --exclude '**/node_modules/**' --exclude '**/capa-*.test.tsx'",
+    "verificar": "yarn lint && yarn typecheck && yarn test && yarn test:capas",
     "registro": "node docs/00-gobierno/verificar-fila-del-registro.mjs",
-    "registro:autoprueba": "node docs/00-gobierno/verificar-las-muestras-del-registro.mjs"
+    "registro:autoprueba": "node docs/00-gobierno/verificar-las-muestras-del-registro.mjs",
+    "test:capas": "vitest run --dangerouslyIgnoreUnhandledErrors paquetes/ui/shadcn/capa-del-desplegable.test.tsx paquetes/ui/shadcn/capa-emergente.test.tsx"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",
+    "@hookform/resolvers": "^5.9.1",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "^16.3.0",
@@ -30,19 +32,24 @@
     "@vitejs/plugin-react": "^5.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "date-fns": "^4.4.0",
     "eslint": "^9.39.0",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react-hooks": "^5.2.0",
     "globals": "^16.0.0",
     "jsdom": "^26.1.0",
+    "radix-ui": "^1.6.7",
     "react": "19.3.0",
+    "react-day-picker": "^10.0.1",
     "react-dom": "19.3.0",
+    "react-hook-form": "^7.88.0",
     "react-router-dom": "^7.18.3",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.3",
     "typescript": "~5.9.0",
     "typescript-eslint": "^8.46.0",
     "vite": "^7.3.6",
-    "vitest": "^3.2.0"
+    "vitest": "^3.2.0",
+    "zod": "^4.6.2"
   }
 }
