@@ -2,7 +2,7 @@
   "name": "kamayuk-lib",
   "private": true,
   "version": "0.1.0",
-  "description": "Las librerias comunes del producto Kamayuk (ADR-0030 §4, ADR-0038). Solo fuente: no se compila y no se publica.",
+  "description": "Las librerias comunes del producto Kamayuk (ADR-0030 \u00a74, ADR-0038). Solo fuente: no se compila y no se publica.",
   "type": "module",
   "workspaces": [
     "paquetes/*"
@@ -28,6 +28,8 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "eslint": "^9.39.0",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react-hooks": "^5.2.0",
@@ -36,6 +38,7 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-router-dom": "^7.18.3",
+    "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.3",
     "typescript": "~5.9.0",
     "typescript-eslint": "^8.46.0",
