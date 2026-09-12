@@ -2,7 +2,7 @@
   "name": "@kamayuk/shell",
   "version": "0.1.0",
   "private": true,
-  "description": "El marco: barra global, arbol de modulos, paleta de comandos, enrutado y renderizador de fallo (ADR-0030 \u00a74). El catalogo de destinos lo aporta el sistema que consume.",
+  "description": "El marco: barra global, arbol de modulos, paleta de comandos, enrutado y renderizador de fallo (ADR-0030 §4). El catalogo de destinos lo aporta el sistema que consume.",
   "type": "module",
   "types": "index.ts",
   "main": "index.ts",
@@ -10,6 +10,7 @@
     ".": "./index.ts"
   },
   "peerDependencies": {
+    "@kamayuk/ui": "^0.1.0",
     "react": ">=19",
     "react-dom": ">=19",
     "react-router-dom": ">=7"
