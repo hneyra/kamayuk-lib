@@ -1,0 +1,86 @@
+@import "tailwindcss";
+
+/* ============================================================================
+   `@kamayuk/ui` — la paleta del producto, como bloque `@theme` de Tailwind v4.
+
+   LOS 42 TOKENS SALEN DEL ARTBOARD, Y SON LOS MISMOS QUE EL DIBUJA
+   -----------------------------------------------------------------
+   Son los de `rentas-tokens.css` del artboard `RentasV8`: 38 colores, 2 radios
+   y 2 sombras. No se transcribieron a mano —se derivaron del archivo— y que
+   sigan cuadrando con el no lo promete este comentario: lo comprueba
+   `rentas/frontend/verificaciones/tokens-del-artboard.test.ts`, que es quien
+   tiene el artboard vendorizado.
+
+   LA DIRECCION IMPORTA: la libreria PUBLICA la paleta y el consumidor comprueba
+   que su artboard cuadra con ella. Al reves —la libreria leyendo el artboard de
+   un sistema— seria `@kamayuk/ui` dependiendo de `rentas`, que es exactamente lo
+   que la regla de ADR-0030 §4 prohibe.
+
+   EL NOMBRE LLEVA `--color-` DELANTE, Y NO ES DECORACION
+   ------------------------------------------------------
+   Es lo que hace que Tailwind v4 genere las utilidades: de `--color-azul` salen
+   `bg-azul`, `text-azul`, `border-azul`. Es el mapa que la pestana «Entrega» del
+   artboard publica, y por eso aqui no hay una segunda copia con los nombres
+   pelados: una paleta escrita dos veces se desincroniza, y la copia que se queda
+   vieja es la que alguien usa.
+
+   `--tinta-4` NO ES COLOR DE TEXTO
+   --------------------------------
+   Sobre papel blanco da 2.59:1 y WCAG 1.4.3 pide 4.5:1. Es el trazo de un icono
+   decorativo, y nada mas. Lo dice el artboard y lo vigilara la guarda de
+   contraste de UI-3.
+   ============================================================================ */
+
+@theme {
+  /* Superficies, tinta, accion, filos, foco, insignias, carga, barra y velos */
+  --color-fondo: #f2f6f9;
+  --color-superficie: #ffffff;
+  --color-sup: #f7fbfe;
+  --color-tinta: #16232c;
+  --color-tinta-2: #3a4a55;
+  --color-tinta-3: #5a6b78;
+  --color-tinta-4: #93a3af;
+  --color-azul: #005284;
+  --color-azul-oscuro: #00365a;
+  --color-azul-hover: #00365a;
+  --color-azul-suave: #e4f4fd;
+  --color-acento: #52bdef;
+  --color-sobre-azul: #ffffff;
+  --color-linea: #d6dee4;
+  --color-linea-2: #e3e9ee;
+  --color-borde-campo: #c3cfd9;
+  --color-borde-boton: #d6dee4;
+  --color-borde-hover: #7e96a8;
+  --color-foco: #d3ebfa;
+  --color-ok-fondo: #dcefe3;
+  --color-ok-tinta: #1f5b39;
+  --color-atencion-fondo: #fff4d9;
+  --color-atencion-tinta: #7a5200;
+  --color-mal-fondo: #fbe4e0;
+  --color-mal-tinta: #8f2a17;
+  --color-info-fondo: #e4f4fd;
+  --color-info-tinta: #004670;
+  --color-mal-borde: #a8321e;
+  --color-mal-campo: #fff9f8;
+  --color-esqueleto: #e3e9ee;
+  --color-esqueleto-brillo: #f7fbfe;
+  --color-sobre-barra: #ffffff;
+  --color-sobre-barra-2: #9fc6df;
+  --color-barra-control: rgba(255, 255, 255, 0.09);
+  --color-barra-realce: rgba(255, 255, 255, 0.2);
+  --color-barra-hover: rgba(255, 255, 255, 0.18);
+  --color-velo: rgba(0, 54, 90, 0.4);
+  --color-velo-paleta: rgba(22, 35, 44, 0.38);
+
+  /* EL RADIO PISA EL DE SHADCN, que parte de 0.5rem. Sin esto nada luce como V8. */
+  --radius-radio: 3px;
+  --radius-radio-sm: 3px;
+
+  --shadow-sombra-1: 0 1px 2px rgba(22, 35, 44, 0.06);
+  --shadow-sombra-2: 0 6px 22px rgba(0, 54, 90, 0.18);
+}
+
+:root {
+  /* El artboard declara `color-scheme: light` y no define paleta oscura. La deriva UI-3. */
+  color-scheme: light;
+}
