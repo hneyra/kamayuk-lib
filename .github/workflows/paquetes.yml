@@ -54,6 +54,18 @@ jobs:
       - name: Verificar
         run: yarn verificar
 
+      # EL ENSAYO DE LA RESOLUCION DE LA RAMA DEL CONSUMIDOR (#26, AC3).
+      #
+      # Las muestras del parser corren en `yarn verificar` y NO tocan la red, que es como tiene que
+      # ser. Pero «la rama nombrada que no existe sale roja» no se puede demostrar sin preguntarle a
+      # un repositorio de verdad, y por eso hay un paso aparte: ejercita el guion entero —proceso,
+      # codigo de salida y palabras— contra ESTE repositorio usado como consumidor de banco, con una
+      # rama que existe y otra que no. Una costumbre no es una guarda (#19).
+      - name: El ensayo de la resolucion, contra un remoto de verdad
+        env:
+          KAMAYUK_TOKEN_DE_CLON: ${{ secrets.GH_CLONE_KEY || github.token }}
+        run: node paquetes/verificaciones/ensayar-la-rama-del-consumidor.mjs
+
       # La lista de consumidores sale del JSON y no de este archivo: anadir un sistema tiene que
       # ser una linea de datos. `jq -c` la deja en una sola linea, que es lo que `fromJSON` pide.
       - name: Quien consume esta libreria
@@ -85,6 +97,29 @@ jobs:
   # linea base— y otra con la libreria en esta rama. Lo que falla el trabajo no es «el consumidor
   # esta rojo» sino **«esta rama lo puso rojo»**: base verde y rama roja. Si las dos salen rojas, se
   # dice con todas las letras y se sigue, porque el problema no es de aqui.
+  #
+  # ## Y CONTRA QUE RAMA DEL CONSUMIDOR (#26)
+  #
+  # Hasta #26 se clonaba la rama por omision del consumidor, y con eso un cambio de esta libreria
+  # que exija un ajuste alla **no podia salir verde nunca**: el PR de aqui media contra un consumidor
+  # sin el ajuste y el PR de alla contra una libreria sin el cambio. Ahora un PR puede NOMBRAR la
+  # rama del consumidor en una linea de su cuerpo —`consumidor: <duenno>/<sistema>@<rama>`— y se mide
+  # contra ella. La decision de que fuera una linea del cuerpo, y no un archivo ni una etiqueta, esta
+  # medida y escrita en `paquetes/verificaciones/rama-del-consumidor.mjs`; en dos palabras: es la
+  # unica de las tres que **desaparece al mezclar**, porque el cuerpo del PR no es parte del arbol.
+  #
+  # LA LOGICA NO ESTA EN ESTE ARCHIVO A PROPOSITO. Un `run:` de quince lineas no se puede probar, y
+  # asi es como se llego al hueco que #26 cierra. El parser del cuerpo y la resolucion por consumidor
+  # son un guion con sus muestras (`la-rama-del-consumidor.test.ts`), y aqui solo se le llama.
+  #
+  # ## QUE SIGNIFICA LA LINEA BASE CUANDO SI HAY RAMA NOMBRADA
+  #
+  # Deja de separar «el consumidor estaba roto» de «esta rama lo rompio», y el veredicto tiene que
+  # decir la verdad en los dos caminos. La rama nombrada trae el ajuste que ESPERA el cambio de aqui,
+  # asi que **contra la libreria en `main` puede estar legitimamente roja** — y con el criterio de
+  # #10 («si las dos salen rojas, no es de aqui») ese caso saldria en verde sin haber comprobado
+  # nada. Cuando el PR nombra una rama, el contrato es el PAR, y el par se mide una sola vez: con
+  # esta rama. Si sale roja, bloquea.
   # ---------------------------------------------------------------------------------------
   consumidores:
     name: ${{ matrix.repositorio }} sigue en verde con esta rama
@@ -105,10 +140,43 @@ jobs:
           # Historia completa: hay que poder saltar entre `main` y esta rama en el mismo arbol.
           fetch-depth: 0
 
+      # Node hace falta ANTES de clonar al consumidor, porque lo que decide contra que rama clonarlo
+      # es un guion de esta libreria. La version no se deja a la que traiga la imagen del corredor:
+      # este repositorio declara `node >=22`. El `setup-node` de mas abajo se queda donde esta,
+      # porque el suyo cachea el `yarn.lock` DEL CONSUMIDOR y ese archivo todavia no existe aqui.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # CONTRA QUE RAMA DEL CONSUMIDOR SE MIDE ESTE PR (#26).
+      #
+      # El cuerpo del PR entra por `env:` y no interpolado en el `run:`, que es como lo pasa
+      # `registro.yml` desde #4: un cuerpo lo escribe un humano y dentro puede ir cualquier cosa.
+      # Sale `rama=` (vacia = la rama por omision del consumidor) y `nombrada=`.
+      #
+      # `--comprobar` es el AC3: la rama nombrada se le pregunta al repositorio con
+      # `git ls-remote --exit-code --heads` ANTES de clonar, y si no esta, este paso rompe el trabajo
+      # diciendo cual era y de quien. Sin esto, el rojo lo daria `actions/checkout` en el paso
+      # siguiente, con otras palabras y sin decir que el PR nombro una rama que no existe.
+      - name: Contra que rama del consumidor se mide este PR
+        id: contra
+        working-directory: kamayuk-lib
+        env:
+          KAMAYUK_CUERPO_DEL_PR: ${{ github.event.pull_request.body }}
+          KAMAYUK_TOKEN_DE_CLON: ${{ secrets.GH_CLONE_KEY || github.token }}
+          QUIEN: ${{ matrix.repositorio }}
+        run: >-
+          node paquetes/verificaciones/rama-del-consumidor.mjs
+          --consumidor "$QUIEN" --comprobar >> "$GITHUB_OUTPUT"
+
       - name: El consumidor
         uses: actions/checkout@v4
         with:
           repository: ${{ matrix.repositorio }}
+          # Vacio es «la rama por omision del repositorio», que es lo que hacia hasta #26 y sigue
+          # siendo el caso normal (AC2). NO se pone `main` de reserva: la rama por omision de un
+          # consumidor la decide el consumidor, y escribirla aqui seria suponerla.
+          ref: ${{ steps.contra.outputs.rama }}
           path: consumidor
           token: ${{ secrets.GH_CLONE_KEY || github.token }}
 
@@ -156,9 +224,40 @@ jobs:
           BASE: ${{ steps.base.outcome }}
           RAMA: ${{ steps.rama.outcome }}
           QUIEN: ${{ matrix.repositorio }}
+          RAMA_DEL_CONSUMIDOR: ${{ steps.contra.outputs.rama }}
         run: |
+          echo "el consumidor se midio en:     ${RAMA_DEL_CONSUMIDOR:-su rama por omision}"
           echo "linea base (libreria en main): $BASE"
           echo "con esta rama:                 $RAMA"
+
+          # CAMINO CON RAMA NOMBRADA (#26). La linea base ya no separa «estaba roto» de «esta rama
+          # lo rompio»: la rama nombrada trae el ajuste que ESPERA este cambio, asi que contra la
+          # libreria en «main» puede estar legitimamente roja. El contrato es el PAR, y el par se
+          # mide una sola vez — con esta rama—, asi que aqui el rojo bloquea siempre.
+          if [ -n "$RAMA_DEL_CONSUMIDOR" ]; then
+            if [ "$RAMA" = "success" ]; then
+              echo "«$QUIEN@$RAMA_DEL_CONSUMIDOR» sale en verde con esta rama: el par cierra."
+              if [ "$BASE" != "success" ]; then
+                echo "::notice::La linea base salio ROJA, y aqui eso se ESPERA: «$RAMA_DEL_CONSUMIDOR» trae el ajuste que este cambio necesita, asi que contra la libreria en «main» tenia que fallar. No es un aviso de nada."
+              fi
+              echo ""
+              echo "Las dos mitades se mezclan JUNTAS, y esta CI no lo hace por nadie: lo unico que"
+              echo "dice es que el par cierra. Mezclar primero la del consumidor deja su «main» roto"
+              echo "hasta que se mezcle esta."
+              exit 0
+            fi
+            echo "::error::ESTA RAMA NO CIERRA CON «$QUIEN@$RAMA_DEL_CONSUMIDOR»."
+            echo "El PR nombra esa rama del consumidor como la que trae el ajuste que su cambio"
+            echo "necesita, y con las dos puestas la suite sale en ROJO: el par no cierra."
+            echo ""
+            echo "Y este trabajo bloquea aunque la linea base tambien este roja. Cuando un PR nombra"
+            echo "una rama, LA RAMA NOMBRADA ES EL CONTRATO: «las dos rojas, no es de aqui» valia"
+            echo "cuando las dos median lo mismo, y aqui la rama nombrada esta puesta justo para que"
+            echo "no lo hagan."
+            exit 1
+          fi
+
+          # CAMINO DE SIEMPRE (#10), que no cambia: sin rama nombrada se mide la de por omision.
           if [ "$RAMA" = "success" ]; then
             echo "«$QUIEN» sigue en verde con esta rama."
             exit 0
@@ -166,6 +265,10 @@ jobs:
           if [ "$BASE" != "success" ]; then
             echo "::warning::«$QUIEN» ya estaba rojo con la libreria en «main». Esta rama NO es la causa,"
             echo "::warning::asi que este trabajo no la bloquea. Pero alguien tiene que mirarlo alli."
+            echo ""
+            echo "Y si ese rojo ES el ajuste que esta rama necesita, el PR lo puede decir con una"
+            echo "linea en su cuerpo —«consumidor: <duenno>/<sistema>@<rama>»— y entonces se mide"
+            echo "contra esa rama en vez de contra la de por omision (#26)."
             exit 0
           fi
           echo "::error::ESTA RAMA ROMPE A «$QUIEN»."
@@ -174,4 +277,7 @@ jobs:
           echo ""
           echo "Es lo que kamayuk-lib#10 existe para cazar: con «link:» no hay version que de"
           echo "margen — lo que se mezcle aqui es lo que ese sistema tiene en el siguiente «git pull»."
+          echo ""
+          echo "Si el arreglo esta en una rama del consumidor, nombrala en el cuerpo del PR"
+          echo "—«consumidor: <duenno>/<sistema>@<rama>»— y esta CI medira contra ella (#26)."
           exit 1

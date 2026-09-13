@@ -17,6 +17,8 @@
     "verificar": "yarn lint && yarn typecheck && yarn test && yarn test:capas",
     "registro": "node docs/00-gobierno/verificar-fila-del-registro.mjs",
     "registro:autoprueba": "node docs/00-gobierno/verificar-las-muestras-del-registro.mjs",
+    "consumidor:rama": "node paquetes/verificaciones/rama-del-consumidor.mjs",
+    "consumidor:ensayo": "node paquetes/verificaciones/ensayar-la-rama-del-consumidor.mjs",
     "test:capas": "vitest run --dangerouslyIgnoreUnhandledErrors paquetes/ui/shadcn/capa-del-desplegable.test.tsx paquetes/ui/shadcn/capa-emergente.test.tsx paquetes/ui/shadcn/capa-del-menu.test.tsx"
   },
   "devDependencies": {
