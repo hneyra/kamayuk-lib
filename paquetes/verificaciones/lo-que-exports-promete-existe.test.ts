@@ -29,12 +29,13 @@ import { PAQUETES, leer } from './texto.ts';
  * manifiesto. Medido: la entrada entro con el esqueleto del paquete —#2, `60014cc`, 2026-09-12— y
  * **no ha resuelto ni un dia**, con la suite en verde todo el tiempo.
  *
- * <h2>Que mira, y por que las tres cosas</h2>
+ * <h2>Que mira, y por que las cuatro cosas</h2>
  *
  * · Cada subruta de `exports` de cada paquete de `paquetes/`. Es lo que un consumidor escribe.
  * · `main` y `types`, que son la misma promesa sin subruta: por ahi entra `import … from
  *   '@kamayuk/formato'` y por ahi resuelve `tsc` los tipos. Dejarlos fuera seria comprobar la
  *   puerta lateral y no la principal.
+ * · **Que la entrada que promete un MODULO lo publique tipado** (#46). Ver abajo.
  * · **La FORMA del `exports`**, y esto es la mitad que importa. Esta guarda entiende UNA forma
  *   —mapa de subruta a ruta relativa— y cualquier otra sale **en rojo diciendolo**, no en verde:
  *   un condicional anidado (`{".": {"import": "./x.ts"}}`), un array de alternativas, el atajo de
@@ -49,6 +50,36 @@ import { PAQUETES, leer } from './texto.ts';
  * es la unica forma de que la guarda no se quede vieja sin que nadie lo note. Una lista copiada a
  * mano habria dejado fuera justo la entrada que alguien anada manana, que es la que nadie ha
  * mirado todavia.
+ *
+ * <h2>La segunda promesa: un modulo se publica TIPADO (#46)</h2>
+ *
+ * Que el archivo este no basta. `"./prohibiciones": "./prohibiciones.mjs"` apuntaba a un archivo
+ * que existe, y aun asi **llegaba roto al consumidor**: dentro de esta libreria el `.mjs` se tipa
+ * solo —ruta relativa mas `allowJs`—, pero desde fuera llega por `node_modules/`, y TypeScript
+ * **no aplica `allowJs` a nada que cuelgue de `node_modules`**. Medido en `rentas`#137, el primer
+ * sistema que consume el paquete de verdad: `TS7016` mas trece parametros implicitamente `any`. Y
+ * la salida de `maxNodeModuleJsDepth` no vale —abre `node_modules` entero y salen veintitantos
+ * errores dentro de `jsdom`—, asi que cada sistema acababa escribiendo **su propia copia** de un
+ * `.d.ts` que declara la misma forma. El mismo fork, un piso mas abajo.
+ *
+ * <h2>Que cuenta como «prometer tipos», que es lo unico dificil de esto</h2>
+ *
+ * **Una guarda que le exigiera tipos a una hoja `.css` se desactivaria sola** — al primer
+ * `@import '@kamayuk/ui/estilos.css'` alguien la aflojaria a «mira solo lo que yo diga», y una
+ * guarda con lista de excepciones escrita a mano no mira la entrada de manana. Asi que la regla no
+ * es «toda entrada»: es **la extension del destino**, que es lo que decide si un consumidor lo
+ * escribe en un `import` o en un `@import`:
+ *
+ * · `.ts`, `.tsx`, `.mts`, `.cts` y `.json` — **traen su tipo**: el archivo ES la declaracion (el
+ *   `.json`, con `resolveJsonModule`). Nada que exigir.
+ * · `.js`, `.mjs`, `.cjs` — **prometen un modulo y no traen tipo**: hace falta la declaracion que
+ *   TypeScript busca al lado, `.d.ts`, `.d.mts` o `.d.cts` segun la extension. Sin ella la entrada
+ *   resuelve, se importa y llega como `any`, que es el defecto de #46.
+ * · `.css` y lo demas que no se importa como modulo — **no prometen tipos**, y no se les piden.
+ *
+ * Y una extension que esta guarda no sepa clasificar **sale roja diciendolo**, por lo mismo que
+ * una forma de `exports` que no entiende: clasificar en silencio como «no es un modulo» lo que
+ * nadie miro es exactamente como `./prohibiciones` estuvo sin tipos desde el dia uno.
  */
 
 /** Las dos claves que prometen UN archivo en vez de un mapa. */
@@ -214,12 +245,92 @@ function loQuePrometenLosPaquetes(raiz: string = PAQUETES): Lectura {
   return { promesas, ilegibles };
 }
 
+/** Un archivo del paquete `directorio`, tal como lo escribe el manifiesto (`./x.mjs`). */
+type HayArchivo = (directorio: string, valor: string) => boolean;
+
+/** Lo de verdad: esta en el disco Y es un archivo. Un directorio no lo sirve nadie. */
+const EN_EL_DISCO_HAY: HayArchivo = (directorio, valor) => {
+  const ruta = join(PAQUETES, directorio, valor);
+  return existsSync(ruta) && statSync(ruta).isFile();
+};
+
 /** Las promesas cuyo archivo no esta — o esta pero es un directorio, que tampoco resuelve. */
-function lasQueNoEstan(promesas: readonly Promesa[]): Promesa[] {
-  return promesas.filter((promesa) => {
-    const ruta = join(PAQUETES, promesa.directorio, promesa.valor);
-    return !existsSync(ruta) || !statSync(ruta).isFile();
-  });
+function lasQueNoEstan(promesas: readonly Promesa[], hay: HayArchivo = EN_EL_DISCO_HAY): Promesa[] {
+  return promesas.filter((promesa) => !hay(promesa.directorio, promesa.valor));
+}
+
+/**
+ * Que promete cada destino en materia de tipos, por su extension.
+ *
+ * No es una lista de excepciones: es la clasificacion entera, y lo que no cae en ninguna clase
+ * sale rojo. Ver el `<h2>` de arriba.
+ */
+type Clase = 'trae-su-tipo' | 'necesita-declaracion' | 'no-es-un-modulo' | 'sin-clasificar';
+
+/** El archivo ES su propia declaracion. El `.json`, con `resolveJsonModule`. */
+const TRAEN_SU_TIPO = ['.ts', '.tsx', '.mts', '.cts', '.json'];
+
+/**
+ * Los modulos escritos en JavaScript, y la declaracion que TypeScript busca al lado de cada uno.
+ *
+ * El emparejamiento no es libre: `./x.mjs` se tipa con `x.d.mts` y con ningun otro nombre — un
+ * `x.d.ts` al lado de un `.mjs` **no lo mira nadie**, y la entrada seguiria llegando como `any`
+ * con un archivo de tipos en el disco pareciendo que la cubre.
+ */
+const DECLARACION_DE: Readonly<Record<string, string>> = {
+  '.js': '.d.ts',
+  '.mjs': '.d.mts',
+  '.cjs': '.d.cts',
+};
+
+/** Lo que un consumidor no escribe en un `import`, sino en un `@import` o en una etiqueta. */
+const NO_SON_MODULOS = ['.css', '.svg', '.png', '.woff', '.woff2', '.html', '.txt', '.md'];
+
+/** La extension del destino, en minusculas: `./estilos/estilos.css` -> `.css`. */
+function extensionDe(valor: string): string {
+  const ultimo = valor.slice(valor.lastIndexOf('/') + 1);
+  const punto = ultimo.lastIndexOf('.');
+  return punto <= 0 ? '' : ultimo.slice(punto).toLowerCase();
+}
+
+function claseDe(valor: string): Clase {
+  const extension = extensionDe(valor);
+  if (extension in DECLARACION_DE) return 'necesita-declaracion';
+  if (TRAEN_SU_TIPO.includes(extension)) return 'trae-su-tipo';
+  if (NO_SON_MODULOS.includes(extension)) return 'no-es-un-modulo';
+  return 'sin-clasificar';
+}
+
+/** La declaracion que le toca a una promesa, o `null` si no necesita ninguna. */
+function declaracionQueLeToca(valor: string): string | null {
+  const declaracion = DECLARACION_DE[extensionDe(valor)];
+  return declaracion === undefined ? null : valor.replace(/\.[^./]+$/, declaracion);
+}
+
+interface SinTipos {
+  readonly promesa: Promesa;
+  /** La declaracion que hace falta y no esta: `./prohibiciones.d.mts`. */
+  readonly declaracion: string;
+}
+
+/**
+ * Las promesas que un consumidor importa como modulo y recibe como `any`.
+ *
+ * `hay` es un parametro por el mismo motivo que `promesasDelManifiesto` recibe el manifiesto ya
+ * parseado: las muestras tienen que poder ensenar un disco que este arbol no tiene, sin escribir
+ * archivos de verdad y confiar en borrarlos.
+ */
+function lasQueNoPublicanTipos(
+  promesas: readonly Promesa[],
+  hay: HayArchivo = EN_EL_DISCO_HAY,
+): SinTipos[] {
+  const sinTipos: SinTipos[] = [];
+  for (const promesa of promesas) {
+    const declaracion = declaracionQueLeToca(promesa.valor);
+    if (declaracion === null) continue;
+    if (!hay(promesa.directorio, declaracion)) sinTipos.push({ promesa, declaracion });
+  }
+  return sinTipos;
 }
 
 function detalleDe(faltantes: readonly Promesa[]): string {
@@ -282,6 +393,53 @@ describe('lo que `exports` promete existe en el disco', () => {
     ).toEqual([]);
   });
 
+  it('cada entrada que promete un MODULO lo publica tipado', () => {
+    // El defecto de #46: `./prohibiciones` apuntaba a un `.mjs` que existe y llegaba como `any` al
+    // consumidor, porque `allowJs` no alcanza dentro de `node_modules`. Se miran las promesas
+    // ENTERAS —`exports`, `main` y `types`— porque por las tres entra un `import`.
+    const sinTipos = lasQueNoPublicanTipos(EN_EL_DISCO.promesas);
+
+    expect(
+      sinTipos.map(({ promesa }) => `${promesa.paquete}  ${promesa.clave}`),
+      'Hay entradas que prometen un modulo en JavaScript y NO publican su declaracion. Dentro de ' +
+        'esta libreria no se nota —ruta relativa mas «allowJs»—; el consumidor lo importa y lo ' +
+        'recibe como «any», con un TS7016 y un parametro implicito por cada derivacion. Escribe ' +
+        'la declaracion al lado, con la extension que TypeScript busca (#46).\n\nDonde:\n' +
+        sinTipos
+          .map(
+            ({ promesa, declaracion }) =>
+              `  ${promesa.paquete}  ${promesa.clave}  ->  ${comoSeLee(promesa)}\n` +
+              `      falta  paquetes/${promesa.directorio}/${declaracion.replace(/^\.\//, '')}`,
+          )
+          .join('\n'),
+    ).toEqual([]);
+  });
+
+  it('y ninguna promesa se queda sin clasificar', () => {
+    // La mitad que importa de la regla anterior: una extension que la guarda no conozca no puede
+    // caer en «no es un modulo» por omision. Asi es exactamente como `./prohibiciones` estuvo sin
+    // tipos desde el dia uno — nadie la habia mirado, y no mirarla no daba rojo.
+    const sinClasificar = EN_EL_DISCO.promesas.filter((p) => claseDe(p.valor) === 'sin-clasificar');
+
+    expect(
+      sinClasificar.map((p) => `${p.paquete}  ${p.clave}  ->  ${p.valor}`),
+      'Hay destinos cuya extension esta guarda no sabe clasificar. Di cual de las tres cosas es: ' +
+        'trae su tipo (`.ts`…), necesita una declaracion al lado (`.js`…), o no es un modulo y no ' +
+        'promete tipos (`.css`…). Dejarlo sin clasificar lo da por bueno en silencio.',
+    ).toEqual([]);
+  });
+
+  it('EL CENTINELA: la clasificacion no manda el arbol entero a «no es un modulo»', () => {
+    // Si `claseDe` devolviera siempre «no-es-un-modulo», las dos comprobaciones de arriba pasarian
+    // sobre la lista vacia con el paquete sin tipos y ESLint leyendo `any`. Los seis prometen su
+    // `index.ts` por `main` y por `types`: eso son doce promesas que TIENEN que clasificarse como
+    // modulo con tipo propio.
+    const conTipo = EN_EL_DISCO.promesas.filter((p) => claseDe(p.valor) === 'trae-su-tipo');
+    expect(conTipo.length, 'no se clasifico ni una promesa como modulo tipado').toBeGreaterThanOrEqual(
+      12,
+    );
+  });
+
   it('y no hay ni una forma de manifiesto que la guarda lea a medias', () => {
     const detalle = EN_EL_DISCO.ilegibles
       .map((i) => `  ${i.paquete}  ${i.clave}  ->  ${i.motivo}`)
@@ -313,6 +471,73 @@ describe('lo que `exports` promete existe en el disco', () => {
     const muestra = promesasDelManifiesto('ui', { name: '@kamayuk/ui', exports: { './e': './estilos' } });
     expect(muestra.ilegibles).toEqual([]);
     expect(lasQueNoEstan(muestra.promesas).map((p) => p.clave)).toEqual(['exports["./e"]']);
+  });
+
+  it('LA MUESTRA: un `.mjs` sin su `.d.mts` al lado sale rojo, y solo el', () => {
+    // Es la entrada de #46 tal cual estaba, medida: `prohibiciones.mjs` en el disco y ninguna
+    // declaracion. El disco es el parametro `hay`, asi que la muestra no depende de que este
+    // arbol siga teniendo —o dejando de tener— ningun archivo.
+    const muestra = promesasDelManifiesto('verificaciones', {
+      name: '@kamayuk/verificaciones',
+      types: 'index.ts',
+      main: 'index.ts',
+      exports: { '.': './index.ts', './prohibiciones': './prohibiciones.mjs' },
+    });
+    const soloElMjs: HayArchivo = (_, valor) => valor.endsWith('.mjs') || valor.endsWith('.ts');
+
+    expect(muestra.ilegibles).toEqual([]);
+    expect(lasQueNoEstan(muestra.promesas, soloElMjs)).toEqual([]);
+    expect(
+      lasQueNoPublicanTipos(muestra.promesas, soloElMjs).map(({ promesa, declaracion }) => [
+        promesa.clave,
+        declaracion,
+      ]),
+    ).toEqual([['exports["./prohibiciones"]', './prohibiciones.d.mts']]);
+  });
+
+  it('LA MUESTRA: y con la declaracion al lado, no sale rojo', () => {
+    // La otra direccion. Sin esto, una guarda que devolviera SIEMPRE la entrada pasaria la muestra
+    // de arriba y pondria roja una libreria correcta, que es como una guarda se acaba apagando.
+    const muestra = promesasDelManifiesto('verificaciones', {
+      exports: { './prohibiciones': './prohibiciones.mjs' },
+    });
+    expect(lasQueNoPublicanTipos(muestra.promesas, () => true)).toEqual([]);
+  });
+
+  it('LA MUESTRA: a una hoja `.css` no se le piden tipos, y a un `.ts` tampoco', () => {
+    // **El modo de fallo de esta regla es exigir de mas.** Una guarda que le pidiera un `.d.ts` a
+    // `@kamayuk/ui/estilos.css` saldria roja sobre una entrada correcta, y lo que se hace con una
+    // guarda asi es aflojarla a una lista de excepciones escrita a mano — que ya no mira la
+    // entrada que alguien anada manana. Con un disco donde NO hay ninguna declaracion, estas
+    // entradas tienen que seguir en verde.
+    const muestra = promesasDelManifiesto('ui', {
+      name: '@kamayuk/ui',
+      types: 'index.ts',
+      main: 'index.ts',
+      exports: { '.': './index.ts', './estilos.css': './estilos/estilos.css' },
+    });
+    expect(lasQueNoPublicanTipos(muestra.promesas, () => false)).toEqual([]);
+  });
+
+  it('LA MUESTRA: la declaracion que se pide es la que TypeScript busca, no otra', () => {
+    // `./x.mjs` se tipa con `x.d.mts` y con ningun otro nombre. Un `x.d.ts` al lado de un `.mjs`
+    // no lo mira nadie: la entrada seguiria llegando como `any` con un archivo de tipos en el
+    // disco pareciendo que la cubre — un verde peor que el rojo.
+    expect(declaracionQueLeToca('./prohibiciones.mjs')).toBe('./prohibiciones.d.mts');
+    expect(declaracionQueLeToca('./cosa.cjs')).toBe('./cosa.d.cts');
+    expect(declaracionQueLeToca('./cosa.js')).toBe('./cosa.d.ts');
+    expect(declaracionQueLeToca('./index.ts')).toBeNull();
+    expect(declaracionQueLeToca('./estilos/estilos.css')).toBeNull();
+  });
+
+  it('LA MUESTRA: una extension que la guarda no conoce NO pasa por «no es un modulo»', () => {
+    // Es el equivalente de las formas raras de `exports`, en la otra mitad de la guarda: lo que
+    // no se ha clasificado no se da por bueno.
+    expect(claseDe('./cosa.wasm')).toBe('sin-clasificar');
+    expect(claseDe('./estilos')).toBe('sin-clasificar');
+    expect(claseDe('./prohibiciones.mjs')).toBe('necesita-declaracion');
+    expect(claseDe('./index.ts')).toBe('trae-su-tipo');
+    expect(claseDe('./estilos/estilos.css')).toBe('no-es-un-modulo');
   });
 
   it('LA MUESTRA: las formas que la guarda no sabe leer salen DICIENDOLO, y sin promesas', () => {

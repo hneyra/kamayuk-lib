@@ -11,6 +11,12 @@
  *
  * Las consumen el `eslint.config.js` de este repositorio y el de cada sistema.
  *
+ * **Su FORMA se publica al lado, en `prohibiciones.d.mts`** (#46). Este archivo es JavaScript con
+ * JSDoc a proposito —lo tiene que poder cargar ESLint a pelo, antes de que exista TypeScript—, y
+ * eso dentro de este repositorio se tipa solo; desde un consumidor no, porque TypeScript **no
+ * aplica `allowJs` dentro de `node_modules` y la entrada llegaba como `any`. La declaracion dice
+ * la forma y NUNCA la lista: la lista es este archivo.
+ *
  * No estan escritas dentro de `eslint.config.js` a proposito. Este archivo lo leen dos
  * consumidores y tienen que leer lo mismo:
  *
