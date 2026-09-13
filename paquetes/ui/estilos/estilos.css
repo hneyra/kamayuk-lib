@@ -136,14 +136,15 @@
 }
 
 :root {
-  /* El artboard declara `color-scheme: light`.
-     ESTE COMENTARIO DECIA «el oscuro lo declara `temas.css`», Y ES FALSO: medido, en `temas.css`
-     la cadena `color-scheme` sale 4 veces —el javadoc y los tres `@media
-     (prefers-color-scheme: dark)`— y `grep -cE '^\s*color-scheme\s*:'` da 0. Ni una es la
-     propiedad. Asi que con el equipo en oscuro la paleta se oscurece y los controles nativos y la
-     barra de desplazamiento se quedan claros. No se arregla aqui: la propiedad tendria que
-     emitirla `temas/generar.ts` en los tres bloques oscuros y `temas.css` es archivo generado con
-     su guarda de regeneracion. Va en kamayuk-lib#33. */
+  /* El artboard declara `color-scheme: light`, y aqui esta el valor POR OMISION: el que vale
+     mientras nadie diga otra cosa. El oscuro lo declara `temas.css`, y desde #33 ES VERDAD —
+     medido sobre el archivo generado: `grep -cE '^\s*color-scheme\s*:\s*dark;'` da **6**, que son
+     los tres bloques oscuros por sus dos caminos, `prefers-color-scheme` y `[data-modo='oscuro']`.
+     Hasta #33 daba 0 y esta linea era la unica `color-scheme` del documento: con el equipo en
+     oscuro la paleta se oscurecia y los controles nativos, la barra de desplazamiento y el fondo
+     previo del lienzo se quedaban claros. Lo vigila `temas/las-seis-llegan-al-css.test.ts` SOBRE
+     EL CSS EMITIDO —mirar el generador dejaria pasar un `temas.css` sin regenerar—, y la propiedad
+     no se escribe a mano en `temas.css`: sale de `temas/generar.ts`. */
   color-scheme: light;
 
   /* El knob que shadcn lee. Es el `--radio` del artboard, con el nombre que shadcn busca. */
