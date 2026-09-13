@@ -13,10 +13,13 @@ import { destinoDeSlug, indiceDelCatalogo, slugDe, type Catalogo, type HojaDelCa
 import {
   ProveedorDeLaConfiguracion,
   ProveedorDeLaHoja,
+  ProveedorDeLosTextos,
   useArmazon,
   useHoja,
+  useTextos,
   type ConfiguracionDelArmazon,
 } from './contexto.tsx';
+import { TEXTOS_DEL_ARMAZON, type TextosDelArmazon } from './textos.ts';
 
 /**
  * **El armazón**: lo que rodea a la pantalla y es igual en los cuatro sistemas (#13).
@@ -44,6 +47,14 @@ import {
  *
  * Lo que la cuenta no puede abrir tampoco sale en el árbol, ni en la paleta, ni en la miga, y por
  * la misma razón: las tres recorren el catálogo y no hay otro que recorrer.
+ *
+ * <h2>Y desde #19 tampoco escribe una palabra (`kamayuk-lib`#19)</h2>
+ *
+ * Las treinta y una cadenas que el marco decía por su cuenta —«Volver», «Guardar», «Buscar»,
+ * «Seguir editando», el nombre de la región de avisos— entran por `textos`, con el castellano por
+ * omisión. Sin eso, un sistema que traduzca sus pantallas se queda con **la pantalla a medias**: el
+ * cuerpo traducido y el marco en castellano, que se lee como una traducción rota y no como un marco
+ * sin traducir. Ver `textos.ts`.
  *
  * <h2>Y nada de aquí dentro nombra un sistema (AC2)</h2>
  *
@@ -86,10 +97,11 @@ function useEsEstrecho(): boolean {
 
 /** Lo que se ve cuando no hay ningún destino abierto. */
 function SinDestino() {
+  const textos = useTextos();
   return (
     <div data-slot="sin-destino" className="grid flex-1 place-items-center p-[30px]">
       <p className="m-0 max-w-[44ch] text-center text-[14px] leading-[1.6] text-tinta-3 text-pretty">
-        No hay ningun destino abierto. Elija uno en el arbol de la izquierda.
+        {textos.sinDestinoAbierto}
       </p>
     </div>
   );
@@ -103,11 +115,11 @@ function SinDestino() {
  * sin nada que buscar.
  */
 function DestinoNoOfrecido() {
+  const textos = useTextos();
   return (
     <div data-slot="destino-no-ofrecido" className="grid flex-1 place-items-center p-[30px]">
       <p className="m-0 max-w-[52ch] text-center text-[14px] leading-[1.6] text-tinta-3 text-pretty">
-        Esa direccion no corresponde a ningun destino disponible para esta cuenta. Elija uno en el
-        arbol de la izquierda.
+        {textos.destinoNoOfrecido}
       </p>
     </div>
   );
@@ -133,6 +145,7 @@ function useHojaDeLaRuta(catalogo: Catalogo): HojaDelCatalogo | null {
 /** Lo que rodea a la pantalla: la barra, el carril, la paleta, la cabecera y el pie. */
 function Cascara() {
   const configuracion = useArmazon();
+  const textos = useTextos();
   const { catalogo, acciones = {}, pieDelCarril } = configuracion;
   const navegar = useNavigate();
   const hoja = useHojaDeLaRuta(catalogo);
@@ -345,7 +358,7 @@ function Cascara() {
         </div>
       </div>
 
-      <Avisos />
+      <Avisos rotulo={textos.avisos} />
     </div>
   );
 }
@@ -374,9 +387,19 @@ export type ArmazonProps = ConfiguracionDelArmazon;
 
 export function Armazon(configuracion: ArmazonProps) {
   const enrutador = useMemo(() => crearEnrutador(configuracion.catalogo), [configuracion.catalogo]);
+  /**
+   * Lo que se pase, encima del castellano. Es lo que hace que traducir el marco NO sea todo o
+   * nada: un saco a medias deja las demás palabras como están, en vez de dejar huecos.
+   */
+  const textos: TextosDelArmazon = useMemo(
+    () => ({ ...TEXTOS_DEL_ARMAZON, ...configuracion.textos }),
+    [configuracion.textos],
+  );
   return (
     <ProveedorDeLaConfiguracion value={configuracion}>
-      <RouterProvider router={enrutador} />
+      <ProveedorDeLosTextos value={textos}>
+        <RouterProvider router={enrutador} />
+      </ProveedorDeLosTextos>
     </ProveedorDeLaConfiguracion>
   );
 }

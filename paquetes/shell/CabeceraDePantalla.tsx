@@ -1,6 +1,7 @@
 import { Miga, PasoDeLaMiga } from '../ui/index.ts';
 
 import type { HojaDelCatalogo } from './catalogo.ts';
+import { useTextos } from './contexto.tsx';
 
 /**
  * La cabecera de una pantalla: miga, título, nota y barra de instrucción.
@@ -28,10 +29,11 @@ export interface CabeceraDePantallaProps {
 }
 
 export function CabeceraDePantalla({ hoja, instruccion }: CabeceraDePantallaProps) {
+  const textos = useTextos();
   return (
     <div data-slot="cabecera-de-pantalla">
       <div className="px-[18px] pb-1 pt-4">
-        <Miga className="mb-[7px]">
+        <Miga rotulo={textos.ruta} className="mb-[7px]">
           <PasoDeLaMiga>{hoja.modulo.rotulo}</PasoDeLaMiga>
           <PasoDeLaMiga actual conSeparador>
             {hoja.destino.rotulo}

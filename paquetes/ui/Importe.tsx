@@ -1,9 +1,13 @@
+import type { ReactNode } from 'react';
+
 import {
   formatearFecha,
   formatearImporte,
   type Fecha,
   type Importe as ImporteDecimal,
 } from '../formato/index.ts';
+
+import { TEXTOS_DE_LA_UI } from './textos.tsx';
 
 /**
  * Un importe, **con la fecha a la que esta calculado**.
@@ -40,14 +44,26 @@ export interface ImporteProps {
    * «al 06/09/2026» en las cuarenta filas de una tabla que ya lleva su `FechaDeCalculo` arriba.
    */
   readonly fechaImplicita?: boolean;
+  /**
+   * Como se dice «al <fecha>». Entra como dato (#19), entero y como funcion: la fecha llega ya
+   * formateada, y en otro idioma no cae necesariamente detras de la palabra.
+   */
+  readonly rotuloDeLaFecha?: (fecha: ReactNode) => ReactNode;
 }
 
-export function Importe({ valor, fechaCalculo, fechaImplicita = false }: ImporteProps) {
+export function Importe({
+  valor,
+  fechaCalculo,
+  fechaImplicita = false,
+  rotuloDeLaFecha = TEXTOS_DE_LA_UI.aLaFecha,
+}: ImporteProps) {
   return (
     <span className="inline-flex items-baseline gap-2">
       <span className="font-semibold tabular-nums text-tinta">{formatearImporte(valor)}</span>
       {!fechaImplicita && (
-        <span className="text-[11.5px] text-tinta-3">al {formatearFecha(fechaCalculo)}</span>
+        <span className="text-[11.5px] text-tinta-3">
+          {rotuloDeLaFecha(formatearFecha(fechaCalculo))}
+        </span>
       )}
     </span>
   );

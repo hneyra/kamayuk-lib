@@ -4,6 +4,7 @@ import {
   type Destino,
   type ModuloDelCatalogo,
 } from './catalogo.ts';
+import { TEXTOS_DEL_ARMAZON, type TextosDelArmazon } from './textos.ts';
 
 /**
  * Las dos búsquedas del armazón: la del carril y la de la paleta de mando.
@@ -98,12 +99,19 @@ export function resultadosDelMando(
 /**
  * El pie de la paleta: «N de M destinos».
  *
+ * **Las palabras son del saco desde #19** —el singular y el plural los decide él, porque no en todo
+ * idioma el plural es una `s`— y el `textos` va al final y con valor por omisión: quien la llamaba
+ * con dos argumentos la sigue llamando igual.
+ *
  * **N es cuántos casan, no cuántos se enseñan**, y la diferencia importa: con el recorte a doce, un
  * pie que dijera «12 de 40» cuando casan treinta estaría escondiendo que la búsqueda no discrimina
  * nada. Lo que la persona necesita saber es si le falta afinar.
  */
-export function pieDeLaPaleta(catalogo: Catalogo, consulta: string): string {
+export function pieDeLaPaleta(
+  catalogo: Catalogo,
+  consulta: string,
+  textos: TextosDelArmazon = TEXTOS_DEL_ARMAZON,
+): string {
   const casan = resultadosDelMando(catalogo, consulta, Number.POSITIVE_INFINITY).length;
-  const total = cuantosDestinos(catalogo);
-  return `${String(casan)} de ${String(total)} ${total === 1 ? 'destino' : 'destinos'}`;
+  return textos.cuantosDestinos(casan, cuantosDestinos(catalogo));
 }

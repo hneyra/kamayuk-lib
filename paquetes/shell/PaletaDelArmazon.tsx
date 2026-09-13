@@ -9,6 +9,7 @@ import {
 
 import { pieDeLaPaleta, resultadosDelMando } from './busqueda.ts';
 import type { Catalogo } from './catalogo.ts';
+import { useTextos } from './contexto.tsx';
 
 /**
  * La paleta de mando: la segunda de las tres listas, y la única que llega a los cuarenta destinos
@@ -44,11 +45,12 @@ export function PaletaDelArmazon({
   alCerrar,
   alIr,
 }: PaletaDelArmazonProps) {
+  const textos = useTextos();
   const resultados = resultadosDelMando(catalogo, consulta);
 
   return (
     <PaletaDeMando
-      label="Buscar un destino"
+      label={textos.buscarUnDestino}
       open={abierta}
       onOpenChange={(quiere) => {
         if (!quiere) alCerrar();
@@ -59,14 +61,14 @@ export function PaletaDelArmazon({
         <BuscadorDeLaPaleta
           value={consulta}
           onValueChange={alEscribir}
-          placeholder="Un modulo o un destino…"
+          placeholder={textos.marcadorDeLaPaleta}
         />
         <kbd className="shrink-0 rounded-[3px] border border-linea px-[5px] py-0.5 font-[inherit] text-[10.5px] text-tinta-3">
-          Esc
+          {textos.cerrarLaPaleta}
         </kbd>
       </div>
-      <ListaDeLaPaleta>
-        <VacioDeLaPaleta>Ningun destino coincide con lo que escribio.</VacioDeLaPaleta>
+      <ListaDeLaPaleta rotulo={textos.sugerenciasDeLaPaleta}>
+        <VacioDeLaPaleta>{textos.nadaCasaEnLaPaleta}</VacioDeLaPaleta>
         {resultados.map((resultado) => (
           <OpcionDeLaPaleta
             key={resultado.clave}
@@ -81,7 +83,7 @@ export function PaletaDelArmazon({
         ))}
       </ListaDeLaPaleta>
       <p className="m-0 bg-sup px-[15px] py-[9px] text-[11.5px] text-tinta-3">
-        {pieDeLaPaleta(catalogo, consulta)}
+        {pieDeLaPaleta(catalogo, consulta, textos)}
       </p>
     </PaletaDeMando>
   );
