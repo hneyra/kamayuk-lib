@@ -1,6 +1,40 @@
 @import "tailwindcss";
 
 /* ============================================================================
+   LAS SEIS PALETAS ENTRAN POR AQUI, Y NO POR UNA ENTRADA APARTE (#23)
+
+   `estilos/temas.css` son las seis combinaciones —tres identidades por dos modos— generadas por
+   `temas/generar.ts`. Hasta #23 el archivo existia, estaba bien escrito, tenia su guarda de
+   regeneracion y su contraste medido... y NO LO IMPORTABA NADIE: `package.json` exportaba `"."`,
+   `"./estilos.css"` y `"./fuentes"`, y ninguna de las tres llevaba a el. Medido en el consumidor,
+   sobre `rentas/frontend/dist/assets/*.css`: `data-tema` 0, `data-modo` 0, `prefers-color-scheme`
+   0. `ProveedorDeTema` estampaba los dos atributos sobre un documento cuyo CSS no tenia ni una
+   regla que los leyera.
+
+   SE ARRASTRA DESDE AQUI, Y NO SE PUBLICA COMO `@kamayuk/ui/temas.css`
+   --------------------------------------------------------------------
+   Las dos opciones llegan al navegador; solo una no se puede olvidar. Con una entrada propia, el
+   consumidor tiene que escribir DOS `import` y el que se olvide del segundo se queda exactamente
+   como estaba —`ProveedorDeTema` montado, los atributos puestos, la pantalla sin cambiar de color—
+   y nada se lo dice: no hay error, no hay aviso, y sus pruebas siguen verdes. Es el defecto de
+   este issue, servido otra vez y ya no por un olvido de la libreria sino por uno del consumidor,
+   que es peor porque se repite una vez por sistema.
+
+   Arrastrado, la paleta viaja con la hoja que el consumidor YA importa —`rentas/src/estilos.css`
+   hace `@import '@kamayuk/ui/estilos.css'`— y el camino tiene un solo sitio donde romperse, que
+   es esta linea. Lo vigila `temas/las-seis-llegan-al-css.test.ts`, que compila la hoja como la
+   compila Vite y exige las seis combinaciones EN EL CSS EMITIDO.
+
+   EL ORDEN Y LA CAPA NO SON INDIFERENTES
+   ---------------------------------------
+   `@theme` emite sus `--color-*` dentro de `@layer theme`; esto entra SIN capa, asi que gana en
+   la cascada sin depender del orden de los `@import`. Envolverlo en un `@layer` dejaria las seis
+   paletas emitidas y sin efecto, que es la misma clase de fallo silencioso de arriba — y por eso
+   la guarda tambien lo mide.
+   ============================================================================ */
+@import "./temas.css";
+
+/* ============================================================================
    `@kamayuk/ui` — la paleta del producto, como bloque `@theme` de Tailwind v4.
 
    LOS 42 TOKENS SALEN DEL ARTBOARD, Y SON LOS MISMOS QUE EL DIBUJA
