@@ -1,6 +1,7 @@
 import { Slot } from 'radix-ui';
 import type { ComponentProps } from 'react';
 
+import { TEXTOS_DE_LA_UI } from '../textos.tsx';
 import { cn } from '../utilidades.ts';
 
 /**
@@ -20,11 +21,17 @@ import { cn } from '../utilidades.ts';
  * Cartera» en «Valores barra Cartera», y dos niveles más abajo la frase deja de entenderse.
  */
 
-export type MigaProps = ComponentProps<'nav'>;
+export interface MigaProps extends Omit<ComponentProps<'nav'>, 'aria-label'> {
+  /**
+   * El nombre accesible de la miga. **No se dibuja**: es lo unico que la anuncia a quien no ve la
+   * pantalla, y por eso entra como dato (#19). Por omision, en castellano.
+   */
+  readonly rotulo?: string;
+}
 
-export function Miga({ className, children, ...resto }: MigaProps) {
+export function Miga({ rotulo = TEXTOS_DE_LA_UI.ruta, className, children, ...resto }: MigaProps) {
   return (
-    <nav data-slot="miga" aria-label="Ruta" className={className} {...resto}>
+    <nav data-slot="miga" aria-label={rotulo} className={className} {...resto}>
       <ol className="flex items-center gap-[7px] text-[12.5px] text-tinta-3">{children}</ol>
     </nav>
   );

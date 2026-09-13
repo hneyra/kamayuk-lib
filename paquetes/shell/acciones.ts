@@ -1,4 +1,5 @@
 import type { Destino } from './catalogo.ts';
+import { TEXTOS_DEL_ARMAZON, type TextosDelArmazon } from './textos.ts';
 
 /**
  * **Las acciones al pie las decide el dato** (#13, AC8).
@@ -18,6 +19,13 @@ import type { Destino } from './catalogo.ts';
  * se puede mirar montando la pantalla. Como función, una prueba la recorre con las dos formas del
  * dato y compara las dos listas — que es exactamente el AC8.
  *
+ * <h2>Y desde #19 los rótulos entran como dato, con el castellano por omisión</h2>
+ *
+ * El `textos` es el último argumento y **tiene valor por omisión**, así que quien ya llamaba a
+ * estas dos funciones las sigue llamando igual y sigue recibiendo lo mismo. Lo que decide qué par
+ * de acciones hay sigue siendo `seEscribe`; lo único que el saco cambia es **con qué palabras se
+ * escriben**, que es lo que un segundo idioma necesita y lo que la lógica no tiene por qué saber.
+ *
  * Y porque el modo de fallo es silencioso: una pantalla de consulta que ofreciera «Guardar»
  * mandaría a pulsar un botón que no tiene nada que guardar, y una que se escribe y ofreciera
  * «Imprimir» **dejaría el trabajo sin forma de guardarse**. Ninguna de las dos se ve como un error
@@ -35,20 +43,23 @@ export interface AccionDelPie {
 }
 
 /** Las dos acciones de una pantalla que se escribe. */
-const DE_ESCRITURA: readonly AccionDelPie[] = [
-  { acto: 'limpiar', rotulo: 'Limpiar', principal: false },
-  { acto: 'guardar', rotulo: 'Guardar', principal: true },
+const deEscritura = (textos: TextosDelArmazon): readonly AccionDelPie[] => [
+  { acto: 'limpiar', rotulo: textos.limpiar, principal: false },
+  { acto: 'guardar', rotulo: textos.guardar, principal: true },
 ];
 
 /** Las dos de una pantalla de sólo consulta. */
-const DE_CONSULTA: readonly AccionDelPie[] = [
-  { acto: 'exportar', rotulo: 'Exportar', principal: false },
-  { acto: 'imprimir', rotulo: 'Imprimir', principal: true },
+const deConsulta = (textos: TextosDelArmazon): readonly AccionDelPie[] => [
+  { acto: 'exportar', rotulo: textos.exportar, principal: false },
+  { acto: 'imprimir', rotulo: textos.imprimir, principal: true },
 ];
 
-/** Las dos acciones que ofrece una hoja. */
-export function accionesDelPie(destino: Destino): readonly AccionDelPie[] {
-  return destino.seEscribe ? DE_ESCRITURA : DE_CONSULTA;
+/** Las dos acciones que ofrece una hoja. Las palabras, las del saco (#19). */
+export function accionesDelPie(
+  destino: Destino,
+  textos: TextosDelArmazon = TEXTOS_DEL_ARMAZON,
+): readonly AccionDelPie[] {
+  return destino.seEscribe ? deEscritura(textos) : deConsulta(textos);
 }
 
 /**
@@ -58,8 +69,9 @@ export function accionesDelPie(destino: Destino): readonly AccionDelPie[] {
  * cierre creyendo que ya está—; una de consulta dice a qué fecha son los datos, que es lo único
  * que puede estar mal en ella.
  */
-export function avisoDelPie(destino: Destino): string {
-  return destino.seEscribe
-    ? 'Nada se escribe hasta que pulse Guardar.'
-    : 'Los datos son los que figuran a la fecha de hoy.';
+export function avisoDelPie(
+  destino: Destino,
+  textos: TextosDelArmazon = TEXTOS_DEL_ARMAZON,
+): string {
+  return destino.seEscribe ? textos.nadaSeEscribeTodavia : textos.datosDeHoy;
 }

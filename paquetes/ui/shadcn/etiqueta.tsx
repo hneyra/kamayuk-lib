@@ -1,6 +1,7 @@
 import { Label, Slot } from 'radix-ui';
 import { useId, type ComponentProps, type ReactNode } from 'react';
 
+import { TEXTOS_DE_LA_UI } from '../textos.tsx';
 import { cn } from '../utilidades.ts';
 
 /**
@@ -39,6 +40,8 @@ export interface EtiquetaProps extends Omit<ComponentProps<'div'>, 'children' | 
   readonly rotulo: ReactNode;
   /** Si se puede dejar en blanco, se dice. Lo obligatorio no se marca: ver el javadoc. */
   readonly opcional?: boolean;
+  /** Con que palabra se dice. Entra como dato (#19); por omision, en castellano. */
+  readonly marcaDeOpcional?: ReactNode;
   /** La frase de ayuda, bajo el control. */
   readonly ayuda?: ReactNode;
   /** Que esta mal. Pinta el control invalido y se lee al enfocarlo. */
@@ -52,6 +55,7 @@ export interface EtiquetaProps extends Omit<ComponentProps<'div'>, 'children' | 
 export function Etiqueta({
   rotulo,
   opcional = false,
+  marcaDeOpcional = TEXTOS_DE_LA_UI.opcional,
   ayuda,
   error,
   children,
@@ -79,7 +83,7 @@ export function Etiqueta({
     >
       <Label.Root htmlFor={idDelControl} className="flex items-baseline gap-[7px] mb-[5px]">
         <span className="text-[12.5px] font-bold text-tinta-2">{rotulo}</span>
-        {opcional ? <span className="text-[11.5px] text-tinta-3">(opcional)</span> : null}
+        {opcional ? <span className="text-[11.5px] text-tinta-3">{marcaDeOpcional}</span> : null}
       </Label.Root>
       <Slot.Root
         id={idDelControl}

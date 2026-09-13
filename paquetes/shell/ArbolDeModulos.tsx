@@ -2,6 +2,7 @@ import { CuerpoDelPlegable, DisparadorDelPlegable, Icono, Plegable, cn } from '.
 
 import { modulosQueCasan } from './busqueda.ts';
 import type { Catalogo } from './catalogo.ts';
+import { useTextos } from './contexto.tsx';
 
 /**
  * El árbol de módulos: la primera de las tres listas que sólo ofrecen lo que el catálogo trae.
@@ -42,13 +43,14 @@ export function ArbolDeModulos({
   sucias,
   alIr,
 }: ArbolDeModulosProps) {
+  const textos = useTextos();
   const hayFiltro = filtro.trim() !== '';
   const casan = modulosQueCasan(catalogo, filtro);
 
   if (casan.length === 0) {
     return (
       <p data-slot="arbol-sin-coincidencias" className="mx-[10px] my-4 text-[12.5px] leading-[1.5] text-tinta-3 text-pretty">
-        Ningun modulo ni destino coincide con «{filtro.trim()}».
+        {textos.nadaCasaEnElArbol(filtro.trim())}
       </p>
     );
   }
@@ -129,7 +131,7 @@ export function ArbolDeModulos({
                           data-slot="marca-sin-guardar"
                           className="shrink-0 text-[9px] font-bold uppercase tracking-[.05em] text-tinta-3"
                         >
-                          sin guardar
+                          {textos.sinGuardar}
                         </span>
                       ) : null}
                     </button>

@@ -18,6 +18,8 @@
  *   duplican byte a byte entraran como punto de entrada aparte, para quien los quiera.
  */
 
+export { TEXTOS_DE_LA_UI } from './textos.tsx';
+export type { TextosDeLaUi } from './textos.tsx';
 export { Importe } from './Importe.tsx';
 export type { ImporteProps } from './Importe.tsx';
 export { Insignia } from './Insignia.tsx';

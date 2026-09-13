@@ -1,6 +1,7 @@
 import { Command } from 'cmdk';
 import type { ComponentProps } from 'react';
 
+import { TEXTOS_DE_LA_UI } from '../textos.tsx';
 import { cn } from '../utilidades.ts';
 
 /**
@@ -75,12 +76,25 @@ export function BuscadorDeLaPaleta({ className, ...resto }: BuscadorDeLaPaletaPr
   );
 }
 
-export type ListaDeLaPaletaProps = ComponentProps<typeof Command.List>;
+export interface ListaDeLaPaletaProps extends Omit<ComponentProps<typeof Command.List>, 'label'> {
+  /**
+   * El nombre accesible de la lista. **Sin el viene EN INGLES**: `cmdk` monta
+   * `aria-label="Suggestions"` por omision, igual que `sonner` montaba `Notifications` (#13). No se
+   * dibuja en ninguna parte, asi que una paleta entera en castellano se anunciaba con una palabra en
+   * ingles y mirar la pantalla no lo ensena. Lo destapo la guarda de #19.
+   */
+  readonly rotulo?: string;
+}
 
-export function ListaDeLaPaleta({ className, ...resto }: ListaDeLaPaletaProps) {
+export function ListaDeLaPaleta({
+  rotulo = TEXTOS_DE_LA_UI.sugerencias,
+  className,
+  ...resto
+}: ListaDeLaPaletaProps) {
   return (
     <Command.List
       data-slot="lista-de-la-paleta"
+      label={rotulo}
       className={cn('max-h-[54vh] overflow-auto', className)}
       {...resto}
     />

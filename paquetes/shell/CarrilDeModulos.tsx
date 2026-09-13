@@ -1,6 +1,7 @@
 import { Campo, PanelDelCajon, Cajon, TituloDelCajon, NotaDelCajon } from '../ui/index.ts';
 
 import { ArbolDeModulos, type ArbolDeModulosProps } from './ArbolDeModulos.tsx';
+import { useTextos } from './contexto.tsx';
 
 /**
  * El carril de 262 px que envuelve al árbol: la caja de filtro arriba y la línea de pie abajo.
@@ -28,6 +29,7 @@ export interface CarrilDeModulosProps extends ArbolDeModulosProps {
 }
 
 function Dentro({ alFiltrar, pie, ...delArbol }: Omit<CarrilDeModulosProps, 'enCajon' | 'abierto' | 'alCerrarElCajon'>) {
+  const textos = useTextos();
   return (
     <>
       <div className="shrink-0 border-b border-linea-2 p-[10px_10px_9px]">
@@ -36,8 +38,8 @@ function Dentro({ alFiltrar, pie, ...delArbol }: Omit<CarrilDeModulosProps, 'enC
           onChange={(evento) => {
             alFiltrar(evento.target.value);
           }}
-          placeholder="Filtrar modulos y destinos"
-          aria-label="Filtrar modulos y destinos"
+          placeholder={textos.filtrarElCarril}
+          aria-label={textos.filtrarElCarril}
           className="text-[13px]"
         />
       </div>
@@ -54,6 +56,7 @@ function Dentro({ alFiltrar, pie, ...delArbol }: Omit<CarrilDeModulosProps, 'enC
 }
 
 export function CarrilDeModulos({ enCajon, abierto, alCerrarElCajon, ...resto }: CarrilDeModulosProps) {
+  const textos = useTextos();
   if (enCajon) {
     return (
       <Cajon
@@ -63,8 +66,8 @@ export function CarrilDeModulos({ enCajon, abierto, alCerrarElCajon, ...resto }:
         }}
       >
         <PanelDelCajon lado="izquierda" data-slot="carril-de-modulos">
-          <TituloDelCajon>Modulos</TituloDelCajon>
-          <NotaDelCajon>Elija el destino que quiere abrir.</NotaDelCajon>
+          <TituloDelCajon>{textos.modulos}</TituloDelCajon>
+          <NotaDelCajon>{textos.elijaUnDestino}</NotaDelCajon>
           <Dentro {...resto} />
         </PanelDelCajon>
       </Cajon>
@@ -78,7 +81,7 @@ export function CarrilDeModulos({ enCajon, abierto, alCerrarElCajon, ...resto }:
   return (
     <aside
       data-slot="carril-de-modulos"
-      aria-label="Modulos"
+      aria-label={textos.modulos}
       className="flex min-h-0 w-[262px] shrink-0 flex-col border-r border-linea bg-fondo"
     >
       <Dentro {...resto} />

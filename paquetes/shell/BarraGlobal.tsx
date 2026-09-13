@@ -7,7 +7,7 @@ import {
   OpcionDelMenu,
 } from '../ui/index.ts';
 
-import { useArmazon } from './contexto.tsx';
+import { useArmazon, useTextos } from './contexto.tsx';
 
 /**
  * La barra global de V8: escudo, título, entidad, buscar, campana y menú de sesión.
@@ -41,9 +41,9 @@ export function BarraGlobal({
 }: BarraGlobalProps) {
   const { titulo, entidad, escudo, cuenta, opcionesDeSesion, avisosSinLeer = 0, alVerAvisos } =
     useArmazon();
+  const textos = useTextos();
 
-  const avisos =
-    avisosSinLeer === 1 ? '1 aviso sin leer' : `${String(avisosSinLeer)} avisos sin leer`;
+  const avisos = textos.avisosSinLeer(avisosSinLeer);
 
   return (
     <div
@@ -54,7 +54,7 @@ export function BarraGlobal({
         <Boton
           variante="barra"
           tamano="icono"
-          aria-label="Mostrar u ocultar el menu"
+          aria-label={textos.alternarElCarril}
           aria-expanded={carrilAbierto}
           onClick={alAlternarCarril}
         >
@@ -74,9 +74,9 @@ export function BarraGlobal({
         className="my-[9px] flex shrink-0 cursor-pointer items-center gap-[9px] rounded-sm bg-barra-control px-[14px] text-sobre-barra-2 outline-none hover:bg-barra-hover focus-visible:ring-[3px] focus-visible:ring-foco"
       >
         <Icono nombre="lupa" grosor={1.8} tamano={15} />
-        <span className="text-[13px]">Buscar</span>
+        <span className="text-[13px]">{textos.buscar}</span>
         <kbd className="rounded-[3px] border border-barra-realce px-[5px] py-px font-[inherit] text-[10.5px]">
-          Ctrl K
+          {textos.atajoDeLaPaleta}
         </kbd>
       </button>
 
@@ -102,7 +102,7 @@ export function BarraGlobal({
       <Menu>
         <DisparadorDelMenu
           data-slot="abrir-la-sesion"
-          aria-label="Opciones de la sesion"
+          aria-label={textos.opcionesDeLaSesion}
           className="flex shrink-0 cursor-pointer items-center gap-[10px] border-l border-barra-realce bg-transparent px-[15px] py-2 text-sobre-barra outline-none hover:bg-barra-hover data-[state=open]:bg-barra-hover focus-visible:ring-[3px] focus-visible:ring-foco"
         >
           <span

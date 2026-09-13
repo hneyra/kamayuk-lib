@@ -2,6 +2,7 @@ import type { CSSProperties, ComponentProps } from 'react';
 import { Toaster, toast } from 'sonner';
 
 import type { Modo } from '../temas/ProveedorDeTema.tsx';
+import { TEXTOS_DE_LA_UI } from '../textos.tsx';
 
 /**
  * Los avisos que salen abajo y se van solos. Es el `Sonner` de shadcn.
@@ -50,7 +51,7 @@ export interface AvisosProps
 /** Lo que `sonner` llama a cada uno de los tres estados del modo. */
 const TEMA_DE_SONNER = { claro: 'light', oscuro: 'dark' } as const;
 
-export function Avisos({ modo = null, rotulo = 'Avisos', ...resto }: AvisosProps) {
+export function Avisos({ modo = null, rotulo = TEXTOS_DE_LA_UI.avisos, ...resto }: AvisosProps) {
   return (
     <Toaster
       theme={modo === null ? 'system' : TEMA_DE_SONNER[modo]}

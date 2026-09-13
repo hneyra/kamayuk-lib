@@ -2,12 +2,14 @@ import { createContext, useContext, type ReactNode } from 'react';
 
 import type { Catalogo, HojaDelCatalogo } from './catalogo.ts';
 import type { ActoDelPie } from './acciones.ts';
+import { TEXTOS_DEL_ARMAZON, type TextosDelArmazon } from './textos.ts';
 
 /**
  * Lo que el armazón sabe, y lo que le tienen que decir.
  *
- * Dos contextos y no uno, porque son dos vidas distintas: la **configuración** la fija el sistema
- * al montar y no cambia; la **hoja abierta** cambia con cada destino y sólo existe cuando hay uno.
+ * Tres contextos y no uno, porque son tres vidas distintas: la **configuración** la fija el sistema
+ * al montar y no cambia; la **hoja abierta** cambia con cada destino y sólo existe cuando hay uno;
+ * los **textos** no cambian nunca y —a diferencia de los otros dos— **tienen valor por omisión**.
  * Juntos, una pantalla tendría que comprobar en cada lectura si hay hoja, y el compilador no la
  * ayudaría.
  */
@@ -52,6 +54,14 @@ export interface ConfiguracionDelArmazon {
   readonly acciones?: AccionesDelSistema;
   /** La línea del pie del carril. */
   readonly pieDelCarril?: string;
+  /**
+   * **Las palabras del marco** (#19). Lo que no se pase, en castellano.
+   *
+   * Es `Partial` a propósito: traducir el marco no puede ser todo o nada. Un sistema que sólo
+   * quiera cambiar «Guardar» pasa esa, y las otras treinta siguen saliendo como hoy — sin que
+   * cambiar el saco aquí le rompa el suyo mañana. Ver `textos.ts`.
+   */
+  readonly textos?: Partial<TextosDelArmazon>;
 }
 
 const DeLaConfiguracion = createContext<ConfiguracionDelArmazon | null>(null);
@@ -85,6 +95,23 @@ export interface HojaAbierta {
   readonly marcarSucia: () => void;
   /** Ya no los hay. La llama la pantalla cuando guarda por su cuenta. */
   readonly marcarGuardada: () => void;
+}
+
+/**
+ * Los textos del marco, con los de castellano como valor del contexto.
+ *
+ * **Fuera de `<Armazon>` NO revienta, y esa es la diferencia con los otros dos.** Las siete piezas
+ * se publican sueltas y se montan sueltas —`armazon.test.tsx` monta `CarrilDeModulos` por su
+ * cuenta—: una pieza que exigiera proveedor de idioma para dibujar un árbol convertiría la
+ * traducción en un requisito para usar el marco, que es lo que este issue existe para evitar.
+ */
+const DeLosTextos = createContext<TextosDelArmazon>(TEXTOS_DEL_ARMAZON);
+
+export const ProveedorDeLosTextos = DeLosTextos.Provider;
+
+/** Las palabras del marco. Sin proveedor, las de castellano. */
+export function useTextos(): TextosDelArmazon {
+  return useContext(DeLosTextos);
 }
 
 const DeLaHoja = createContext<HojaAbierta | null>(null);

@@ -19,7 +19,10 @@
  * · **El intérprete de pantallas** —bloques, campos, tablas—. El armazón recibe una función que
  *   dibuja la pantalla de un destino y no sabe lo que hay dentro.
  * · **Los datos.** No llama a ninguna API: recibe el catálogo ya compuesto.
- * · **i18n.** Literales ahora, claves después.
+ * · **i18n.** Lo que trae desde #19 es **el saco de textos**: las treinta y una palabras que el
+ *   marco dice por su cuenta entran por `textos`, con el castellano por omisión. Lo que NO trae, a
+ *   propósito, es un motor de traducción: `i18next` sería una `peerDependency` de la librería y
+ *   obligaría a los cuatro sistemas a montarlo antes de dibujar un botón. Ver `textos.ts`.
  */
 
 export { Armazon } from './Armazon.tsx';
@@ -38,7 +41,7 @@ export { AccionesAlPie } from './AccionesAlPie.tsx';
 export type { AccionesAlPieProps } from './AccionesAlPie.tsx';
 export { AvisoDeCambios } from './AvisoDeCambios.tsx';
 export type { AvisoDeCambiosProps } from './AvisoDeCambios.tsx';
-export { useArmazon, useHoja } from './contexto.tsx';
+export { useArmazon, useHoja, useTextos, ProveedorDeLosTextos } from './contexto.tsx';
 export type {
   ConfiguracionDelArmazon,
   CuentaEnLaBarra,
@@ -58,3 +61,5 @@ export { modulosQueCasan, resultadosDelMando, pieDeLaPaleta, RESULTADOS_DE_LA_PA
 export type { ModuloFiltrado, ResultadoDelMando } from './busqueda.ts';
 export { accionesDelPie, avisoDelPie } from './acciones.ts';
 export type { AccionDelPie, ActoDelPie } from './acciones.ts';
+export { TEXTOS_DEL_ARMAZON } from './textos.ts';
+export type { TextosDelArmazon } from './textos.ts';

@@ -2,7 +2,7 @@ import { Boton } from '../ui/index.ts';
 
 import { accionesDelPie, avisoDelPie } from './acciones.ts';
 import type { Destino } from './catalogo.ts';
-import { useArmazon } from './contexto.tsx';
+import { useArmazon, useTextos } from './contexto.tsx';
 
 /**
  * Las acciones al pie de una pantalla. **Cuáles son las decide el dato** (#13, AC8).
@@ -25,6 +25,7 @@ export interface AccionesAlPieProps {
 
 export function AccionesAlPie({ destino, alVolver }: AccionesAlPieProps) {
   const { acciones = {} } = useArmazon();
+  const textos = useTextos();
 
   return (
     <div
@@ -32,12 +33,12 @@ export function AccionesAlPie({ destino, alVolver }: AccionesAlPieProps) {
       className="flex flex-wrap items-center gap-[10px] px-[18px] pb-6 pt-0.5"
     >
       <Boton variante="secundario" onClick={alVolver}>
-        Volver
+        {textos.volver}
       </Boton>
       <p className="m-0 min-w-[180px] flex-1 text-[12.5px] leading-[1.5] text-tinta-3 text-pretty">
-        {avisoDelPie(destino)}
+        {avisoDelPie(destino, textos)}
       </p>
-      {accionesDelPie(destino).map((accion) => {
+      {accionesDelPie(destino, textos).map((accion) => {
         const atendida = acciones[accion.acto];
         return (
           <Boton

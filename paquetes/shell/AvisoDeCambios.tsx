@@ -10,6 +10,8 @@ import {
   TituloDeConfirmacion,
 } from '../ui/index.ts';
 
+import { useTextos } from './contexto.tsx';
+
 /**
  * El aviso de salir de una hoja con cambios sin guardar (#13, AC6).
  *
@@ -46,6 +48,7 @@ export function AvisoDeCambios({
   alSalirSinGuardar,
   alSeguirEditando,
 }: AvisoDeCambiosProps) {
+  const textos = useTextos();
   return (
     <Confirmacion
       open={rotulo !== null}
@@ -54,16 +57,13 @@ export function AvisoDeCambios({
       }}
     >
       <PanelDeConfirmacion>
-        <TituloDeConfirmacion>{rotulo} tiene cambios sin guardar</TituloDeConfirmacion>
-        <NotaDeConfirmacion>
-          Si cierra la pantalla se pierden. Guardelos primero o cierrela descartandolos: eso no se
-          puede deshacer.
-        </NotaDeConfirmacion>
+        <TituloDeConfirmacion>{textos.hayCambiosSinGuardar(rotulo ?? '')}</TituloDeConfirmacion>
+        <NotaDeConfirmacion>{textos.losCambiosSePierden}</NotaDeConfirmacion>
         <SalidasDeConfirmacion>
-          <Descartar onClick={alSalirSinGuardar}>Salir y perder los cambios</Descartar>
+          <Descartar onClick={alSalirSinGuardar}>{textos.salirYPerderLosCambios}</Descartar>
           <HuecoDeConfirmacion />
-          <Cancelar onClick={alSeguirEditando}>Seguir editando</Cancelar>
-          <Confirmar onClick={alGuardarYCerrar}>Guardar y cerrar</Confirmar>
+          <Cancelar onClick={alSeguirEditando}>{textos.seguirEditando}</Cancelar>
+          <Confirmar onClick={alGuardarYCerrar}>{textos.guardarYCerrar}</Confirmar>
         </SalidasDeConfirmacion>
       </PanelDeConfirmacion>
     </Confirmacion>
