@@ -84,8 +84,11 @@ export const FOCO = `${CONTORNO_DE_FOCO} ${HALO_DE_FOCO}`;
  * el mismo token seria cambiar un indicador invisible por otro.
  *
  * Lo que si se ve sobre la barra es lo que ya se lee sobre ella: `--sobre-barra`. Medido contra la
- * barra y contra la barra CON HOVER —que es mas clara, y por tanto el caso malo—, da entre 7.03:1
- * y 10.52:1 en las seis. Lo comprueba `foco.test.ts` con las dos, igual que el otro.
+ * barra y contra la barra CON HOVER —que es mas clara, y por tanto el caso malo—, da entre 7.61:1
+ * y 12.59:1 en las seis. Lo comprueba `foco.test.ts` con las dos, igual que el otro. (Esas dos
+ * cifras eran 7.03 y 10.52 hasta #41, que bajo el velo del hover en las seis combinaciones para
+ * que las iniciales del avatar se leyeran: la barra con hover quedo mas oscura y el contorno, que
+ * es claro, se ve mejor sobre ella.)
  */
 export const TOKEN_DEL_CONTORNO_EN_LA_BARRA = '--sobre-barra';
 

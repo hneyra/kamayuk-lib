@@ -48,7 +48,19 @@ export function Calendario({ className, classNames, ...resto }: CalendarioProps)
         ),
         selected: cn(porOmision.selected, '[&>button]:bg-azul [&>button]:text-sobre-azul [&>button]:font-bold'),
         today: cn(porOmision.today, '[&>button]:border [&>button]:border-azul'),
-        outside: cn(porOmision.outside, 'text-tinta-4'),
+        // ATENUADO, PERO LEGIBLE: `--tinta-3` y no `--tinta-4` (#39).
+        //
+        // Los dias del mes vecino son numeros que se LEEN y se PULSAN, asi que son texto de WCAG
+        // 1.4.3 como cualquier otro. `--tinta-4` es el token que la hoja de esta libreria declara
+        // en mayusculas NO-COLOR-DE-TEXTO —2.59:1 sobre papel blanco— y aqui daba 2.59 / 3.56 /
+        // 7.45 / 5.34 / 2.42 / 3.83 en las seis: solo llegaba en una. Los otros tres usos del
+        // token son un chevron, una flecha y el separador de una miga, los tres con `aria-hidden`;
+        // estos no pueden llevarlo sin dejar de anunciarse.
+        //
+        // Atenuar sigue siendo lo que se quiere, y para eso esta `--tinta-3`, que es la tinta
+        // terciaria: contrasta MENOS que el `--tinta-2` de un dia del mes en las seis, y aun asi
+        // pasa su minimo en las seis. Lo mide `calendario.test.ts`.
+        outside: cn(porOmision.outside, 'text-tinta-3'),
         ...classNames,
       }}
       {...resto}

@@ -23,7 +23,9 @@ import { PAPELES, type Papel } from './papeles.ts';
  * <h2>Lo que NO se deriva</h2>
  *
  * Los cinco translucidos —tres de la barra y dos velos—. Su color depende de sobre que se pintan,
- * y eso no lo dice el token: lo dice la pantalla. Se declaran aparte, por tema.
+ * y eso no lo dice el token: lo dice la pantalla. Se declaran aparte: los tres de la barra **por
+ * combinacion** (#41), porque lo que limita su blanco es cuanto admite la barra de debajo antes de
+ * que lo que se lee encima baje del minimo de ese tema; los dos que apagan, por modo.
  */
 
 /** A donde va la rampa de un papel, y cuanto croma conserva. */
@@ -79,7 +81,8 @@ const REGLAS: Readonly<Record<string, Readonly<Record<Papel, Regla>>>> = {
     'sobre-accion': { a: [0.16, 0.16], croma: 0.2 },
     barra: { a: [0.24, 0.24], croma: 0.8 },
     // El tramo bajo se subio de 0.82 a 0.84 en #38: con 0.82, `--sobre-barra-2` daba 4.40:1
-    // sobre la barra CON HOVER —el blanco al 24 % ya mezclado, que es mas claro que la barra— y
+    // sobre la barra CON HOVER —el blanco al 24 % DE ENTONCES ya mezclado, que es mas claro que la
+    // barra; #41 lo bajo despues al 20 %— y
     // WCAG 1.4.3 pide 4.5:1 para los 11 px de la entidad. En reposo daba 6.20 y nadie lo medía.
     'sobre-barra': { a: [0.84, 0.97], croma: 0.5 },
     'insignia-fondo': { a: [0.3, 0.26], croma: 0.8 },
@@ -163,25 +166,122 @@ const REGLAS: Readonly<Record<string, Readonly<Record<Papel, Regla>>>> = {
   },
 };
 
-/** Los translucidos, declarados por modo. Ver el javadoc: no se derivan. */
-const TRANSLUCIDOS: Readonly<Record<Modo, Readonly<Record<string, string>>>> = {
+/** Cuanto blanco lleva cada uno de los tres velos de la barra. */
+interface VelosDeLaBarra {
+  /** El relleno del boton de busqueda en reposo. */
+  readonly control: number;
+  /** El disco del avatar, el separador vertical y el filo de la tecla rapida. */
+  readonly realce: number;
+  /** Lo que se le echa encima a cualquier boton de la barra al pasar el raton. */
+  readonly hover: number;
+}
+
+/**
+ * Los tres velos de la barra, POR COMBINACION Y NO POR MODO (#41).
+ *
+ * <h2>El defecto que obliga a esto</h2>
+ *
+ * El disco del avatar se pinta con `--barra-realce` DENTRO del boton de sesion, que al pasar el
+ * raton se tiñe de `--barra-hover`. O sea que bajo las iniciales hay **dos velos blancos apilados
+ * sobre la barra**, y su alfa no se suma: se compone. Con los del artboard —0.20 y 0.18— eso da un
+ * 34.4 % de blanco en claro, y con los del modo oscuro —0.26 y 0.24— un **43.8 %**.
+ *
+ * Medido antes de este cambio, `--sobre-barra` sobre esa pila:
+ *
+ * ```
+ *   institucional/claro   4.50      alto-contraste/claro   5.81      sepia/claro   4.36
+ *   institucional/oscuro  3.65      alto-contraste/oscuro  4.64      sepia/oscuro  3.63
+ * ```
+ *
+ * Cinco de las seis por debajo de su minimo —`alto-contraste` pide 7:1, y es el tema que existe
+ * para no tener excepciones—, y la sexta pasaba **por el redondeo**: 4.4973 escrito como 4.50.
+ *
+ * <h2>Por que POR COMBINACION, y no por modo como estaban</h2>
+ *
+ * Porque lo que limita el blanco no es el modo: es **cuanto admite la barra de ESA combinacion
+ * antes de que las iniciales bajen de su minimo**. Y eso depende de dos cosas que el modo no
+ * dice — lo oscura que la identidad deja la barra, y que minimo pide esa identidad—. Medido sobre
+ * la barra ya derivada, el alfa blanco TOTAL que cada una admite:
+ *
+ * ```
+ *   institucional/claro   0.343     alto-contraste/claro   0.290     sepia/claro   0.332
+ *   institucional/oscuro  0.371     alto-contraste/oscuro  0.324     sepia/oscuro  0.373
+ * ```
+ *
+ * Ninguna de las seis cabe en los del artboard. `alto-contraste` es la mas estrecha con diferencia
+ * —0.29 contra 0.344— y no por casualidad: su minimo es el AAA de WCAG, 7:1, y ese es el precio.
+ *
+ * <h2>Como se repartio la rebaja, y que se protegio al repartirla</h2>
+ *
+ * **El reposo primero.** `--barra-control` —el boton de busqueda quieto— y `--barra-realce` —el
+ * separador y el disco— se quedan donde el artboard los puso siempre que la pila quepa sin
+ * tocarlos; la rebaja sale de `--barra-hover`, que es el velo del estado que este defecto rompe.
+ * Por eso en `institucional/claro` y `sepia/claro` la barra EN REPOSO es byte a byte la del
+ * artboard y lo unico que se mueve es el hover.
+ *
+ * **Y el hover tiene un suelo**, porque un velo que no se ve no es un estado: se exige que pase
+ * del de reposo por un margen parecido al del artboard —0.09 en claro, 0.10 en oscuro—. Ese suelo
+ * es lo que obliga a bajar tambien `--barra-realce` en los oscuros y en `alto-contraste`: con el
+ * realce intacto, el unico hover que cabia era mas oscuro que el propio reposo del boton.
+ *
+ * En `alto-contraste/oscuro` ni asi salia, y es la unica de las seis donde `--barra-control`
+ * tambien baja: su barra es casi negra (#010a16), el 7:1 deja 0.324 de presupuesto, y con el
+ * control en 0.14 no quedaba sitio para un hover que se distinguiera de el.
+ */
+const VELOS_DE_LA_BARRA: Readonly<Record<string, VelosDeLaBarra>> = {
+  // Reposo intacto: 0.09 y 0.2 son los del artboard. Solo cede el hover. Pila 0.336 <= 0.343.
+  'institucional/claro': { control: 0.09, realce: 0.2, hover: 0.17 },
+  // Pila 0.368 <= 0.371. El realce cede para que el hover pueda quedarse en 0.2, seis puntos por
+  // encima del control: con el realce en 0.26 el hover no podia pasar de 0.15, o sea del reposo.
+  'institucional/oscuro': { control: 0.14, realce: 0.21, hover: 0.2 },
+  // Pila 0.286 <= 0.290. El 7:1 se lleva por delante un cuarto del blanco de la barra.
+  'alto-contraste/claro': { control: 0.09, realce: 0.16, hover: 0.15 },
+  // Pila 0.319 <= 0.324, y el unico control que baja. Ver el javadoc.
+  'alto-contraste/oscuro': { control: 0.11, realce: 0.18, hover: 0.17 },
+  // Reposo intacto, como en `institucional/claro`. Pila 0.328 <= 0.332.
+  'sepia/claro': { control: 0.09, realce: 0.2, hover: 0.16 },
+  // Pila 0.368 <= 0.373.
+  'sepia/oscuro': { control: 0.14, realce: 0.21, hover: 0.2 },
+};
+
+/**
+ * Los dos velos que APAGAN, que siguen declarados por modo.
+ *
+ * No se apilan bajo ningun texto —lo que se lee sobre un dialogo esta ENCIMA, sobre una superficie
+ * opaca— asi que no consumen el presupuesto de arriba y no hay nada que repartir por combinacion.
+ * Lo unico que cambia entre los dos modos es cuanto tienen que oscurecer, porque lo que tapan ya
+ * es oscuro en uno de los dos.
+ */
+const VELOS_QUE_APAGAN: Readonly<Record<Modo, Readonly<Record<string, string>>>> = {
   claro: {
-    '--barra-control': 'rgba(255, 255, 255, 0.09)',
-    '--barra-realce': 'rgba(255, 255, 255, 0.2)',
-    '--barra-hover': 'rgba(255, 255, 255, 0.18)',
     '--velo': 'rgba(0, 54, 90, 0.4)',
     '--velo-paleta': 'rgba(22, 35, 44, 0.38)',
   },
   oscuro: {
-    // Sobre una barra ya oscura, un realce blanco al 9 % no se ve. Se sube.
-    '--barra-control': 'rgba(255, 255, 255, 0.14)',
-    '--barra-realce': 'rgba(255, 255, 255, 0.26)',
-    '--barra-hover': 'rgba(255, 255, 255, 0.24)',
-    // Y el velo tiene que oscurecer mas, porque lo que tapa ya es oscuro.
     '--velo': 'rgba(0, 0, 0, 0.62)',
     '--velo-paleta': 'rgba(0, 0, 0, 0.58)',
   },
 };
+
+const blancoAl = (alfa: number): string => `rgba(255, 255, 255, ${String(alfa)})`;
+
+/** Los cinco translucidos de una combinacion, ya escritos como los escribe el artboard. */
+function velosDe(clave: string): ReadonlyMap<string, string> {
+  const barra = VELOS_DE_LA_BARRA[clave];
+  if (barra === undefined) {
+    throw new Error(
+      `«${clave}» no declara sus velos de barra. Las que los declaran: ` +
+        `${Object.keys(VELOS_DE_LA_BARRA).join(', ')}.`,
+    );
+  }
+  const modo: Modo = clave.endsWith('/oscuro') ? 'oscuro' : 'claro';
+  return new Map<string, string>([
+    ['--barra-control', blancoAl(barra.control)],
+    ['--barra-realce', blancoAl(barra.realce)],
+    ['--barra-hover', blancoAl(barra.hover)],
+    ...Object.entries(VELOS_QUE_APAGAN[modo]),
+  ]);
+}
 
 const esOpaco = (v: string): boolean => /^#[0-9a-f]{6}$/i.test(v.trim());
 
@@ -200,15 +300,16 @@ function remapear(x: number, min: number, max: number, [a, b]: readonly [number,
  * @param clave `identidad/modo`, p. ej. `sepia/oscuro`
  */
 export function derivar(base: ReadonlyMap<string, string>, clave: string): Map<string, string> {
-  if (clave === 'institucional/claro') {
-    // El origen no pasa por ninguna regla. Ver el javadoc de REGLAS.
-    return new Map(base);
-  }
+  // El origen no pasa por ninguna regla PARA SUS COLORES OPACOS. Ver el javadoc de REGLAS — y el
+  // de `VELOS_DE_LA_BARRA`, que es la excepcion: los translucidos nunca se derivaron de la paleta
+  // y desde #41 se declaran por combinacion, tambien para el origen, porque lo que los limita no
+  // es de donde salen sino cuanto blanco admite la barra que tienen debajo.
+  const esElOrigen = clave === 'institucional/claro';
+  const velos = velosDe(clave);
   const reglas = REGLAS[clave];
-  if (reglas === undefined) {
+  if (!esElOrigen && reglas === undefined) {
     throw new Error(`No hay reglas para «${clave}». Las que hay: ${Object.keys(REGLAS).join(', ')}.`);
   }
-  const modo: Modo = clave.endsWith('/oscuro') ? 'oscuro' : 'claro';
 
   // La rampa de cada papel EN EL ORIGEN: de que luminosidad a que luminosidad va.
   const rampas = new Map<Papel, { min: number; max: number }>();
@@ -235,15 +336,19 @@ export function derivar(base: ReadonlyMap<string, string>, clave: string): Map<s
       );
     }
     if (papel === 'velo') {
-      const declarado = TRANSLUCIDOS[modo][nombre];
+      const declarado = velos.get(nombre);
       if (declarado === undefined) {
-        throw new Error(`El translucido «${nombre}» no esta declarado para el modo «${modo}».`);
+        throw new Error(`El translucido «${nombre}» no esta declarado para «${clave}».`);
       }
       salida.set(nombre, declarado);
       continue;
     }
+    if (esElOrigen) {
+      salida.set(nombre, valor);
+      continue;
+    }
 
-    const regla = reglas[papel];
+    const regla = (reglas as Readonly<Record<Papel, Regla>>)[papel];
     const rampa = rampas.get(papel);
     const { l, c, h } = hexAOklch(valor);
     const derivado: Oklch = {
