@@ -34,11 +34,48 @@
  * verificador de la primera, y el canje de la primera fallaba con «La vuelta no cuadra con la
  * ida» sin que nada dijera por que. El `prefijoDeClaves` es lo que lo impide, y por eso es
  * obligatorio y no tiene valor por omision.
+ *
+ * <h2>Lo que `rentas` aprendio en su copia despues de la mudanza, y sube aqui (#42)</h2>
+ *
+ * Este archivo salio de `rentas/frontend/src/api/identidad.ts` en `efada07` (2026-09-12). Al dia
+ * siguiente `rentas` le anadio dos cosas **en su copia** y la libreria no se entero:
+ *
+ *   · **la sonda del emisor** (`hneyra/rentas#112`): `entrar()` pregunta si el emisor esta ANTES
+ *     de mandarle el navegador, y devuelve `FallaDeLaPuerta` cuando no contesta, en vez de dejar
+ *     la pestana en blanco;
+ *   · **la consola de la cuenta** (`hneyra/rentas#115`): `urlDeLaCuenta()` y `abrirLaCuenta()`,
+ *     derivadas del realm, para «Mi perfil» y «Cambiar la contrasena».
+ *
+ * Suben las dos con su docblock, que es la medicion que se hizo alli. Lo unico que cambia es de
+ * donde sale el emisor: alli de `configuracion('oidcRealm')`, aqui del `realm` que entra por
+ * argumento. Y la sonda sube con una linea mas que la de `rentas` —`credentials: 'omit'`—, medida
+ * y explicada en `laPuertaContesta()`.
  */
 
-/** Lo que un sistema tiene que decir para tener puerta. Nada de esto se adivina. */
+/**
+ * Lo que un sistema tiene que decir para tener puerta. Nada de esto se adivina.
+ *
+ * <h2>Se lee UNA vez, al construir, y eso le toca vigilarlo a quien construye</h2>
+ *
+ * La copia de `rentas` resuelve el emisor **en cada llamada** —`realm()` es una funcion que lee
+ * `configuracion('oidcRealm')`— por un motivo que su docblock mide (#44 de `rentas`): una
+ * constante evaluada al importar se fija en el orden de carga de los modulos, y si se importara
+ * antes de que `configuracion.js` corriera congelaria el valor por omision.
+ *
+ * Aqui no se lee ningun global —el nombre del global lleva el sistema dentro, y
+ * `sin-suponer-un-sistema` lo prohibe—, asi que la configuracion entra ya resuelta y la instancia
+ * la guarda. El orden de carga pasa a ser del sistema que llama a `crearIdentidad`: tiene que
+ * hacerlo **despues** de que sus senas del ambiente esten puestas. Con el `index.html` de `rentas`
+ * —`configuracion.js` como guion clasico antes del modulo— eso ya es cierto al evaluar cualquier
+ * modulo; construirla dentro del arranque lo hace cierto sin depender de esa linea.
+ */
 export interface ConfiguracionDeIdentidad {
-  /** El realm completo: `https://…/realms/kamayuk`. Se configura por ambiente. */
+  /**
+   * El realm completo: `https://…/realms/kamayuk`. Se configura por ambiente.
+   *
+   * De el salen **todas** las URL del emisor que este paquete usa: autorizacion, canje, fin,
+   * descubrimiento (la sonda) y consola de la cuenta. No hay una segunda sena que mantener.
+   */
   readonly realm: string;
   /** El cliente publico de la SPA. Sin secreto: un secreto en un bundle no es un secreto. */
   readonly cliente: string;
@@ -87,6 +124,66 @@ export type Vuelta =
   | { readonly estado: 'canjeado' }
   | { readonly estado: 'fallo'; readonly motivo: string; readonly detalle: string };
 
+/**
+ * Por que no se pudo ni mandar a la puerta: quien no contesto, a que URL, y con que palabras.
+ *
+ * Es lo que se ensena en pantalla, asi que lleva las tres cosas que hacen falta para arreglarlo
+ * y ninguna mas. El `motivo` va **en palabras del navegador** —«Failed to fetch»,
+ * «TimeoutError»— porque son las que se pueden buscar y las que aparecen en su consola.
+ */
+export interface FallaDeLaPuerta {
+  /** El emisor, tal como entro en `ConfiguracionDeIdentidad.realm`. Lo primero que hay que mirar. */
+  readonly emisor: string;
+  /** La URL exacta que se pidio para saber si estaba. */
+  readonly url: string;
+  /** Lo que dijo el navegador, o que se agoto la espera. */
+  readonly motivo: string;
+}
+
+/**
+ * **Las dos paginas de la cuenta, que NO son de ningun sistema del producto** (`hneyra/rentas#115`).
+ *
+ * <h2>Por que salen de la puerta y no de una pantalla</h2>
+ *
+ * Porque ni el perfil ni la contrasena son de un sistema. La autorizacion es de `identidad` desde
+ * ADR-0039 —ningun sistema da de alta un usuario, afilia a nadie ni fija un permiso— y la
+ * contrasena **nunca llega a ninguno**: la guarda Keycloak, que es quien la pide en su formulario.
+ * Dibujar un formulario de perfil o de clave seria prometer una escritura que ningun backend del
+ * producto puede atender.
+ *
+ * <h2>La URL se DERIVA del emisor, no se escribe</h2>
+ *
+ * Sale del `realm` de la configuracion, que es exactamente de donde salen la autorizacion, el
+ * canje y el fin. Y eso trae la garantia que hace honesto mandar ahi: **si ese origen no fuera
+ * alcanzable desde el navegador, nadie habria entrado al sistema**, porque el formulario de
+ * identificacion se sirve del mismo sitio. No es una URL mas que pueda estar mal puesta: es la
+ * misma que ya funciono.
+ *
+ * <h2>Las dos rutas, medidas contra el Keycloak que la plataforma fija</h2>
+ *
+ * Medidas en `hneyra/rentas#115`, no aqui: `despliegue/plataforma.compose.yaml` fija
+ * `quay.io/keycloak/keycloak:26.0`, y contra el codigo de esa version:
+ *
+ *   · `RealmsResource.java:191` — `@Path("{realm}/account")`: la consola de cuenta cuelga del
+ *     realm, asi que basta con anadir un segmento al emisor que ya se lee;
+ *   · `AccountConsole.java:119` — el `baseUrl` que el servidor le pasa a la consola es esa misma
+ *     ruta **con barra final**, y `AccountConsole.getMainPage()` esta en `@Path("{any:.*}")`: la
+ *     consola se sirve para cualquier sub-ruta, o sea que un enlace profundo entra;
+ *   · `js/apps/account-ui/src/routes.tsx` — `PersonalInfoRoute` es la ruta **indice** (de ahi la
+ *     barra final para «Mi perfil») y `SigningInRoute` es `account-security/signing-in`, que es
+ *     donde se cambia la clave. Y `main.tsx` monta un `createBrowserRouter`: las rutas son de
+ *     camino y no de `#`, asi que el enlace profundo es el que se escribe abajo.
+ *   · `RealmManager.java:558` — `if (!hasAccountManagementClient(rep)) setupAccountManagement(realm)`
+ *     al importar: `realm-kamayuk.json` declara dos clientes —`kamayuk-backoffice` y
+ *     `kamayuk-verificacion`— y **ninguno** es `account`, asi que Keycloak los crea al sembrar el
+ *     realm. La consola no se queda sin su cliente por no estar en el volcado.
+ *
+ * **Lo que NO se midio, y se dice**: que una instalacion levantada las sirva. `rentas#115` no tenia
+ * motor de contenedores y este puesto tampoco, asi que ninguna de las dos URL se pidio de verdad.
+ * Lo comprobado es el codigo de la version que el compose fija, no un 200.
+ */
+export type PaginaDeLaCuenta = 'perfil' | 'contrasena';
+
 export interface Identidad {
   /** El token de esta pestana, o `null` si todavia no hay. */
   token(): string | null;
@@ -105,12 +202,52 @@ export interface Identidad {
   vieneDeSalir(): boolean;
   /** Vuelve a permitir la ida. Es el «Volver a identificarse» de la pantalla parada. */
   olvidarLaParada(): void;
-  /** Manda al formulario de Keycloak, guardando a donde habia que volver. */
-  entrar(): Promise<void>;
+  /**
+   * Manda al formulario de Keycloak, guardando a donde habia que volver.
+   *
+   * Devuelve `null` cuando el navegador se va —que es el caso de siempre— y **la falla cuando no
+   * se pudo ni llegar al emisor**, para que quien llama monte y la explique en vez de dejar la
+   * pagina en blanco. `null` se lee al reves de lo que parece: es que todo fue bien y la pagina se
+   * va, asi que quien llama NO debe montar nada detras.
+   */
+  entrar(): Promise<FallaDeLaPuerta | null>;
   /** Si venimos de Keycloak, canjea el codigo por un token. */
   canjearSiVuelve(): Promise<Vuelta>;
   /** Cierra la sesion aqui y en Keycloak. */
   salir(): void;
+  /** A donde lleva cada opcion de la cuenta. Derivada del `realm`; ver `PaginaDeLaCuenta`. */
+  urlDeLaCuenta(pagina: PaginaDeLaCuenta): string;
+  /** Abre la pagina de la cuenta **en otra pestana**, y si el navegador la niega, va en esta. */
+  abrirLaCuenta(pagina: PaginaDeLaCuenta): void;
+}
+
+/**
+ * Lo que se espera al emisor antes de darlo por caido.
+ *
+ * Ocho segundos y no tres: una municipalidad con la plataforma al otro lado de un enlace lento
+ * tarda, y dar por caido lo que solo iba despacio manda a la pantalla de error a quien si podia
+ * entrar. Y no treinta: mas alla de unos segundos, quien mira ya cree que la pagina esta rota.
+ *
+ * Es la cifra de `rentas#112` y no es parametro: ningun sistema ha pedido otra. Si alguno la
+ * pide, entra como `topeDeIdas`, opcional y con esta de omision.
+ */
+const ESPERA_DE_LA_SONDA = 8_000;
+
+/** Lo que se le anade al emisor para llegar a cada pagina. Ver `PaginaDeLaCuenta`. */
+const RUTA_DE_LA_CUENTA: Readonly<Record<PaginaDeLaCuenta, string>> = {
+  // Con barra final: es la ruta indice de la consola, y la misma que el servidor le pasa como
+  // `baseUrl`. Sin ella el camino que el enrutador compara no es el que le dijeron que era.
+  perfil: 'account/',
+  contrasena: 'account/account-security/signing-in',
+};
+
+/** Lo que paso, dicho como el navegador lo dice. Ver `FallaDeLaPuerta.motivo`. */
+function enPalabrasDelNavegador(falla: unknown): string {
+  if (!(falla instanceof Error)) return 'la peticion no llego a completarse';
+  if (falla.name === 'TimeoutError') {
+    return `no contesto en ${String(ESPERA_DE_LA_SONDA / 1000)} s`;
+  }
+  return falla.message === '' ? falla.name : falla.message;
 }
 
 function motivoDelEmisor(error: string): string {
@@ -156,6 +293,7 @@ export function crearIdentidad(configuracion: ConfiguracionDeIdentidad): Identid
   const autorizacion = `${realm}/protocol/openid-connect/auth`;
   const canje = `${realm}/protocol/openid-connect/token`;
   const fin = `${realm}/protocol/openid-connect/logout`;
+  const descubrimiento = `${realm}/.well-known/openid-configuration`;
 
   /**
    * Las cinco claves del rebote.
@@ -188,6 +326,72 @@ export function crearIdentidad(configuracion: ConfiguracionDeIdentidad): Identid
     identidadEnMemoria = identidad;
   };
 
+  /**
+   * **Si el emisor esta, ANTES de mandarle el navegador entero** (`hneyra/rentas#112`).
+   *
+   * <h2>El defecto que esto cierra</h2>
+   *
+   * `entrar()` termina en `location.assign(...)`, y quien la llama no monta nada despues **a
+   * proposito**: la pagina se va. Pero cuando la navegacion se RECHAZA —el emisor apagado, un DNS
+   * que no resuelve, un cortafuegos que traga— no hay documento nuevo *ni* aplicacion. Medido en
+   * `rentas` con `yarn dev` y nada mas levantado: `body.innerText` vacio, `body.innerHTML` vacio y
+   * la consola con dos lineas de Vite, ni un error. Nada que leer en ninguna parte.
+   *
+   * <h2>Por que una sonda y no un tiempo de espera despues de navegar</h2>
+   *
+   * Porque despues de `assign` ya es tarde: Chromium **cambia de documento** —se midio el marco
+   * principal navegando a `chrome-error://chromewebdata/`—, asi que un `setTimeout` que montara la
+   * aplicacion correria sobre un documento que el navegador acaba de tirar. Y en el camino bueno
+   * haria lo contrario de lo que se quiere: pintar la pantalla justo antes de que la navegacion
+   * buena se la lleve, o sea un parpadeo.
+   *
+   * Preguntando ANTES, el camino bueno no cambia en nada: `assign` sigue siendo lo ultimo que pasa.
+   *
+   * <h2>Se pregunta al documento de descubrimiento, y NO se lee</h2>
+   *
+   * `/.well-known/openid-configuration` es publico, barato y no abre ninguna sesion; pedir el
+   * `authorization_endpoint` como sonda seria abrir una peticion de autorizacion de verdad —con su
+   * rastro en el emisor— para tirarla.
+   *
+   * Y va con `mode: 'no-cors'` **a proposito**: la respuesta no se lee. La pregunta no es «que
+   * contesta el emisor» sino «llega el navegador hasta el», que es exactamente lo que decide si
+   * `assign` va a aterrizar. Leyendo el cuerpo haria falta que el emisor publicara CORS, y un
+   * intermediario que no lo publique convertiria un emisor VIVO en esta pantalla de error.
+   *
+   * <h2>Y sin credenciales, dicho y no heredado: la unica linea que la de `rentas` no tiene</h2>
+   *
+   * La de `rentas` no dice `credentials`, y `fetch` pone entonces `'same-origin'`: **manda las
+   * cookies cuando el emisor comparte origen con la interfaz**. Y en el cluster lo comparte: el
+   * emisor es `https://<dominio>/keycloak/realms/kamayuk` y las interfaces se sirven en
+   * `https://<dominio>/<sistema>/` (ADR-0030 §2). No es una suposicion: el registro de
+   * `infrastructure` anota que `vmd205066` sirve `/rentas/` y `/catastro/` con 200 y que su
+   * descubrimiento dice `issuer: https://vmd205066.contaboserver.net/keycloak/realms/kamayuk`. Medido
+   * en Chromium 151 contra un servidor que pone una cookie en la pagina y anota lo que le llega en
+   * el descubrimiento, del mismo origen: la sonda de `rentas` tal cual llego con
+   * `Cookie: KEYCLOAK_SESSION=…`; la misma con `credentials: 'omit'`, sin cabecera `Cookie`. Las dos
+   * sin `Authorization`, porque ninguna manda cabeceras.
+   *
+   * La sonda no necesita nada de eso para saber si el emisor contesta, y mandarle a un documento
+   * publico la sesion de quien mira es regalar lo que no se pidio. Por eso aqui se dice.
+   */
+  async function laPuertaContesta(): Promise<FallaDeLaPuerta | null> {
+    try {
+      await fetch(descubrimiento, {
+        mode: 'no-cors',
+        // Sin cache: una respuesta guardada diria que el emisor esta cuando ya no.
+        cache: 'no-store',
+        credentials: 'omit',
+        signal: AbortSignal.timeout(ESPERA_DE_LA_SONDA),
+      });
+      return null;
+    } catch (falla) {
+      return { emisor: realm, url: descubrimiento, motivo: enPalabrasDelNavegador(falla) };
+    }
+  }
+
+  const urlDeLaCuenta = (pagina: PaginaDeLaCuenta): string =>
+    `${realm}/${RUTA_DE_LA_CUENTA[pagina]}`;
+
   return {
     token: () => enMemoria,
     fijarToken,
@@ -199,7 +403,14 @@ export function crearIdentidad(configuracion: ConfiguracionDeIdentidad): Identid
       sessionStorage.removeItem(SALIDA);
     },
 
-    async entrar(): Promise<void> {
+    /**
+     * La sonda va antes de tocar `sessionStorage`: una ida que no llego a ocurrir no es una ida, y
+     * contarla en el tope gastaria los tres intentos contra un emisor que nunca los recibio.
+     */
+    async entrar(): Promise<FallaDeLaPuerta | null> {
+      const falla = await laPuertaContesta();
+      if (falla !== null) return falla;
+
       const verificador = aleatorio(64);
       const estado = aleatorio(24);
       sessionStorage.setItem(VERIFICADOR, verificador);
@@ -218,6 +429,7 @@ export function crearIdentidad(configuracion: ConfiguracionDeIdentidad): Identid
         code_challenge_method: 'S256',
       });
       window.location.assign(`${autorizacion}?${parametros.toString()}`);
+      return null;
     },
 
     /**
@@ -349,6 +561,38 @@ export function crearIdentidad(configuracion: ConfiguracionDeIdentidad): Identid
       const parametros = new URLSearchParams({ post_logout_redirect_uri: retorno });
       if (identidad !== null) parametros.set('id_token_hint', identidad);
       window.location.assign(`${fin}?${parametros.toString()}`);
+    },
+
+    urlDeLaCuenta,
+
+    /**
+     * <h2>Por que otra pestana</h2>
+     *
+     * Porque el token vive EN MEMORIA —es la decision de la cabecera de este archivo— y se muere
+     * con el documento. Irse a Keycloak en esta misma pestana tiraria la sesion de trabajo: al
+     * volver, el arranque tendria que rebotar otra vez por la puerta. Con una pestana nueva, quien
+     * mira el perfil vuelve al sistema y sigue donde estaba.
+     *
+     * <h2>Por que se mira lo que devuelve, y por que NO lleva «noopener» en las opciones</h2>
+     *
+     * Porque el sintoma que `rentas#115` vino a quitar es **que no pase nada**. Un bloqueador de
+     * ventanas emergentes puede negar la pestana, y entonces `window.open` devuelve `null`: sin
+     * mirarlo, el boton volveria a ser un `al: () => {}`, esta vez sin que se vea en el codigo. Con
+     * el `null` mirado, el peor caso es irse en esta pestana, que es feo y es visible.
+     *
+     * Y por eso mismo `noopener` **no** puede ir en la cadena de opciones: HTML manda devolver
+     * `null` cuando se pide, asi que la comprobacion de arriba daria siempre positivo y la pestana
+     * nueva no se usaria nunca. Se consigue lo mismo soltando el `opener` despues.
+     */
+    abrirLaCuenta(pagina: PaginaDeLaCuenta): void {
+      const url = urlDeLaCuenta(pagina);
+      const otra = window.open(url, '_blank');
+      if (otra === null) {
+        window.location.assign(url);
+        return;
+      }
+      // La pestana nueva no necesita poder tocar esta. Ver arriba: aqui y no en las opciones.
+      otra.opener = null;
     },
   };
 }

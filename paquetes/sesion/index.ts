@@ -13,16 +13,46 @@
  *   3. **el prefijo de las claves de `sessionStorage`**, sin el cual dos interfaces del
  *      producto servidas del mismo origen se pisan el verificador PKCE.
  *
- * <h2>Lo que ADR-0030 §3 le encarga y todavia no hace</h2>
+ * <h2>Lo que ya hace</h2>
  *
- * La **renovacion silenciosa con `prompt=none`**, las **audiencias** por sistema y el
- * ***back-channel logout*** de los cuatro. Los tres son de la etapa en que haya un segundo
- * frontend conectado: hoy hay uno, y escribir el salto entre sistemas sin nadie al otro lado
- * seria escribirlo a ciegas. `salir()` ya cierra en el emisor con `id_token_hint`, que es la
- * mitad del tercero.
+ *   · **La ida a la puerta**: codigo de autorizacion con PKCE S256, el reto calculado y no
+ *     escrito, y el `redirect_uri` en la raiz de la APLICACION que el sistema declara.
+ *   · **La sonda del emisor** (#42, de `rentas#112`): `entrar()` pregunta al documento de
+ *     descubrimiento —`no-cors`, sin cache y sin credenciales— antes de mandar el navegador, y
+ *     devuelve `FallaDeLaPuerta` si no contesta. Una ida que no ocurrio no gasta del tope.
+ *   · **El canje**, con tope de espera, comprobando el `state`, limpiando la URL siempre y
+ *     explicando cada fallo con su motivo (`Vuelta`) en vez de un `false` mudo.
+ *   · **El token en memoria** y en ningun almacenamiento; el `id_token` tambien, solo para
+ *     `id_token_hint` al salir.
+ *   · **Los dos frenos del rebote**: el tope de idas y la marca de salida.
+ *   · **Salir en el emisor**, con `id_token_hint`, para que el siguiente arranque no entre solo.
+ *   · **La consola de la cuenta** (#42, de `rentas#115`): `urlDeLaCuenta()` y `abrirLaCuenta()`
+ *     para «Mi perfil» y «Cambiar la contrasena», derivadas del realm y en otra pestana.
+ *   · **La escalera** (`peldanoDe`): de un fallo de la API a lo que hay que decir y a quien.
+ *
+ * <h2>Lo que ADR-0030 le sigue encargando y todavia no hace</h2>
+ *
+ * De §3: la **renovacion silenciosa con `prompt=none`** —el primer sistema que se abre hace el
+ * login y los otros tres obtienen su token contra la sesion del navegador—, las **audiencias**
+ * pedidas por sistema cuando un frontend llama a la API de otro, y el ***back-channel logout***
+ * del realm, que es «salir de uno sale de los cuatro». `salir()` ya cierra en el emisor con
+ * `id_token_hint`, que es la mitad del tercero. Y de §4, que enumera el paquete: el **selector de
+ * municipalidad**.
+ *
+ * Los cuatro son de la etapa en que haya un segundo frontend conectado a este paquete, y hoy **no
+ * hay ni uno**: medido en `rentas@ac379ac`, su codigo de aplicacion sigue usando su copia
+ * (`src/api/identidad.ts`) y solo importa `peldanoDe` desde una prueba de enlace. El primero sera
+ * `catastro` (`hneyra/catastro#110`). Escribir el salto entre sistemas sin nadie al otro lado
+ * seria escribirlo a ciegas.
  */
 
 export { crearIdentidad } from './identidad.ts';
-export type { ConfiguracionDeIdentidad, Identidad, Vuelta } from './identidad.ts';
+export type {
+  ConfiguracionDeIdentidad,
+  FallaDeLaPuerta,
+  Identidad,
+  PaginaDeLaCuenta,
+  Vuelta,
+} from './identidad.ts';
 export { peldanoDe } from './escalera.ts';
 export type { Peldano } from './escalera.ts';

@@ -26,7 +26,7 @@ muestra que la viola.
 |---|---|---|
 | [`@kamayuk/formato`](paquetes/formato) | fechas, importes y documento de identidad | **Existe.** 67 pruebas |
 | [`@kamayuk/api`](paquetes/api) | `solicitar()`, `descargar()` y el catálogo de errores | **Existe.** 52 pruebas |
-| [`@kamayuk/sesion`](paquetes/sesion) | OIDC con PKCE S256 y la escalera de peldaños | **Existe.** 33 pruebas |
+| [`@kamayuk/sesion`](paquetes/sesion) | OIDC con PKCE S256, la sonda del emisor, la consola de la cuenta y la escalera de peldaños | **Existe.** 45 pruebas |
 | [`@kamayuk/ui`](paquetes/ui) | tokens, tres temas por dos modos, shadcn | Vacío |
 | [`@kamayuk/shell`](paquetes/shell) | barra, árbol, paleta, enrutado, fallo | Vacío |
 | [`@kamayuk/verificaciones`](paquetes/verificaciones) | las barreras y sus muestras | **Existe.** 13 pruebas |

@@ -123,6 +123,25 @@ describe('LA MUESTRA: la guarda muerde, y se demuestra', () => {
     expect(sinComentarios("export const R = '/rentas/api/v1';")).toContain('/rentas/api');
   });
 
+  it('el rojo nombra la linea DEL ARCHIVO: un docblock de varias lineas no la corre (#42)', () => {
+    // Medido al demostrar la rotura de #42: con `'/rentas/api/v1'` escrito en la linea 297 de
+    // `paquetes/sesion/identidad.ts`, el rojo decia `identidad.ts:129` —mitad de un docblock—,
+    // porque cada comentario de bloque se sustituia por un espacio y se llevaba sus saltos de
+    // linea. Un rojo que manda a mirar la linea equivocada es el mas caro de leer que hay (#4).
+    const texto = [
+      '/**',
+      ' * uno',
+      ' * dos',
+      ' */',
+      'export const x = 1;',
+      "export const R = '/rentas/api/v1';",
+    ].join('\n');
+    const limpio = sinComentarios(texto).split('\n');
+
+    expect(limpio.length).toBe(texto.split('\n').length);
+    expect(limpio.findIndex((linea) => linea.includes('/rentas/api')) + 1).toBe(6);
+  });
+
   it('una URL no se come la linea que la sigue (el defecto del `(?<!:)`)', () => {
     // Medido en `infrastructure`: sin el limite, `https://…` hacia invisible todo lo que
     // viniera detras en esa linea, y la guarda equivalente dejo pasar un nombre prohibido en

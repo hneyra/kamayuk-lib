@@ -23,7 +23,11 @@ export const PAQUETES = join(RAIZ, 'paquetes');
  * `jdbc:postgresql://` y cualquier otro esquema.
  */
 export function sinComentarios(texto: string): string {
-  const sinBloques = texto.replace(/\/\*[\s\S]*?\*\//g, ' ');
+  // Cada comentario de bloque se vacia CONSERVANDO sus saltos de linea (#42). Sustituido por un
+  // solo espacio se llevaba sus lineas con el, cada docblock restaba las suyas a todo lo de debajo
+  // y el rojo de las guardas nombraba una linea que no era: medido, `identidad.ts:129` para un
+  // `'/rentas/api/v1'` escrito en la 297; la 129 cae en mitad del docblock de `FallaDeLaPuerta`.
+  const sinBloques = texto.replace(/\/\*[\s\S]*?\*\//g, (bloque) => bloque.replace(/[^\n]/g, ' '));
   return sinBloques
     .split('\n')
     .map((linea) => {

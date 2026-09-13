@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { crearIdentidad, type Identidad } from './identidad.ts';
+import { crearIdentidad, type FallaDeLaPuerta, type Identidad } from './identidad.ts';
 
 /**
  * La puerta de identidad: **PKCE S256, y el token en memoria**.
@@ -23,6 +23,15 @@ import { crearIdentidad, type Identidad } from './identidad.ts';
  * El ultimo bloque, que es la razon de que este archivo sea una fabrica y no un modulo con
  * estado: **dos sistemas servidos del mismo origen no se pisan**. Sin esa propiedad, abrir
  * `/rentas/` y `/caja/` en la misma pestana rompia el canje del primero sin decir por que.
+ *
+ * <h2>Lo que se porta de `rentas` en #42</h2>
+ *
+ * Los dos ultimos bloques salen de `rentas/frontend/src/api/identidad.test.ts` (`ac379ac`): la
+ * sonda (`rentas#112`) y la consola de la cuenta (`rentas#115`), adaptados a `crearIdentidad`.
+ * Donde alli se cambiaba el global `__KAMAYUK_RENTAS__` para ver que las URL se movian con el
+ * emisor, aqui se construye otra instancia con otro `realm`: es la misma pregunta —¿sale del
+ * emisor o de un literal?— hecha a una fabrica. Y se anade lo que la copia de `rentas` no tiene:
+ * que la sonda **no mande credenciales**.
  */
 
 const REALM = 'http://localhost:8181/realms/kamayuk';
@@ -66,10 +75,34 @@ async function retoEsperado(verificador: string): Promise<string> {
   return btoa(texto).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+/**
+ * **El emisor contesta la sonda**, que es lo que `entrar()` pregunta antes de navegar (#42).
+ *
+ * Va en el `beforeEach` porque es el estado normal: con el emisor levantado, `entrar()` hace lo
+ * de siempre. Sin este doble, cada `entrar()` de este archivo saldria a `localhost:8181` de
+ * verdad, no encontraria nada, y la sonda diria —con razon— que no hay emisor.
+ *
+ * Devuelve una respuesta opaca porque la sonda va con `mode: 'no-cors'` y **no la lee**: lo unico
+ * que le importa es que el `fetch` no reviente.
+ */
+function elEmisorContesta() {
+  const espia = vi.fn<typeof fetch>(() => Promise.resolve(new Response(null, { status: 200 })));
+  vi.stubGlobal('fetch', espia);
+  return espia;
+}
+
+/** El emisor no contesta: el `fetch` revienta como revienta en el navegador. */
+function elEmisorNoContesta(falla: unknown = new TypeError('Failed to fetch')) {
+  const espia = vi.fn<typeof fetch>(() => Promise.reject(falla));
+  vi.stubGlobal('fetch', espia);
+  return espia;
+}
+
 beforeEach(() => {
   sessionStorage.clear();
   localStorage.clear();
   identidad = crearIdentidad(CONFIGURACION);
+  elEmisorContesta();
 });
 
 afterEach(() => {
@@ -365,5 +398,189 @@ describe('dos sistemas del mismo origen no se pisan (lo que la fabrica existe pa
 
     expect(identidad.puedeIrALaPuerta()).toBe(false);
     expect(caja.puedeIrALaPuerta()).toBe(true);
+  });
+});
+
+/** Otro emisor, para ver que lo que se deriva del realm se mueve con el. */
+const OTRO_REALM = 'https://identidad.catacaos.gob.pe/realms/kamayuk';
+
+/** Una identidad de otro sistema contra OTRO emisor: lo que hace cada ambiente con la suya. */
+function conOtroEmisor(): Identidad {
+  return crearIdentidad({ ...CONFIGURACION, realm: OTRO_REALM, prefijoDeClaves: 'kamayuk.caja' });
+}
+
+/**
+ * **La sonda: si el emisor no esta, `entrar()` no navega y lo dice** (#42, de `rentas#112`).
+ *
+ * El defecto que cierra no da ningun sintoma: la navegacion se rechaza, no hay documento nuevo ni
+ * aplicacion, y queda la pagina de antes en blanco con la consola limpia.
+ */
+describe('antes de mandar el navegador, se pregunta si el emisor esta', () => {
+  it('con el emisor caido NO navega, y devuelve quien no contesto y en que URL', async () => {
+    const asignar = ubicacion();
+    elEmisorNoContesta();
+
+    const falla = await identidad.entrar();
+
+    expect(asignar, 'navego hacia un emisor que no contesta').not.toHaveBeenCalled();
+    expect(falla?.emisor).toBe(REALM);
+    expect(falla?.url).toBe(`${REALM}/.well-known/openid-configuration`);
+    expect(falla?.motivo).toBe('Failed to fetch');
+  });
+
+  it('y una espera agotada se cuenta igual, con su motivo en vez del del navegador', async () => {
+    const asignar = ubicacion();
+    const agotada = new Error('the operation was aborted');
+    agotada.name = 'TimeoutError';
+    elEmisorNoContesta(agotada);
+
+    const falla = await identidad.entrar();
+
+    expect(asignar).not.toHaveBeenCalled();
+    expect(falla?.motivo).toContain('no contesto en');
+  });
+
+  it('una ida que no ocurrio NO gasta una del tope: el emisor no la recibio', async () => {
+    ubicacion();
+    elEmisorNoContesta();
+
+    await identidad.entrar();
+    await identidad.entrar();
+    await identidad.entrar();
+
+    // Si contara, tres recargas con la plataforma apagada dejarian la puerta cerrada por un tope
+    // que existe para frenar un rebote — y aqui no hubo ni un rebote.
+    expect(identidad.puedeIrALaPuerta()).toBe(true);
+    expect(sessionStorage.getItem(IDAS)).toBeNull();
+    // Y nada del rebote se escribio: la sonda va ANTES de tocar el almacenamiento, asi que un
+    // verificador guardado aqui seria el de una ida que nunca salio.
+    expect(Object.keys(sessionStorage)).toEqual([]);
+  });
+
+  it('con el emisor vivo la sonda pide el descubrimiento, sin leerlo y sin cache', async () => {
+    ubicacion();
+    const espia = elEmisorContesta();
+
+    const falla = await identidad.entrar();
+
+    expect(falla).toBeNull();
+    const [url, opciones] = espia.mock.calls[0] ?? [];
+    expect(String(url)).toBe(`${REALM}/.well-known/openid-configuration`);
+    // `no-cors` porque la respuesta no se lee: la pregunta es si el navegador LLEGA, que es lo
+    // mismo que decide si `assign` aterriza. Leyendola exigiria CORS del emisor, y un
+    // intermediario que no lo publique convertiria un emisor vivo en una pantalla de error.
+    expect(opciones?.mode).toBe('no-cors');
+    expect(opciones?.cache).toBe('no-store');
+  });
+
+  it('y la sonda NO es el punto de autorizacion: no se abre una sesion para tirarla', async () => {
+    ubicacion();
+    const espia = elEmisorContesta();
+
+    await identidad.entrar();
+
+    expect(String(espia.mock.calls[0]?.[0])).not.toContain('/protocol/openid-connect/auth');
+  });
+
+  it('y NO manda credenciales: ni cookies del emisor ni el token, aunque lo haya', async () => {
+    ubicacion();
+    const espia = elEmisorContesta();
+    // Con un token puesto, que es cuando mandarlo por descuido costaria algo.
+    identidad.fijarToken('un-token', 'una-identidad');
+
+    await identidad.entrar();
+
+    const [, opciones] = espia.mock.calls[0] ?? [];
+    // Sin esto `fetch` pone `same-origin`, y en el cluster el emisor comparte origen con la
+    // interfaz (`https://<dominio>/keycloak/…`): la sonda llevaria las cookies de la sesion del
+    // emisor. Medido en Chromium, no supuesto — ver `laPuertaContesta()`.
+    expect(opciones?.credentials).toBe('omit');
+    expect(opciones?.headers).toBeUndefined();
+  });
+
+  it('y pregunta al emisor DE ESTA instancia: la URL sale del realm, no de un literal', async () => {
+    const asignar = ubicacion();
+    const otra = conOtroEmisor();
+    const espia = elEmisorNoContesta();
+
+    const falla: FallaDeLaPuerta | null = await otra.entrar();
+
+    expect(asignar).not.toHaveBeenCalled();
+    expect(String(espia.mock.calls[0]?.[0])).toBe(
+      `${OTRO_REALM}/.well-known/openid-configuration`,
+    );
+    expect(falla).toEqual({
+      emisor: OTRO_REALM,
+      url: `${OTRO_REALM}/.well-known/openid-configuration`,
+      motivo: 'Failed to fetch',
+    });
+  });
+});
+
+/**
+ * **La cuenta la lleva el emisor, y a ella se llega derivando** (#42, de `rentas#115`).
+ *
+ * Lo que se mide aqui es lo unico que se puede medir sin la plataforma levantada: que las dos URL
+ * **salgan del realm configurado** y no de una cadena escrita a mano, y que pulsar haga algo
+ * siempre. Que un Keycloak vivo conteste 200 en esas dos rutas NO se comprobo; lo que sostiene la
+ * ruta es el codigo de `keycloak:26.0`, citado archivo y linea en `identidad.ts`. Y que el menu de
+ * un sistema llegue a llamar a `abrirLaCuenta()` es de ese sistema: en `rentas` lo mide
+ * `e2e/la-cuenta-la-lleva-el-emisor.spec.ts`, en un navegador.
+ */
+describe('«Mi perfil» y «Cambiar la contrasena» llevan a la consola del emisor', () => {
+  it('las dos URL cuelgan del REALM configurado', () => {
+    // El mismo prefijo del que salen `auth`, `token` y `logout`. Y eso es lo que las hace
+    // honestas: si ese origen no fuera alcanzable, nadie habria entrado al sistema.
+    expect(identidad.urlDeLaCuenta('perfil')).toBe(`${REALM}/account/`);
+    expect(identidad.urlDeLaCuenta('contrasena')).toBe(
+      `${REALM}/account/account-security/signing-in`,
+    );
+  });
+
+  it('y SIGUEN al realm de la configuracion: no estan escritas a mano', () => {
+    // Esta es la mitad que la comprobacion de arriba no puede hacer: un literal copiado del realm
+    // de las pruebas la pasa entera. Aqui se construye otra identidad con otro emisor —lo que
+    // hace cada ambiente— y las dos URL tienen que moverse con el. Si no, la libreria serviria a
+    // un ambiente, que es justo lo que `rentas#44` saco de su imagen.
+    const otra = conOtroEmisor();
+
+    expect(otra.urlDeLaCuenta('perfil')).toBe(`${OTRO_REALM}/account/`);
+    expect(otra.urlDeLaCuenta('contrasena')).toBe(
+      `${OTRO_REALM}/account/account-security/signing-in`,
+    );
+    // Y la de la primera no se movio: el realm vive en la instancia.
+    expect(identidad.urlDeLaCuenta('perfil')).toBe(`${REALM}/account/`);
+  });
+
+  it('«Mi perfil» lleva a la ruta INDICE, con su barra: es la que el servidor da como base', () => {
+    // Sin la barra final, el camino que el navegador lleva no es el `baseUrl` que Keycloak le
+    // pasa a su consola (`AccountConsole.java:119`), y el enrutador compara contra ese.
+    expect(identidad.urlDeLaCuenta('perfil').endsWith('/account/')).toBe(true);
+  });
+
+  it('abre en OTRA pestana: el token vive en memoria y se muere con el documento', () => {
+    const asignar = ubicacion();
+    const otra = { opener: {} } as unknown as Window;
+    const abrir = vi.fn(() => otra);
+    vi.stubGlobal('open', abrir);
+
+    identidad.abrirLaCuenta('contrasena');
+
+    expect(abrir).toHaveBeenCalledWith(identidad.urlDeLaCuenta('contrasena'), '_blank');
+    // Y esta pestana no se mueve: la sesion de trabajo sigue donde estaba.
+    expect(asignar).not.toHaveBeenCalled();
+    // Sin `noopener` en las opciones —eso haria devolver `null` siempre— pero soltando el opener.
+    expect(otra.opener).toBeNull();
+  });
+
+  it('y si el navegador NIEGA la pestana, va en esta en vez de no hacer nada', () => {
+    // Un bloqueador de emergentes devuelve `null`, y sin mirarlo el boton volveria a ser un
+    // `al: () => {}` — esta vez sin verse en el codigo.
+    const asignar = ubicacion();
+    vi.stubGlobal('open', vi.fn(() => null));
+
+    identidad.abrirLaCuenta('perfil');
+
+    expect(asignar).toHaveBeenCalledWith(identidad.urlDeLaCuenta('perfil'));
   });
 });
