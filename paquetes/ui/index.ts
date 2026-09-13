@@ -13,9 +13,16 @@
  * · **`Chart` y `DataTable`.** Cada uno arrastra una libreria entera —recharts, TanStack Table— y
  *   el artboard los declara para PANTALLAS CONCRETAS, no para la espina del interprete. Entran con
  *   la pantalla que los pide.
- * · **Las caras tipograficas.** El artboard no carga ninguna webfont: pide
- *   `Arial, Helvetica, sans-serif`. Los dos `woff2` de Source Sans 3 que `normativa` y `catastro`
- *   duplican byte a byte entraran como punto de entrada aparte, para quien los quiera.
+ * · **Las caras tipograficas, y aqui NO hay promesa escrita (#24).** El artboard no carga ninguna
+ *   webfont: pide `Arial, Helvetica, sans-serif`, y el unico consumidor de hoy —`rentas`— tiene
+ *   una guarda propia que le prohibe las webfonts, asi que nadie las pide. Hasta #24, `exports`
+ *   declaraba `"./fuentes": "./fuentes/fuentes.css"` **sin que `fuentes/` existiera**: quien
+ *   escribiera `@import '@kamayuk/ui/fuentes'` no recibia una fuente sin cara, recibia un fallo de
+ *   resolucion. La entrada SALIO, y lo que queda dicho es lo que hay: aqui no viaja ni un `woff2`.
+ *   Los dos de Source Sans 3 que `normativa` y `catastro` duplican byte a byte —**88 840 B**—
+ *   siguen en sus dos repositorios, y quien decide si esta entrada hace falta es **el segundo
+ *   consumidor** (#28 AC-3), que es la misma regla con la que #11 dejo fuera `Chart` y `DataTable`:
+ *   entra con su archivo y con quien lo pida, no como promesa.
  */
 
 export { TEXTOS_DE_LA_UI } from './textos.tsx';

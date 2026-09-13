@@ -8,8 +8,7 @@
   "main": "index.ts",
   "exports": {
     ".": "./index.ts",
-    "./estilos.css": "./estilos/estilos.css",
-    "./fuentes": "./fuentes/fuentes.css"
+    "./estilos.css": "./estilos/estilos.css"
   },
   "peerDependencies": {
     "class-variance-authority": "^0.7.1",
