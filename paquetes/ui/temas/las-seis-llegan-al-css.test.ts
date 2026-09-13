@@ -134,9 +134,18 @@ function bloqueDe(plano: string, selector: string): string {
  * Cuantos `@layer` quedan abiertos en ese punto del CSS.
  *
  * Es la mitad silenciosa del asunto. `@theme` emite sus `--color-*` dentro de `@layer theme`, y lo
- * que hace que las seis paletas GANEN es entrar sin capa: lo no encapado le gana a cualquier capa,
- * pase lo que pase con el orden de los `@import`. Envuelto en un `@layer`, el CSS trae las 228
- * declaraciones, las tres guardas de arriba siguen verdes y la pantalla no cambia de color.
+ * que hace que las seis paletas GANEN es entrar sin capa: lo no encapado le gana a cualquier capa
+ * **con independencia del orden y de la especificidad**.
+ *
+ * **Este docblock decia «envuelto en un `@layer` … la pantalla no cambia de color», y es falso.**
+ * Medido con `@import "./temas.css" layer(theme);` puesto: las nueve reglas caen en un SEGUNDO
+ * bloque `@layer theme` posterior al del `@theme`, dentro de una misma capa gana lo que va despues,
+ * y ademas `[data-tema='alto-contraste']` y `[data-tema='sepia']` pesan mas que `:root, :host`. En
+ * un navegador siguen pintando las seis.
+ *
+ * Asi que lo que mide esta funcion no es «si pintan» sino **de que depende que pinten**: encapadas
+ * pintan por esas dos casualidades, que no vigila nadie, y el dia que cambie cualquiera el fallo es
+ * silencioso. Fuera de capa no hay nada que pueda cambiar.
  */
 function capasAbiertasEn(plano: string, indice: number): number {
   const pila: boolean[] = [];
@@ -243,7 +252,7 @@ describe('las seis paletas llegan al CSS emitido', () => {
     ).toBe(3);
   });
 
-  it('y entran SIN capa, que es lo que hace que le ganen al `@theme`', async () => {
+  it('y entran SIN capa, que es lo que hace que le ganen al `@theme` POR REGLA', async () => {
     const plano = aplanar(await compilar(['bg-fondo']));
     const encapadas = COMBINACIONES.flatMap((clave) =>
       (SELECTORES[clave] ?? [])
@@ -254,9 +263,65 @@ describe('las seis paletas llegan al CSS emitido', () => {
       encapadas,
       'Hay paletas emitidas DENTRO de una capa:\n' +
         `${encapadas.join('\n')}\n\n` +
-        '  `@theme` emite sus `--color-*` en `@layer theme`, y lo que hace que estas le ganen es\n' +
-        '  entrar sin capa. Encapadas, el CSS trae las 228 declaraciones y la pantalla no cambia\n' +
-        '  de color — con todas las demas guardas en verde.',
+        '  No es que asi no pinten: HOY pintan, y esta medido — caen en un segundo `@layer theme`\n' +
+        '  posterior al del `@theme`, dentro de una misma capa gana lo que va despues, y los\n' +
+        '  selectores de tema pesan mas que `:root, :host`. El problema es que entonces pintan por\n' +
+        '  esas DOS casualidades y no por una regla: el orden en que Tailwind emite los bloques y\n' +
+        '  el peso de los selectores. Cambie cualquiera de las dos y el fallo es silencioso.\n' +
+        '  Fuera de capa ganan por la cascada y no hay nada que pueda cambiar.',
     ).toEqual([]);
+  });
+
+  /**
+   * **El centinela de la prueba de arriba: que HAYA a quien ganarle.**
+   *
+   * «Entrar sin capa es lo que hace que le ganen al `@theme`» presupone que el `@theme` emite algo
+   * dentro de `@layer theme`. Y **Tailwind v4 PODA del `@theme` los tokens que ninguna utilidad
+   * usa**: medido con esta misma hoja y este mismo `compilar()`, con `['bg-fondo']` el bloque
+   * `:root, :host` de la capa trae `--color-fondo: #f2f6f9;` y con `[]` **no lo trae**, aunque el
+   * bloque siga ahi con sus `--font-*`.
+   *
+   * O sea que el dia que la lista de clases que se compila deje de usar un color —un renombrado,
+   * una utilidad que se quita— la prueba de la capa seguiria verde **sin tener enfrente ni una
+   * declaracion del `@theme`**: verde por vacia, que es la forma en que una guarda se queda sin
+   * sujeto sin que nadie se entere. Es el mismo modo de fallo que #23 vino a cerrar, una vuelta
+   * mas adentro.
+   */
+  it('EL CENTINELA DE LA CAPA: el `@theme` emite el color al que las paletas le ganan', async () => {
+    const plano = aplanar(await compilar(['bg-fondo']));
+    const DEL_THEME = ':root, :host {';
+    const donde = plano.indexOf(DEL_THEME);
+    expect(donde, 'el `@theme` no emitio su regla `:root, :host`').toBeGreaterThan(-1);
+    expect(
+      capasAbiertasEn(plano, donde),
+      'el `@theme` dejo de emitirse dentro de una capa: si ya no esta encapado, la prueba de ' +
+        'arriba compara contra algo que ya no es una capa y deja de decir lo que dice',
+    ).toBeGreaterThan(0);
+    expect(
+      bloqueDe(plano, DEL_THEME),
+      'El `@theme` no emitio `--color-fondo`, asi que la prueba de la capa no tiene contra quien ' +
+        'ganar y pasaria en verde POR VACIA. Tailwind poda los tokens del `@theme` que ninguna ' +
+        'utilidad usa: la lista de clases con la que se compila aqui tiene que seguir usando un ' +
+        'color del artboard.',
+    ).toContain('--color-fondo: #f2f6f9;');
+  });
+
+  it('y la poda es real, que es POR QUE hace falta ese centinela', async () => {
+    // Sin esta prueba, el centinela de arriba seria una precaucion sin medir. Compilado lo MISMO
+    // sin ninguna clase, el bloque del `@theme` sigue estando —con sus `--font-*`— y el color ya
+    // no: eso es exactamente lo que dejaria la comprobacion de la capa sin sujeto.
+    const sinClases = aplanar(await compilar([]));
+    expect(sinClases, 'la hoja dejo de compilar sin clases').toContain(':root, :host {');
+    expect(
+      bloqueDe(sinClases, ':root, :host {'),
+      'Tailwind ha dejado de podar los tokens del `@theme` que nadie usa. Es una buena noticia y ' +
+        'deja obsoleto el centinela de arriba, pero hay que enterarse: esta prueba es la que lo ' +
+        'dice.',
+    ).not.toContain('--color-fondo');
+    // Y las paletas NO se podan: son CSS corriente, no tokens del `@theme`. Si esto cambiara, la
+    // guarda entera estaria midiendo otra cosa.
+    expect(sinClases, 'las paletas se podaron: ya no son CSS corriente').toContain(
+      "[data-tema='sepia']",
+    );
   });
 });
