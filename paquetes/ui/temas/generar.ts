@@ -27,11 +27,26 @@ function selector(clave: string): string {
   );
 }
 
+/**
+ * Lo que el AGENTE DE USUARIO tiene que saber, y que ningun `--color-*` le dice (#33).
+ *
+ * Los 38 tokens son lo que pinta la hoja; `color-scheme` es lo que pinta el navegador POR SU
+ * CUENTA: los controles de formulario sin estilar, la barra de desplazamiento, el resaltado de los
+ * menus nativos y el fondo del lienzo antes de que el CSS cargue. Sin esta propiedad la pantalla
+ * se oscurece entera menos eso, que se queda blanco — medido en #33.
+ *
+ * Va DENTRO de cada bloque oscuro, y por eso son seis sitios y no uno: los dos ejes son
+ * independientes, asi que el oscuro llega por dos caminos —el del equipo y el elegido— para cada
+ * una de las tres identidades. Una sola declaracion suelta no podria decir «oscuro» solo cuando
+ * toca, que es justo lo que el `color-scheme: light` de `estilos.css` hace mal por sitio.
+ */
+const ESQUEMA_OSCURO = '    color-scheme: dark;';
+
 export function generar(base: ReadonlyMap<string, string>): string {
   const bloques: string[] = [];
   for (const clave of COMBINACIONES) {
     const paleta = derivar(base, clave);
-    const cuerpo = [...paleta]
+    const colores = [...paleta]
       .map(([n, v]) => `    --color-${n.slice(2)}: ${v};`)
       .join('\n');
     const [identidad, modo] = clave.split('/');
@@ -39,10 +54,13 @@ export function generar(base: ReadonlyMap<string, string>): string {
     const raiz = identidad === 'institucional' ? ':root' : `[data-tema='${identidad ?? ''}']`;
 
     if (!esOscuro) {
+      // El claro NO declara `color-scheme`: el `:root` de `estilos.css` ya dice `light`, que es el
+      // valor por omision y el que el artboard declara. Repetirlo aqui seria una segunda fuente.
       const sel = identidad === 'institucional' ? `:root,\n[data-tema='institucional']` : raiz;
-      bloques.push(`/* ${clave} */\n${sel} {\n${cuerpo}\n}`);
+      bloques.push(`/* ${clave} */\n${sel} {\n${colores}\n}`);
       continue;
     }
+    const cuerpo = `${ESQUEMA_OSCURO}\n${colores}`;
     bloques.push(
       `/* ${clave} — para quien no ha elegido modo */\n@media (prefers-color-scheme: dark) {\n  ${raiz}:not([data-modo='claro']) {\n${cuerpo
         .split('\n')
@@ -69,6 +87,12 @@ const CABECERA = `/* ===========================================================
    El oscuro se escribe dos veces —bajo \`prefers-color-scheme\` y bajo \`[data-modo='oscuro']\`—
    y el primero lleva \`:not([data-modo='claro'])\`: sin eso, quien pide claro en un equipo puesto
    en oscuro no podria salir de ahi.
+
+   Y los TRES bloques oscuros —los seis sitios, contando ese duplicado— declaran ademas
+   \`color-scheme: dark\` (#33). Los \`--color-*\` pintan lo que pinta la hoja; \`color-scheme\`
+   pinta lo que dibuja el navegador por su cuenta: controles nativos, barra de desplazamiento y
+   fondo del lienzo. Sin ella la pantalla se oscurece entera menos eso. El claro no la declara: el
+   \`:root\` de \`estilos.css\` ya dice \`light\`, que es el valor por omision.
    ============================================================================ */
 `;
 

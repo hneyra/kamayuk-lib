@@ -13,6 +13,12 @@
    El oscuro se escribe dos veces —bajo `prefers-color-scheme` y bajo `[data-modo='oscuro']`—
    y el primero lleva `:not([data-modo='claro'])`: sin eso, quien pide claro en un equipo puesto
    en oscuro no podria salir de ahi.
+
+   Y los TRES bloques oscuros —los seis sitios, contando ese duplicado— declaran ademas
+   `color-scheme: dark` (#33). Los `--color-*` pintan lo que pinta la hoja; `color-scheme`
+   pinta lo que dibuja el navegador por su cuenta: controles nativos, barra de desplazamiento y
+   fondo del lienzo. Sin ella la pantalla se oscurece entera menos eso. El claro no la declara: el
+   `:root` de `estilos.css` ya dice `light`, que es el valor por omision.
    ============================================================================ */
 
 /* institucional/claro */
@@ -61,6 +67,7 @@
 /* institucional/oscuro — para quien no ha elegido modo */
 @media (prefers-color-scheme: dark) {
   :root:not([data-modo='claro']) {
+      color-scheme: dark;
       --color-fondo: #111213;
       --color-superficie: #1b1b1b;
       --color-sup: #151718;
@@ -104,6 +111,7 @@
 
 /* institucional/oscuro — para quien lo eligio */
 :root[data-modo='oscuro'] {
+    color-scheme: dark;
     --color-fondo: #111213;
     --color-superficie: #1b1b1b;
     --color-sup: #151718;
@@ -189,6 +197,7 @@
 /* alto-contraste/oscuro — para quien no ha elegido modo */
 @media (prefers-color-scheme: dark) {
   [data-tema='alto-contraste']:not([data-modo='claro']) {
+      color-scheme: dark;
       --color-fondo: #060707;
       --color-superficie: #0d0d0d;
       --color-sup: #090a0a;
@@ -232,6 +241,7 @@
 
 /* alto-contraste/oscuro — para quien lo eligio */
 [data-tema='alto-contraste'][data-modo='oscuro'] {
+    color-scheme: dark;
     --color-fondo: #060707;
     --color-superficie: #0d0d0d;
     --color-sup: #090a0a;
@@ -317,6 +327,7 @@
 /* sepia/oscuro — para quien no ha elegido modo */
 @media (prefers-color-scheme: dark) {
   [data-tema='sepia']:not([data-modo='claro']) {
+      color-scheme: dark;
       --color-fondo: #1c1813;
       --color-superficie: #231e19;
       --color-sup: #201b16;
@@ -360,6 +371,7 @@
 
 /* sepia/oscuro — para quien lo eligio */
 [data-tema='sepia'][data-modo='oscuro'] {
+    color-scheme: dark;
     --color-fondo: #1c1813;
     --color-superficie: #231e19;
     --color-sup: #201b16;

@@ -45,6 +45,15 @@ import { COMBINACIONES, derivar } from './derivar.ts';
  * lo escribe, no contra la raiz del paquete. No es un detalle: con la `base` puesta en la raiz,
  * `./temas.css` se busca en `paquetes/ui/temas.css` y la compilacion revienta con un `ENOENT`
  * sobre un archivo que nadie nombro.
+ *
+ * <h2>Y que digan `color-scheme: dark`, que no es un color</h2>
+ *
+ * Desde #33 se mide aqui una cosa mas: que los tres bloques oscuros declaren `color-scheme: dark`.
+ * Llegar con los 38 colores no basta — lo que el navegador dibuja por su cuenta (controles
+ * nativos, barra de desplazamiento, fondo previo del lienzo) lo decide esa propiedad y nada mas, y
+ * hasta #33 el documento decia `light` siempre. Se mide en el mismo sitio y por el mismo motivo:
+ * `temas.css` es archivo generado, asi que leer `temas/generar.ts` dejaria pasar un `temas.css` sin
+ * regenerar, y leer `temas.css` dejaria pasar un `@import` roto.
  */
 
 const requerir = createRequire(import.meta.url);
@@ -128,6 +137,21 @@ function bloqueDe(plano: string, selector: string): string {
   const cuerpo = plano.slice(inicio + selector.length);
   const fin = cuerpo.indexOf('}');
   return fin < 0 ? cuerpo : cuerpo.slice(0, fin);
+}
+
+/**
+ * El valor de la PROPIEDAD `color-scheme` dentro de un bloque ya aplanado, o `''` si no la declara.
+ *
+ * Se busca la propiedad y no la cadena, y ese es el punto entero (#33). En el CSS emitido la cadena
+ * `color-scheme` sale **diez** veces: las seis declaraciones de los bloques oscuros, la `light` del
+ * `:root` de `estilos.css` y las **tres** de `@media (prefers-color-scheme: dark)`, que no son una
+ * declaracion de nada. Una guarda que contara apariciones —que es lo que el issue midio con
+ * `grep -c`, dando 4 sobre un archivo donde la propiedad no estaba ni una vez— saldria verde con el
+ * defecto puesto. Por eso se ancla al principio del bloque o a un `;`: dentro del preludio de un
+ * `@media` no hay ninguno de los dos.
+ */
+function esquemaDeColorDe(bloque: string): string {
+  return (/(?:^|;)\s*color-scheme\s*:\s*([^;}]+)/.exec(bloque)?.[1] ?? '').trim();
 }
 
 /**
@@ -250,6 +274,94 @@ describe('las seis paletas llegan al CSS emitido', () => {
       plano.split('@media (prefers-color-scheme: dark)').length - 1,
       'el oscuro del sistema no llega para las tres identidades',
     ).toBe(3);
+  });
+
+  /**
+   * **Los tres bloques oscuros declaran `color-scheme: dark`** (#33).
+   *
+   * Los 38 `--color-*` son lo que pinta la hoja. `color-scheme` es lo que pinta el navegador por su
+   * cuenta: los controles de formulario sin estilar, la barra de desplazamiento, el resaltado de
+   * los menus nativos y el fondo del lienzo antes de que el CSS cargue. Hasta #33 el unico
+   * `color-scheme` que llegaba al documento era el `light` de `estilos.css`, y llegaba SIEMPRE: con
+   * el equipo en oscuro la paleta se oscurecia entera y eso se quedaba blanco.
+   *
+   * Se mide sobre el CSS EMITIDO y no sobre `temas/generar.ts`, y es la leccion de #23: el archivo
+   * fuente puede ser perfecto y no llegar. Aqui ademas hay un segundo camino por el que perderse —
+   * `temas.css` es archivo generado— y leer el generador dejaria pasar un `temas.css` sin regenerar.
+   */
+  it('los TRES bloques oscuros declaran `color-scheme: dark`, y el claro no', async () => {
+    const plano = aplanar(await compilar(['bg-fondo']));
+
+    const mal: string[] = [];
+    let oscurosMedidos = 0;
+    let clarosMedidos = 0;
+    for (const clave of COMBINACIONES) {
+      const esOscuro = clave.endsWith('/oscuro');
+      for (const selector of SELECTORES[clave] ?? []) {
+        if (!plano.includes(selector)) {
+          mal.push(`  ${clave}: el CSS emitido no trae «${sinLlave(selector)}»`);
+          continue;
+        }
+        if (esOscuro) oscurosMedidos++;
+        else clarosMedidos++;
+        const declarado = esquemaDeColorDe(bloqueDe(plano, selector));
+        const dicho = declarado === '' ? 'no declara `color-scheme`' : `declara \`${declarado}\``;
+        if (esOscuro && declarado !== 'dark') {
+          mal.push(`  ${clave}: «${sinLlave(selector)}» ${dicho}, y tiene que declarar \`dark\``);
+        }
+        if (!esOscuro && declarado !== '') {
+          mal.push(
+            `  ${clave}: «${sinLlave(selector)}» ${dicho}, y el claro no declara ninguno: el ` +
+              '`:root` de `estilos.css` ya dice `light`',
+          );
+        }
+      }
+    }
+
+    expect(
+      mal,
+      'El oscuro no se lo dice al navegador:\n' +
+        `${mal.join('\n')}\n\n` +
+        '  La propiedad sale de `temas/generar.ts`, en los tres bloques oscuros y por duplicado\n' +
+        "  cada uno —bajo `prefers-color-scheme` y bajo `[data-modo='oscuro']`—, o sea SEIS sitios.\n" +
+        '  Y `estilos/temas.css` es archivo generado: se regenera con\n' +
+        '    KAMAYUK_REGENERAR=1 yarn vitest run paquetes/ui/temas\n' +
+        '  Sin ella la paleta se oscurece y los controles nativos, la barra de desplazamiento y el\n' +
+        '  fondo previo del lienzo se quedan CLAROS (#33).',
+    ).toEqual([]);
+
+    // Y que se hayan medido los nueve bloques, no un subconjunto: sin esto, unos selectores que
+    // dejaran de encontrarse dejarian la comprobacion pasando sobre lo poco que quedara.
+    expect([oscurosMedidos, clarosMedidos], 'no se midieron los seis oscuros y los tres claros').toEqual(
+      [6, 3],
+    );
+
+    // El otro extremo del asunto: el `light` del documento SE QUEDA. Es el valor por omision y el
+    // que el artboard declara, y es contra el que los seis bloques oscuros tienen que ganar.
+    expect(
+      esquemaDeColorDe(bloqueDe(plano, ':root {')),
+      'el `:root` de `estilos.css` dejo de declarar `color-scheme: light`',
+    ).toBe('light');
+  });
+
+  /**
+   * **El centinela de la prueba de arriba: la cadena suelta no cuenta.**
+   *
+   * `color-scheme` aparece en el CSS emitido dentro del preludio de cada `@media
+   * (prefers-color-scheme: dark)`, que no declara nada. Si `esquemaDeColorDe` se dejara enganar por
+   * eso, los tres bloques del sistema saldrian verdes **por el texto de su propio `@media`** y el
+   * defecto de #33 volveria a pasar desapercibido en la mitad de los sitios. Que es, con otra
+   * forma, el `grep -c` que daba 4 sobre un archivo sin ni una declaracion.
+   */
+  it('EL CENTINELA DEL ESQUEMA: se mide la propiedad, no la cadena', () => {
+    expect(
+      esquemaDeColorDe('@media (prefers-color-scheme: dark) { '),
+      'el preludio de un `@media` no declara nada, y aqui contaria como declaracion',
+    ).toBe('');
+    expect(esquemaDeColorDe(' --color-fondo: #111213; '), 'un bloque sin la propiedad').toBe('');
+    expect(esquemaDeColorDe(' color-scheme: dark; --color-fondo: #111213; ')).toBe('dark');
+    expect(esquemaDeColorDe(' --color-fondo: #111213; color-scheme: dark; ')).toBe('dark');
+    expect(esquemaDeColorDe(' color-scheme: light; --radius: 3px; ')).toBe('light');
   });
 
   it('y entran SIN capa, que es lo que hace que le ganen al `@theme` POR REGLA', async () => {
