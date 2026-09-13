@@ -95,16 +95,20 @@ function PantallaDePrueba({ clave }: { readonly clave: string }) {
   );
 }
 
-function montar(
-  opciones: {
-    readonly catalogo?: Catalogo;
-    readonly hash?: string;
-    readonly acciones?: ConfiguracionDelArmazon['acciones'];
-  } = {},
-) {
-  const { catalogo = CATALOGO, hash = '', acciones } = opciones;
-  window.location.hash = hash;
-  return render(
+interface OpcionesDeMontaje {
+  readonly catalogo?: Catalogo;
+  readonly hash?: string;
+  readonly acciones?: ConfiguracionDelArmazon['acciones'];
+}
+
+/**
+ * El armazon con la misma configuracion de siempre, SIN montarlo.
+ *
+ * Existe aparte de `montar` para poder volver a pintarlo con otro catalogo —que es el caso del
+ * `rerender`— sin repetir las ocho propiedades. Lo que `montar` hacia sigue haciendolo igual.
+ */
+function armazonDePrueba({ catalogo = CATALOGO, acciones }: OpcionesDeMontaje = {}) {
+  return (
     <Armazon
       titulo="Sistema de prueba"
       entidad="Entidad de prueba"
@@ -114,8 +118,13 @@ function montar(
       pantalla={(hoja) => <PantallaDePrueba clave={hoja.destino.clave} />}
       acciones={acciones}
       pieDelCarril="Dos modulos inventados."
-    />,
+    />
   );
+}
+
+function montar(opciones: OpcionesDeMontaje = {}) {
+  window.location.hash = opciones.hash ?? '';
+  return render(armazonDePrueba(opciones));
 }
 
 /** Abre el modulo en el arbol y pulsa una de sus hojas. */
@@ -480,5 +489,143 @@ describe('EL AC8: las acciones al pie las decide el dato', () => {
     montar({ hash: '#/alm-panel' });
     expect(screen.getByRole('button', { name: 'Exportar' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Imprimir' })).toBeDisabled();
+  });
+});
+
+/**
+ * **El catalogo LLEGA TARDE, que es el caso normal** (#20).
+ *
+ * <h2>Por que ninguna de las veintiocho de arriba lo vio</h2>
+ *
+ * Todas pasan un catalogo **constante**: el que hay en el primer render es el que hay en el ultimo.
+ * Es la forma natural de escribirlas y cubre bien lo que cubren. Pero en un sistema de verdad el
+ * catalogo sale de cruzar tres operaciones del backend —los modulos, los accesos y la matriz de
+ * permisos—, asi que **en el primer render no se sabe todavia** y llega uno o dos segundos despues.
+ * O sea: el caso que fallaba es el unico que ocurre fuera de estas pruebas, y el que ellas cubren
+ * es el que no ocurre nunca. Lo destapo `rentas`#105. Estas cinco pintan DOS veces a proposito, y
+ * la segunda con otro catalogo.
+ *
+ * <h2>Por que el catalogo de la segunda pintada esta elegido y no es cualquiera</h2>
+ *
+ * Con el defecto puesto no reventaba *cualquier* cambio de catalogo, y eso importa para no escribir
+ * una prueba que no muerde. Medido: `RouterProvider` siembra el estado del enrutador en un
+ * `useState` **una sola vez**, asi que con un enrutador nuevo la pintada siguiente usa todavia las
+ * coincidencias del viejo, y `useRoutesImpl` las reapunta contra el manifiesto nuevo **por el
+ * identificador de ruta** (`manifest[m.route.id] || m.route`). Los identificadores son posicionales
+ * —`0-1`, `0-2`…—, de modo que lo que se dibuja es la ruta que por accidente ocupe ese hueco en la
+ * tabla nueva. Revienta cuando el accidente cae en una ruta de destino y no hay hoja; se salva
+ * cuando cae en la `*`. Las dos que llevan **EL REPRO** delante estan escritas para caer del lado
+ * que revienta, y son las que se pusieron rojas al reintroducir el defecto.
+ */
+describe('EL AC1 y EL AC2 de #20: el catalogo cambia DESPUES de montar', () => {
+  /** El mismo catalogo sin «Flota»: lo que ve una cuenta con menos permisos. */
+  const SIN_FLOTA = CATALOGO.filter((modulo) => modulo.clave !== 'flota');
+  /** Y al reves: se pierde «Almacen», que es el modulo que se estaba mirando. */
+  const SOLO_FLOTA = CATALOGO.filter((modulo) => modulo.clave === 'flota');
+
+  /**
+   * El cartel del enrutador cuando algo revienta dentro de una ruta.
+   *
+   * Se comprueba por su ausencia: una pantalla que no aparece podria ser cualquier cosa; el cartel
+   * dice que la aplicacion se cayo, que es lo que #20 producia.
+   */
+  function elErrorDeAplicacion(): HTMLElement | null {
+    return screen.queryByText(/Unexpected Application Error/i);
+  }
+
+  it('EL REPRO del issue: con un hash puesto, el catalogo llega y no ofrece ese destino', () => {
+    // Cinco lineas, y son las del issue: montar con el catalogo vacio —que es lo que hay mientras
+    // el backend contesta—, y volver a pintar con el que llego.
+    window.location.hash = '#/flo-turnos';
+    const { rerender } = render(armazonDePrueba({ catalogo: [] }));
+
+    rerender(armazonDePrueba({ catalogo: SIN_FLOTA }));
+
+    expect(elErrorDeAplicacion()).toBeNull();
+    // Y la propiedad del AC4 de #13 sigue en pie, ahora sobre el catalogo que llego: lo que no se
+    // ofrece no se abre ni por el hash, y se DICE en vez de saltar a la raiz en silencio.
+    expect(screen.getByText(/no corresponde a ningun destino disponible/)).toBeTruthy();
+    expect(screen.queryByText('Contenido de flo-turnos')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Flota/ })).toBeNull();
+  });
+
+  it('EL REPRO al reves (AC2): el catalogo deja de ofrecer la pantalla que se esta MIRANDO', () => {
+    // Al refrescarse los permisos o al cambiar de ejercicio, quien esta dentro de una pantalla que
+    // deja de estar permitida tiene que ver el mensaje, no un error de aplicacion.
+    window.location.hash = '#/alm-panel';
+    const { rerender } = render(armazonDePrueba({ catalogo: CATALOGO }));
+    expect(screen.getByText('Contenido de alm-panel')).toBeTruthy();
+
+    rerender(armazonDePrueba({ catalogo: SOLO_FLOTA }));
+
+    expect(elErrorDeAplicacion()).toBeNull();
+    expect(screen.getByText(/no corresponde a ningun destino disponible/)).toBeTruthy();
+    expect(screen.queryByText('Contenido de alm-panel')).toBeNull();
+    // Ni la cabecera ni el pie siguen anunciando la hoja que se fue.
+    expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Exportar' })).toBeNull();
+  });
+
+  it('y el destino que el catalogo SI trae se abre, que es el caso de `rentas`', () => {
+    window.location.hash = '#/entradas';
+    const { rerender } = render(armazonDePrueba({ catalogo: [] }));
+    // Con el catalogo todavia vacio no hay nada que ofrecer, y decirlo es lo correcto.
+    expect(screen.getByText(/no corresponde a ningun destino disponible/)).toBeTruthy();
+
+    rerender(armazonDePrueba({ catalogo: CATALOGO }));
+
+    expect(elErrorDeAplicacion()).toBeNull();
+    expect(screen.getByText('Contenido de alm-entradas')).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Entradas');
+    // Y el arbol se entera igual que al arrancar: el modulo de la hoja queda desplegado.
+    expect(screen.getByRole('button', { name: /Almacen/ }).getAttribute('aria-expanded')).toBe(
+      'true',
+    );
+  });
+
+  it('y SIN hash, el arbol se llena y el armazon sigue vivo', () => {
+    const { rerender } = render(armazonDePrueba({ catalogo: [] }));
+    expect(screen.queryByRole('button', { name: /Almacen/ })).toBeNull();
+
+    rerender(armazonDePrueba({ catalogo: CATALOGO }));
+
+    expect(elErrorDeAplicacion()).toBeNull();
+    expect(screen.getByRole('button', { name: /Almacen/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Flota/ })).toBeTruthy();
+    expect(screen.getByText(/No hay ningun destino abierto/)).toBeTruthy();
+  });
+
+  it('y el marco NO queda congelado: se navega con el catalogo que llego', () => {
+    // Es la otra mitad. Un armazon que se quedara con el enrutador del primer catalogo pasaria las
+    // de arriba y no dejaria abrir nada nuevo, que es la forma silenciosa de este mismo defecto.
+    const { rerender } = render(armazonDePrueba({ catalogo: [] }));
+    rerender(armazonDePrueba({ catalogo: CATALOGO }));
+
+    irPorElArbol('Flota', 'Turnos');
+
+    expect(screen.getByText('Contenido de flo-turnos')).toBeTruthy();
+    expect(window.location.hash).toBe('#/flo-turnos');
+  });
+});
+
+/**
+ * **Y la tabla de rutas tambien discrepaba del render SIN que el catalogo cambiara** (#20).
+ *
+ * Salio al medir lo de arriba, y es un segundo defecto de la misma causa: la ruta decia una cosa y
+ * `Cascara` decia otra. Con una ruta por destino, `#/entradas/` —una barra final, que la escribe
+ * cualquiera al pegar una direccion— la recogia la ruta `entradas`, porque `react-router` come la
+ * barra final al casar; pero `useHojaDeLaRuta` compara el `pathname` en crudo contra el slug, no
+ * encontraba `entradas/` y `Cascara` no ponia el proveedor. `<Pantalla />` dibujada sin hoja, y el
+ * mismo `Unexpected Application Error!` **en la primera pintada, sin rerender ninguno**.
+ *
+ * Con una sola ruta no hay dos opiniones que discrepar: la del render es la unica.
+ */
+describe('una direccion con barra final no revienta, se DICE', () => {
+  it('`#/entradas/` dibuja el aviso, no un error de aplicacion', () => {
+    montar({ hash: '#/entradas/' });
+
+    expect(screen.queryByText(/Unexpected Application Error/i)).toBeNull();
+    expect(screen.getByText(/no corresponde a ningun destino disponible/)).toBeTruthy();
+    expect(screen.queryByText('Contenido de alm-entradas')).toBeNull();
   });
 });
