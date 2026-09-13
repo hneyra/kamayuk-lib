@@ -36,6 +36,8 @@ jobs:
     name: Lint, tipos y pruebas
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      consumidores: ${{ steps.quien.outputs.consumidores }}
     steps:
       - uses: actions/checkout@v4
 
@@ -51,3 +53,125 @@ jobs:
 
       - name: Verificar
         run: yarn verificar
+
+      # La lista de consumidores sale del JSON y no de este archivo: anadir un sistema tiene que
+      # ser una linea de datos. `jq -c` la deja en una sola linea, que es lo que `fromJSON` pide.
+      - name: Quien consume esta libreria
+        id: quien
+        run: echo "consumidores=$(jq -c '.consumidores' consumidores.json)" >> "$GITHUB_OUTPUT"
+
+  # ---------------------------------------------------------------------------------------
+  # LA CI MIRA A SUS CONSUMIDORES (#10)
+  #
+  # Con `link:` no hay `npm publish` que actue de compuerta, ni rango semver que de margen, ni
+  # lockfile del consumidor que fije nada: **cada `main` de aqui es, sin intermediario, el `main` de
+  # los sistemas**. Lo que esta CI verificaba hasta hoy es que la libreria es coherente CONSIGO
+  # MISMA; su contrato no es ese, es lo que los consumidores leen de ella.
+  #
+  # Y no es teorico. Paso dos veces:
+  #   · #8 renombro `--radius-radio` a `--radius`: 217 pruebas en verde aqui, `rentas` en rojo con
+  #     «expected 44 to be 42». Se cazo corriendo la suite del consumidor A MANO.
+  #   · #14 anadio `cmdk` y `sonner` como `peerDependencies`: verde aqui, y `rentas` con tres
+  #     archivos sin recoger. Esa vez lo dijo antes una guarda DEL CONSUMIDOR, no esta CI.
+  #
+  # ## POR QUE SE MIDE DOS VECES, Y NO UNA
+  #
+  # Correr la suite del consumidor contra esta rama y fallar si sale roja tiene un modo de fallo
+  # obvio: **el consumidor puede estar roto por su cuenta**, y entonces esta CI se pone roja por un
+  # motivo ajeno. Un guardian que da falsos positivos se acaba ignorando, y con el se ignora el
+  # positivo de verdad.
+  #
+  # Asi que se corre DOS veces con el mismo arbol del consumidor: una con la libreria en `main` —la
+  # linea base— y otra con la libreria en esta rama. Lo que falla el trabajo no es «el consumidor
+  # esta rojo» sino **«esta rama lo puso rojo»**: base verde y rama roja. Si las dos salen rojas, se
+  # dice con todas las letras y se sigue, porque el problema no es de aqui.
+  # ---------------------------------------------------------------------------------------
+  consumidores:
+    name: ${{ matrix.repositorio }} sigue en verde con esta rama
+    runs-on: ubuntu-latest
+    needs: verificar
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        # La lista vive en `consumidores.json` y no aqui: anadir un sistema tiene que ser una linea
+        # de datos, no un `job` copiado. `fromJSON` la lee tal cual.
+        include: ${{ fromJSON(needs.verificar.outputs.consumidores) }}
+    steps:
+      - name: Esta libreria
+        uses: actions/checkout@v4
+        with:
+          path: kamayuk-lib
+          # Historia completa: hay que poder saltar entre `main` y esta rama en el mismo arbol.
+          fetch-depth: 0
+
+      - name: El consumidor
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ matrix.repositorio }}
+          path: consumidor
+          token: ${{ secrets.GH_CLONE_KEY || github.token }}
+
+      # La disposicion que el `link:` del consumidor espera es `<x>/<sistema>/frontend` junto a
+      # `<x>/kamayuk-lib`. El `path:` de arriba lo deja en `consumidor/`, asi que se renombra al
+      # nombre que el repositorio tiene de verdad — `link:../../kamayuk-lib/...` sube dos niveles
+      # desde `frontend/` y tiene que caer al lado de la libreria, se llame como se llame el medio.
+      - name: Ponerlo donde el enlace lo busca
+        run: mv consumidor '${{ matrix.directorio }}'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: yarn
+          cache-dependency-path: ${{ format('{0}/{1}/yarn.lock', matrix.directorio, matrix.ruta) }}
+
+      - name: Instalar las dependencias del consumidor
+        working-directory: ${{ format('{0}/{1}', matrix.directorio, matrix.ruta) }}
+        run: yarn install --frozen-lockfile
+
+      # LA LINEA BASE. Sin ella, un consumidor roto por su cuenta pondria este trabajo en rojo por
+      # un motivo que no es de esta rama.
+      - name: Linea base — el consumidor con la libreria en `main`
+        id: base
+        working-directory: ${{ format('{0}/{1}', matrix.directorio, matrix.ruta) }}
+        continue-on-error: true
+        run: |
+          git -C "$GITHUB_WORKSPACE/kamayuk-lib" checkout --quiet --detach origin/main
+          echo "La libreria esta en: $(git -C "$GITHUB_WORKSPACE/kamayuk-lib" rev-parse --short HEAD)"
+          ${{ matrix.orden }}
+
+      - name: Con esta rama
+        id: rama
+        working-directory: ${{ format('{0}/{1}', matrix.directorio, matrix.ruta) }}
+        continue-on-error: true
+        run: |
+          git -C "$GITHUB_WORKSPACE/kamayuk-lib" checkout --quiet --detach "$GITHUB_SHA"
+          echo "La libreria esta en: $(git -C "$GITHUB_WORKSPACE/kamayuk-lib" rev-parse --short HEAD)"
+          ${{ matrix.orden }}
+
+      # El veredicto va en un paso aparte porque los dos de arriba llevan `continue-on-error`: sin
+      # esto, el trabajo saldria VERDE con los dos en rojo.
+      - name: El veredicto
+        env:
+          BASE: ${{ steps.base.outcome }}
+          RAMA: ${{ steps.rama.outcome }}
+          QUIEN: ${{ matrix.repositorio }}
+        run: |
+          echo "linea base (libreria en main): $BASE"
+          echo "con esta rama:                 $RAMA"
+          if [ "$RAMA" = "success" ]; then
+            echo "«$QUIEN» sigue en verde con esta rama."
+            exit 0
+          fi
+          if [ "$BASE" != "success" ]; then
+            echo "::warning::«$QUIEN» ya estaba rojo con la libreria en «main». Esta rama NO es la causa,"
+            echo "::warning::asi que este trabajo no la bloquea. Pero alguien tiene que mirarlo alli."
+            exit 0
+          fi
+          echo "::error::ESTA RAMA ROMPE A «$QUIEN»."
+          echo "Con la libreria en «main» su suite sale en VERDE; con esta rama, en ROJO."
+          echo "El registro del paso «Con esta rama» dice que fallo."
+          echo ""
+          echo "Es lo que kamayuk-lib#10 existe para cazar: con «link:» no hay version que de"
+          echo "margen — lo que se mezcle aqui es lo que ese sistema tiene en el siguiente «git pull»."
+          exit 1
