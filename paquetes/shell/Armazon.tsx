@@ -38,12 +38,27 @@ import { TEXTOS_DEL_ARMAZON, type TextosDelArmazon } from './textos.ts';
  * abren decenas. Con `push`, el «atrás» del navegador habría que pulsarlo cuarenta veces para salir,
  * lo que convierte ese botón en una trampa.
  *
- * <h2>Las rutas SALEN DEL CATÁLOGO, y eso es la mitad estructural del AC4</h2>
+ * <h2>La tabla de rutas NO sale del catálogo, y desde #20 tampoco podría</h2>
  *
- * Hay una ruta por destino ofrecido y una `*` para todo lo demás. Un hash que nombre algo que el
- * catálogo no trae **no tiene ruta que lo reciba**: cae en la `*` y se dibuja un aviso, en vez de
- * abrirse. No es una comprobación que alguien tenga que acordarse de escribir en cada pantalla: es
- * la forma de la tabla de rutas.
+ * Hay **una sola ruta**, `*`, y lo que decide si se abre la pantalla o se dibuja el aviso es el
+ * render: `useHojaDeLaRuta` busca el slug del `pathname` en el catálogo de hoy, y sin hoja se
+ * dibuja `<DestinoNoOfrecido />`. La propiedad del AC4 es la misma —lo que el catálogo no trae no
+ * se abre, ni por el hash— y ahora la sostiene **el mismo dato que dibuja las tres listas**, que es
+ * lo que hace imposible que una diga una cosa y la otra diga otra.
+ *
+ * Hasta #20 había una ruta por destino ofrecido. Era correcto mientras el catálogo fuera
+ * constante, y **no lo es nunca**: sale de cruzar tres operaciones del backend, así que en el
+ * primer render no se sabe todavía. Un catálogo nuevo obligaba a un `createHashRouter` nuevo, y ahí
+ * el armazón se caía con `useHoja() fuera de una pantalla`. La causa exacta está medida y no es
+ * «el contexto se pierde»: `RouterProvider` guarda el estado del enrutador en un `useState`
+ * **sembrado una sola vez**, así que con el enrutador nuevo la pintada siguiente usa todavía las
+ * coincidencias del viejo, y `useRoutesImpl` las vuelve a apuntar contra el manifiesto NUEVO
+ * *por el identificador de ruta* —`manifest[m.route.id] || m.route`, en `react-router@7.18.3`—.
+ * Los identificadores son posicionales (`0-1`, `0-2`…), de modo que cambiar el catálogo reapunta
+ * cada coincidencia a la ruta que por accidente ocupe ese hueco en la tabla nueva: donde caía una
+ * ruta de destino se dibujaba `<Pantalla />` **sin que hubiera hoja**, y `useHoja()` reventaba.
+ *
+ * Con una ruta y nada más, el enrutador se construye **una vez** y esa ventana no existe.
  *
  * Lo que la cuenta no puede abrir tampoco sale en el árbol, ni en la paleta, ni en la miga, y por
  * la misma razón: las tres recorren el catálogo y no hay otro que recorrer.
@@ -363,21 +378,32 @@ function Cascara() {
   );
 }
 
-/** Monta el enrutador con una ruta por destino ofrecido. Ver el javadoc del archivo. */
-function crearEnrutador(catalogo: Catalogo) {
+/**
+ * Lo que hay bajo la única ruta: la pantalla si el catálogo de HOY ofrece el destino del hash, y el
+ * aviso si no (AC4 de #13, sostenido desde #20 por el render y no por la tabla de rutas).
+ *
+ * Pregunta lo mismo que `Cascara` —el mismo catálogo, el mismo `pathname`, la misma función— así
+ * que las dos respuestas no pueden discrepar: donde esto dibuja `<Pantalla />`, `Cascara` ya ha
+ * puesto el proveedor de la hoja, y donde no lo ha puesto, esto dibuja el aviso.
+ */
+function DestinoDeLaRuta() {
+  const { catalogo } = useArmazon();
+  const hoja = useHojaDeLaRuta(catalogo);
+  return hoja === null ? <DestinoNoOfrecido /> : <Pantalla />;
+}
+
+/**
+ * Monta el enrutador. **No recibe el catálogo, y ese es el arreglo de #20**: ver el javadoc del
+ * archivo.
+ */
+function crearEnrutador() {
   return createHashRouter([
     {
       path: '/',
       element: <Cascara />,
       children: [
         { index: true, element: <SinDestino /> },
-        ...catalogo.flatMap((modulo) =>
-          modulo.destinos.map((destino) => ({
-            path: slugDe(destino),
-            element: <Pantalla />,
-          })),
-        ),
-        { path: '*', element: <DestinoNoOfrecido /> },
+        { path: '*', element: <DestinoDeLaRuta /> },
       ],
     },
   ]);
@@ -386,7 +412,15 @@ function crearEnrutador(catalogo: Catalogo) {
 export type ArmazonProps = ConfiguracionDelArmazon;
 
 export function Armazon(configuracion: ArmazonProps) {
-  const enrutador = useMemo(() => crearEnrutador(configuracion.catalogo), [configuracion.catalogo]);
+  /**
+   * Uno, para toda la vida del armazón.
+   *
+   * En un `useState` y no en un `useMemo` a propósito: `useMemo` es una **pista** —React puede
+   * tirar lo memorizado y volver a calcularlo cuando le convenga— y un enrutador nuevo a media
+   * vida es justo el defecto de #20. El inicializador perezoso de `useState` sí es una promesa:
+   * corre una vez. No hay quien lo ponga, y por eso no se desestructura el segundo hueco.
+   */
+  const [enrutador] = useState(crearEnrutador);
   /**
    * Lo que se pase, encima del castellano. Es lo que hace que traducir el marco NO sea todo o
    * nada: un saco a medias deja las demás palabras como están, en vez de dejar huecos.
