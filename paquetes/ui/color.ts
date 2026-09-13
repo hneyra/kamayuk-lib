@@ -97,10 +97,21 @@ function luminancia(hex: Hex): number {
 }
 
 /**
- * El ratio de contraste de WCAG 2.1, de 1 a 21.
+ * El ratio de contraste de WCAG 2.1, de 1 a 21. **SIN redondear, y este es el que se compara.**
  *
  * 4.5:1 es el minimo para texto normal (1.4.3) y 3:1 para texto grande y para componentes de
  * interfaz (1.4.11). 7:1 es el nivel AAA, que es al que apunta el tema de alto contraste.
+ *
+ * <h2>Por que la cifra cruda y no la de dos decimales</h2>
+ *
+ * Porque WCAG no dice «4.50 redondeado»: dice **4.5:1**. Hasta #48 esta funcion tenia encima una
+ * `ratio()` que devolvia un NUMERO ya redondeado, y las guardas comparaban ese numero contra el
+ * umbral. Eso mueve el umbral real a **4.495** —y lo mueve hacia el lado malo—: una pareja a
+ * **4.4973:1** se escribia `4.50` y satisfacia el `>=`.
+ *
+ * No es hipotetico. Es lo que paso midiendo #41: el avatar sobre la barra con hover en
+ * `institucional/claro` daba exactamente 4.4973 y la guarda lo daba por bueno, asi que el issue
+ * conto «cuatro de las seis» cuando eran cinco.
  */
 export function contraste(uno: Hex, otro: Hex): number {
   const a = luminancia(uno);
@@ -110,9 +121,39 @@ export function contraste(uno: Hex, otro: Hex): number {
   return (claro + 0.05) / (oscuro + 0.05);
 }
 
-/** Redondeado a dos decimales, que es como se escriben los ratios en las guardas. */
-export const ratio = (uno: Hex, otro: Hex): number =>
-  Math.round(contraste(uno, otro) * 100) / 100;
+/**
+ * Redondea PARA EL MENSAJE, y **devuelve texto a proposito** (#48).
+ *
+ * El redondeo si hace falta: un rojo que diga «4.4973:1» no ayuda a nadie. Lo que sobra es
+ * redondear **para decidir**. La forma de que nadie vuelva a confundir las dos cosas no es un
+ * comentario sino el TIPO: una cadena no se compara contra un umbral sin que `tsc` lo diga, y
+ * `'4.50' >= 4.5` ni siquiera se escribe. Un numero redondeado, en cambio, entra en un
+ * `>=` sin hacer ruido — que es exactamente como llego el defecto.
+ */
+export const aLaVista = (valor: number, decimales: number): string => valor.toFixed(decimales);
+
+/**
+ * El ratio **como se escribe en un mensaje**: dos decimales, y texto.
+ *
+ * A dos decimales porque es como se escriben los ratios en las guardas y en `EXCEPCIONES`. Para
+ * DECIDIR se usa `contraste()`, que no redondea.
+ */
+export const ratio = (uno: Hex, otro: Hex): string => aLaVista(contraste(uno, otro), 2);
+
+/**
+ * El ratio para un mensaje que dice **que no llega**: dos decimales, y cuatro cuando a dos
+ * decimales no se ve por que no llega (#48).
+ *
+ * Sin esto, la franja que este issue destapa produce rojos que se leen como una contradiccion:
+ * una pareja a 4.497210:1 sale «4.50:1, y texto pide 4.5:1», y quien lo lee se va a buscar el
+ * defecto a la guarda en vez de al color. El redondeo existe para que el mensaje SE LEA —«4.4973»
+ * no ayuda a nadie—, asi que se afloja exactamente donde dejaria de leerse, y en ningun otro
+ * sitio: el umbral no se toca, y quien decide sigue siendo `contraste()`.
+ */
+export const ratioQueNoLlega = (uno: Hex, otro: Hex, exigido: number): string => {
+  const crudo = contraste(uno, otro);
+  return aLaVista(crudo, Number(aLaVista(crudo, 2)) >= exigido ? 4 : 2);
+};
 
 /**
  * Un color translucido, como lo escribe el artboard: `rgba(r, g, b, a)`.
@@ -208,9 +249,12 @@ export function apilar(capas: readonly string[]): Hex {
  * «vencida»— y dos tintas del mismo gris se distinguen por la LUZ.
  */
 export function distanciaDeLuminosidad(uno: Hex, otro: Hex): number {
-  // A cuatro decimales, la misma escala que `distanciaCromatica()`: la separacion entre dos
-  // tintas vecinas vive entre 0.05 y 0.12, asi que dos decimales las igualaria de tres en tres.
-  return Math.round(Math.abs(hexAOklch(uno).l - hexAOklch(otro).l) * 10000) / 10000;
+  // SIN redondear, por lo mismo que `contraste()` (#48): quien decide es esta cifra, y
+  // redondearla antes del `>=` corre el umbral medio paso hacia el lado malo. Para escribirla se
+  // usa `aLaVista(d, 4)` —cuatro decimales, la misma escala que `distanciaCromatica()`: la
+  // separacion entre dos tintas vecinas vive entre 0.05 y 0.12, asi que dos decimales las
+  // igualaria de tres en tres—.
+  return Math.abs(hexAOklch(uno).l - hexAOklch(otro).l);
 }
 
 export function distanciaCromatica(uno: Hex, otro: Hex): number {
@@ -221,7 +265,8 @@ export function distanciaCromatica(uno: Hex, otro: Hex): number {
   };
   const [a1, b1] = ab(uno);
   const [a2, b2] = ab(otro);
-  // A cuatro decimales, que es la escala en la que se escriben: el croma de un relleno suave
-  // vive entre 0.01 y 0.04, asi que dos decimales los haria todos iguales a cero.
-  return Math.round(Math.hypot(a1 - a2, b1 - b2) * 10000) / 10000;
+  // SIN redondear, por lo mismo que `contraste()` (#48). Para escribirla se usa `aLaVista(d, 4)`
+  // —cuatro decimales, que es la escala en la que se escribe: el croma de un relleno suave vive
+  // entre 0.01 y 0.04, asi que dos decimales los haria todos iguales a cero—.
+  return Math.hypot(a1 - a2, b1 - b2);
 }
