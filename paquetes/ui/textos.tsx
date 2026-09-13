@@ -61,3 +61,32 @@ export const TEXTOS_DE_LA_UI: TextosDeLaUi = {
   cifrasActualizadas: (fecha) => <>Cifras actualizadas al {fecha}</>,
   aLaFecha: (fecha) => <>al {fecha}</>,
 };
+
+/**
+ * **Las palabras que el interprete de pantallas dice por su cuenta** (#27).
+ *
+ * Todo lo demas que el interprete dibuja viene de la definicion o de la ausencia, y eso lo traduce
+ * quien las escribe —ver `traducir` en `interprete/Pantalla.tsx`—. Estas tres son las que no vienen
+ * de ninguna de las dos, y en `rentas` salian de su `i18next`: aqui no puede ser, porque
+ * `i18next` como `peerDependency` obligaria a los cuatro sistemas a montarlo antes de dibujar un
+ * campo (#19, AC3).
+ *
+ * **`registros` es una función por lo mismo que `cifrasActualizadas`**: el número entra donde el
+ * idioma lo ponga, y el plural lo decide quien traduce —hay idiomas con más de dos formas, y
+ * `i18next` las sabe—.
+ */
+export interface TextosDelInterprete {
+  /** La marca de un campo que se puede dejar en blanco. La misma que `TEXTOS_DE_LA_UI.opcional`. */
+  readonly opcional: string;
+  /** Lo que se lee en una fecha que nadie ha elegido todavía. */
+  readonly marcadorDeFecha: string;
+  /** El conteo de la barra de una tabla, cuando HAY filas. Sin filas no se escribe nada. */
+  readonly registros: (cuantos: number) => string;
+}
+
+/** Lo que `rentas` veía hasta #27. Quien no pase nada, ve esto. */
+export const TEXTOS_DEL_INTERPRETE: TextosDelInterprete = {
+  opcional: TEXTOS_DE_LA_UI.opcional,
+  marcadorDeFecha: 'dd/mm/aaaa',
+  registros: (cuantos) => (cuantos === 1 ? '1 registro' : `${String(cuantos)} registros`),
+};

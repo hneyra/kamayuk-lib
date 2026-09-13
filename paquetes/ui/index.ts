@@ -6,7 +6,8 @@
  * modos. **Capa 3** (#11): las once piezas de shadcn que el interprete de V8 pide en cada
  * pantalla, y la tabla de que pieza dibuja cada uno de los siete tipos de campo. **Capa 4**
  * (#13): las SIETE piezas que el armazon de V8 necesita —`Miga`, `Plegable`, `Menu`,
- * `Confirmacion`, `Cajon`, `PaletaDeMando` y `Avisos`—, que dibuja `@kamayuk/shell`.
+ * `Confirmacion`, `Cajon`, `PaletaDeMando` y `Avisos`—, que dibuja `@kamayuk/shell`. **Capa 5**
+ * (#27): el interprete de pantallas, que sube de `rentas` cuando llega el segundo consumidor.
  *
  * <h2>Lo que NO trae todavia, dicho aqui y no descubierto luego</h2>
  *
@@ -25,8 +26,8 @@
  *   entra con su archivo y con quien lo pida, no como promesa.
  */
 
-export { TEXTOS_DE_LA_UI } from './textos.tsx';
-export type { TextosDeLaUi } from './textos.tsx';
+export { TEXTOS_DE_LA_UI, TEXTOS_DEL_INTERPRETE } from './textos.tsx';
+export type { TextosDeLaUi, TextosDelInterprete } from './textos.tsx';
 export { Importe } from './Importe.tsx';
 export type { ImporteProps } from './Importe.tsx';
 export { Insignia } from './Insignia.tsx';
@@ -149,3 +150,25 @@ export type {
 } from './shadcn/paleta-de-mando.tsx';
 export { Avisos, avisar } from './shadcn/avisos.tsx';
 export type { AvisosProps } from './shadcn/avisos.tsx';
+// El interprete de pantallas (#27): una definicion `[titulo, nota, campos, tabla]`, dibujada. Sube
+// de `rentas` con el segundo consumidor. Las piezas de dentro —el bloque, el campo, la tabla— NO se
+// exportan: nadie dibuja medio interprete.
+export { Pantalla } from './interprete/Pantalla.tsx';
+export type { PantallaProps } from './interprete/Pantalla.tsx';
+export { coordenada } from './interprete/datos.ts';
+export type { Ausencia, Coordenada, DatosDeLaPantalla } from './interprete/datos.ts';
+export type {
+  CampoDeCasilla,
+  CampoDeEntrada,
+  CampoDeLista,
+  CampoDeSoloLectura,
+  ColumnaDeTabla,
+  ConAnchoCompleto,
+  DefinicionDeBloque,
+  DefinicionDeCampo,
+  DefinicionDePantalla,
+  DefinicionDeTabla,
+  TipoDeCampoConAncho,
+  TipoDeEntrada,
+  TonoDeInsignia,
+} from './interprete/tipos.ts';
