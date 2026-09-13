@@ -1,6 +1,7 @@
 import {
   Boton,
   DisparadorDelMenu,
+  FOCO_EN_LA_BARRA,
   Icono,
   ListaDelMenu,
   Menu,
@@ -71,7 +72,7 @@ export function BarraGlobal({
         type="button"
         data-slot="abrir-la-paleta"
         onClick={alAbrirLaPaleta}
-        className="my-[9px] flex shrink-0 cursor-pointer items-center gap-[9px] rounded-sm bg-barra-control px-[14px] text-sobre-barra-2 outline-none hover:bg-barra-hover focus-visible:ring-[3px] focus-visible:ring-foco"
+        className={`my-[9px] flex shrink-0 cursor-pointer items-center gap-[9px] rounded-sm bg-barra-control px-[14px] text-sobre-barra-2 hover:bg-barra-hover ${FOCO_EN_LA_BARRA}`}
       >
         <Icono nombre="lupa" grosor={1.8} tamano={15} />
         <span className="text-[13px]">{textos.buscar}</span>
@@ -86,7 +87,7 @@ export function BarraGlobal({
         aria-label={avisos}
         title={avisos}
         onClick={alVerAvisos}
-        className="relative grid w-11 shrink-0 cursor-pointer place-items-center border-l border-barra-realce bg-transparent text-sobre-barra outline-none hover:bg-barra-hover focus-visible:ring-[3px] focus-visible:ring-foco"
+        className={`relative grid w-11 shrink-0 cursor-pointer place-items-center border-l border-barra-realce bg-transparent text-sobre-barra hover:bg-barra-hover ${FOCO_EN_LA_BARRA}`}
       >
         <Icono nombre="campana" tamano={19} />
         {avisosSinLeer > 0 ? (
@@ -103,7 +104,7 @@ export function BarraGlobal({
         <DisparadorDelMenu
           data-slot="abrir-la-sesion"
           aria-label={textos.opcionesDeLaSesion}
-          className="flex shrink-0 cursor-pointer items-center gap-[10px] border-l border-barra-realce bg-transparent px-[15px] py-2 text-sobre-barra outline-none hover:bg-barra-hover data-[state=open]:bg-barra-hover focus-visible:ring-[3px] focus-visible:ring-foco"
+          className={`flex shrink-0 cursor-pointer items-center gap-[10px] border-l border-barra-realce bg-transparent px-[15px] py-2 text-sobre-barra hover:bg-barra-hover data-[state=open]:bg-barra-hover ${FOCO_EN_LA_BARRA}`}
         >
           <span
             aria-hidden="true"

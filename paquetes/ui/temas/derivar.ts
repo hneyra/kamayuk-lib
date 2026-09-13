@@ -78,7 +78,10 @@ const REGLAS: Readonly<Record<string, Readonly<Record<Papel, Regla>>>> = {
     accion: { a: [0.8, 0.7], croma: 0.9 },
     'sobre-accion': { a: [0.16, 0.16], croma: 0.2 },
     barra: { a: [0.24, 0.24], croma: 0.8 },
-    'sobre-barra': { a: [0.82, 0.97], croma: 0.5 },
+    // El tramo bajo se subio de 0.82 a 0.84 en #38: con 0.82, `--sobre-barra-2` daba 4.40:1
+    // sobre la barra CON HOVER —el blanco al 24 % ya mezclado, que es mas claro que la barra— y
+    // WCAG 1.4.3 pide 4.5:1 para los 11 px de la entidad. En reposo daba 6.20 y nadie lo medía.
+    'sobre-barra': { a: [0.84, 0.97], croma: 0.5 },
     'insignia-fondo': { a: [0.3, 0.26], croma: 0.8 },
     'insignia-tinta': { a: [0.86, 0.8], croma: 0.9 },
     adorno: { a: [0.55, 0.5], croma: 0.7 },
@@ -118,17 +121,29 @@ const REGLAS: Readonly<Record<string, Readonly<Record<Papel, Regla>>>> = {
   // el ambar y el papel gana algo de croma; la accion se mantiene reconocible.
   'sepia/claro': {
     papel: { a: [0.94, 0.965], croma: 1.6, tono: 75, cromaMinimo: 0.018 },
-    tinta: { a: [0.24, 0.52], croma: 0.9, tono: 40 },
+    // El tramo alto bajo de 0.52 a 0.49 en #38: `--tinta-3` es la tinta mas palida y sobre
+    // `--azul-suave` —la nota del modulo ACTIVO, a 10.5 px— daba 4.21:1 con el sepia roto y
+    // 4.27:1 ya arreglado, contra los 4.90:1 que da el origen. O sea que la tinta terciaria del
+    // sepia era mas palida que la de `institucional` respecto de sus propios papeles, y lo que
+    // dice eso es la rampa. Con 0.49 da 4.84:1, que es el mismo sitio que el origen.
+    tinta: { a: [0.24, 0.49], croma: 0.9, tono: 40 },
     filo: { a: [0.84, 0.78], croma: 1.2, tono: 70, cromaMinimo: 0.02 },
     // LA ACCION NO CAMBIA DE TONO, y el primer intento enseño por que: con el tono en 10° el
     // azul salia granate (#5f1d2c) — o sea del color del error. El sepia entibia el PAPEL y la
-    // TINTA; la semantica del color se queda quieta.
+    // TINTA; la semantica del color se queda quieta. Desde #36 eso vale tambien para las cuatro
+    // insignias, que se habian quedado fuera de esta misma frase.
     accion: { a: [0.42, 0.34], croma: 0.9 },
     'sobre-accion': { a: [0.98, 0.98], croma: 0, cromaMinimo: 0.014, tono: 75 },
     barra: { a: [0.3, 0.3], croma: 0.9, tono: 55 },
     'sobre-barra': { a: [0.84, 0.97], croma: 0.6, tono: 60 },
-    'insignia-fondo': { a: [0.93, 0.9], croma: 1.1, tono: 20 },
-    'insignia-tinta': { a: [0.4, 0.45], croma: 0.9, tono: 10 },
+    // LA SEMANTICA TAMPOCO CAMBIA DE TONO, y es el mismo hallazgo que la accion, un paso mas
+    // alla (#36). Con `tono: 20` y `tono: 10` los CUATRO semanticos derivaban al mismo rosa:
+    // `ok` salia #fae1e0 y `mal` #fae0df, a distancia 1 en un canal. Una insignia «Conforme» y
+    // una «Vencida» se pintaban sobre el mismo fondo, o sea que el color dejaba de decir nada.
+    // Duele mas que en el azul: el azul mal rotado se ve feo; cuatro semanticos rotados al mismo
+    // tono borran la diferencia entre un tramite al dia y una deuda en coactiva.
+    'insignia-fondo': { a: [0.93, 0.9], croma: 1.1 },
+    'insignia-tinta': { a: [0.4, 0.45], croma: 0.9 },
     adorno: { a: [0.7, 0.65], croma: 0.9, tono: 30 },
     velo: { a: [0, 0], croma: 1 },
   },
@@ -140,8 +155,9 @@ const REGLAS: Readonly<Record<string, Readonly<Record<Papel, Regla>>>> = {
     'sobre-accion': { a: [0.18, 0.18], croma: 0.4, tono: 60 },
     barra: { a: [0.22, 0.22], croma: 0.9, tono: 55 },
     'sobre-barra': { a: [0.82, 0.95], croma: 0.6, tono: 60 },
-    'insignia-fondo': { a: [0.32, 0.28], croma: 1, tono: 20 },
-    'insignia-tinta': { a: [0.88, 0.82], croma: 0.9, tono: 10 },
+    // Ver `sepia/claro`: la semantica se queda quieta (#36).
+    'insignia-fondo': { a: [0.32, 0.28], croma: 1 },
+    'insignia-tinta': { a: [0.88, 0.82], croma: 0.9 },
     adorno: { a: [0.58, 0.52], croma: 0.9, tono: 30 },
     velo: { a: [0, 0], croma: 1 },
   },

@@ -2,6 +2,7 @@ import { Collapsible } from 'radix-ui';
 import type { ComponentProps } from 'react';
 
 import { cn } from '../utilidades.ts';
+import { FOCO } from './foco.ts';
 
 /**
  * Lo que se pliega: un módulo del carril con sus hojas debajo.
@@ -26,9 +27,9 @@ export function DisparadorDelPlegable({ className, ...resto }: DisparadorDelPleg
     <Collapsible.Trigger
       data-slot="disparador-del-plegable"
       className={cn(
-        'flex w-full items-center gap-2 rounded-sm px-2 py-[7px] text-left outline-none',
+        'flex w-full items-center gap-2 rounded-sm px-2 py-[7px] text-left',
         'cursor-pointer transition-colors hover:bg-sup',
-        'focus-visible:ring-[3px] focus-visible:ring-foco',
+        FOCO,
         className,
       )}
       {...resto}

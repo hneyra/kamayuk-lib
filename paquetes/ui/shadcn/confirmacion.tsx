@@ -2,6 +2,7 @@ import { AlertDialog } from 'radix-ui';
 import type { ComponentProps } from 'react';
 
 import { cn } from '../utilidades.ts';
+import { FOCO } from './foco.ts';
 
 /**
  * La pregunta que corta el paso: «esto tiene cambios sin guardar».
@@ -115,7 +116,7 @@ export function Confirmar({ className, ...resto }: ConfirmarProps) {
       data-slot="confirmar"
       className={cn(
         'cursor-pointer rounded-sm bg-azul px-[18px] py-[10px] text-[13.5px] font-bold text-sobre-azul',
-        'outline-none hover:bg-azul-hover focus-visible:ring-[3px] focus-visible:ring-foco',
+        `hover:bg-azul-hover ${FOCO}`,
         className,
       )}
       {...resto}
@@ -136,8 +137,8 @@ export function Descartar({ className, ...resto }: DescartarProps) {
       data-slot="descartar"
       className={cn(
         'cursor-pointer rounded-sm border border-borde-boton bg-superficie px-[15px] py-[9px]',
-        'text-[13.5px] text-mal-tinta outline-none',
-        'hover:border-borde-hover focus-visible:ring-[3px] focus-visible:ring-foco',
+        'text-[13.5px] text-mal-tinta',
+        `hover:border-borde-hover ${FOCO}`,
         className,
       )}
       {...resto}
@@ -154,8 +155,8 @@ export function Cancelar({ className, ...resto }: CancelarProps) {
       data-slot="cancelar"
       className={cn(
         'cursor-pointer rounded-sm border border-borde-boton bg-superficie px-[15px] py-[9px]',
-        'text-[13.5px] text-tinta outline-none',
-        'hover:border-borde-hover focus-visible:ring-[3px] focus-visible:ring-foco',
+        'text-[13.5px] text-tinta',
+        `hover:border-borde-hover ${FOCO}`,
         className,
       )}
       {...resto}

@@ -2,6 +2,7 @@ import { Checkbox } from 'radix-ui';
 import { useId, type ComponentProps, type ReactNode } from 'react';
 
 import { cn } from '../utilidades.ts';
+import { HALO_DE_FOCO } from './foco.ts';
 
 /**
  * La marca de si o no, con su rotulo dentro del filo.
@@ -41,7 +42,7 @@ export function Casilla({ rotulo, className, ...resto }: CasillaProps) {
         className={cn(
           'size-4 shrink-0 grid place-items-center rounded-sm border border-borde-campo bg-superficie',
           'outline-none transition-colors hover:border-borde-hover',
-          'focus-visible:border-azul focus-visible:ring-[3px] focus-visible:ring-foco',
+          `focus-visible:border-azul ${HALO_DE_FOCO}`,
           'data-[state=checked]:bg-azul data-[state=checked]:border-azul data-[state=checked]:text-sobre-azul',
           'disabled:cursor-not-allowed disabled:opacity-60',
           'aria-invalid:border-mal-borde',

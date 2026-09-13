@@ -1,4 +1,4 @@
-import { CuerpoDelPlegable, DisparadorDelPlegable, Icono, Plegable, cn } from '../ui/index.ts';
+import { CuerpoDelPlegable, DisparadorDelPlegable, FOCO, Icono, Plegable, cn } from '../ui/index.ts';
 
 import { modulosQueCasan } from './busqueda.ts';
 import type { Catalogo } from './catalogo.ts';
@@ -110,7 +110,7 @@ export function ArbolDeModulos({
                       }}
                       className={cn(
                         'flex w-full cursor-pointer items-center gap-2 rounded-r-sm border-0 py-[7px] pl-0 pr-2',
-                        'outline-none hover:bg-sup focus-visible:ring-[3px] focus-visible:ring-foco',
+                        `hover:bg-sup ${FOCO}`,
                         actual
                           ? 'bg-azul-suave font-bold text-info-tinta'
                           : 'bg-transparent font-normal text-tinta-2',

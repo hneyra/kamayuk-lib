@@ -113,3 +113,90 @@ export function contraste(uno: Hex, otro: Hex): number {
 /** Redondeado a dos decimales, que es como se escriben los ratios en las guardas. */
 export const ratio = (uno: Hex, otro: Hex): number =>
   Math.round(contraste(uno, otro) * 100) / 100;
+
+/**
+ * Un color translucido, como lo escribe el artboard: `rgba(r, g, b, a)`.
+ *
+ * El alfa es opcional porque `rgb(...)` es legal y vale lo mismo que un alfa de 1.
+ */
+const RGBA = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)$/;
+
+/**
+ * El color QUE SE VE cuando se apila una capa translucida sobre lo que hay debajo.
+ *
+ * <h2>Por que hace falta, y por que no vale medir el token de reposo</h2>
+ *
+ * Porque los tres translucidos de la barra —`--barra-control`, `--barra-realce` y
+ * `--barra-hover`— no se ven NUNCA con su propio color: se ven mezclados con la barra. Medir
+ * `--sobre-barra-2` contra `--azul-oscuro` responde a «¿se lee la entidad sobre la barra?», que
+ * es una pregunta distinta de «¿se lee la entidad cuando el raton esta encima?» — y esa segunda
+ * la contesta el blanco al 18 % ya mezclado, que es mas claro y por tanto contrasta MENOS con un
+ * texto claro. El hover BAJA el contraste, y ese es justo el estado que nadie media (#38).
+ *
+ * La mezcla es la de `source-over` en sRGB con gamma, que es lo que hace el navegador con un
+ * `background-color` translucido: componente a componente, `capa * a + fondo * (1 - a)`. No se
+ * hace en lineal a proposito — el navegador tampoco lo hace, y lo que hay que reproducir es lo
+ * que se VE, no lo que seria fisicamente correcto.
+ */
+export function componer(capa: string, fondo: Hex): Hex {
+  const casa = RGBA.exec(capa.trim());
+  if (casa === null) {
+    // Una capa opaca tapa lo de abajo, y ademas hay que decirlo: si un token deja de ser
+    // translucido, apilarlo silenciosamente devolveria el mismo color y la pila perderia sentido
+    // sin que nada lo dijera.
+    if (HEX.test(capa.trim())) return capa.trim();
+    throw new Error(`«${capa}» no es un color: ni #rrggbb ni rgba(r, g, b, a).`);
+  }
+  const alfa = casa[4] === undefined ? 1 : Number(casa[4]);
+  const capaRgb = [Number(casa[1]), Number(casa[2]), Number(casa[3])] as const;
+  const fondoRgb = componentes(fondo);
+  const mezcla = capaRgb.map((c, i) => Math.round(c * alfa + (fondoRgb[i] ?? 0) * (1 - alfa)));
+  return `#${mezcla.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+}
+
+/**
+ * Apila varias capas y devuelve el color resultante. La PRIMERA es la de arriba; la ultima, el
+ * fondo opaco.
+ *
+ * `['--barra-realce', '--barra-hover', '--azul-oscuro']` es lo que dibuja el avatar de la barra
+ * cuando el raton esta sobre el boton de sesion: tres capas, y el color que se lee encima no
+ * contrasta contra ninguna de las tres sino contra la suma.
+ */
+export function apilar(capas: readonly string[]): Hex {
+  const abajo = capas[capas.length - 1];
+  if (abajo === undefined) throw new Error('Una pila de capas no puede estar vacia.');
+  if (!HEX.test(abajo.trim())) {
+    throw new Error(`La capa de abajo de una pila tiene que ser opaca, y «${abajo}» no lo es.`);
+  }
+  let visto: Hex = abajo.trim();
+  for (let i = capas.length - 2; i >= 0; i--) visto = componer(capas[i] ?? '', visto);
+  return visto;
+}
+
+/**
+ * La distancia CROMATICA entre dos colores: la del plano a/b de OKLab, SIN la luminosidad.
+ *
+ * <h2>Por que sin la luminosidad</h2>
+ *
+ * Porque dos rellenos que solo se diferencian en lo claros que son se leen como «el mismo color,
+ * uno mas palido» — y lo que una insignia tiene que decir no es «mas palido» sino «conforme» o
+ * «vencida». Eso lo lleva el TONO. En `sepia` los cuatro fondos semanticos conservaban cuatro
+ * luminosidades distintas y aun asi eran el mismo rosa (#36): una distancia que incluyera la L
+ * habria dicho que `ok` y `atencion` estaban a 0.0325 —mas lejos que `ok` y `mal` en
+ * `alto-contraste`, que es correcto— y no habria cazado nada.
+ *
+ * Se mide en OKLab y no en HSL por lo mismo que se deriva en OKLCH: en OKLab la distancia entre
+ * dos colores se parece a lo que el ojo llama «distintos», y en HSL no.
+ */
+export function distanciaCromatica(uno: Hex, otro: Hex): number {
+  const ab = (hex: Hex): [number, number] => {
+    const { c, h } = hexAOklch(hex);
+    const rad = (h * Math.PI) / 180;
+    return [c * Math.cos(rad), c * Math.sin(rad)];
+  };
+  const [a1, b1] = ab(uno);
+  const [a2, b2] = ab(otro);
+  // A cuatro decimales, que es la escala en la que se escriben: el croma de un relleno suave
+  // vive entre 0.01 y 0.04, asi que dos decimales los haria todos iguales a cero.
+  return Math.round(Math.hypot(a1 - a2, b1 - b2) * 10000) / 10000;
+}
