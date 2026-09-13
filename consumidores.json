@@ -1,0 +1,24 @@
+{
+  "_comentario": [
+    "Los sistemas que consumen `@kamayuk/*` por `link:`, y a los que esta CI les corre la suite",
+    "antes de mezclar nada. La lista es DATO y no cableado: anadir `catastro` cuando se reconstruya",
+    "es una linea aqui, no un `job` copiado.",
+    "",
+    "`directorio` es donde se clona: el `link:` del consumidor sube dos niveles desde `ruta` y tiene",
+    "que caer JUNTO a `kamayuk-lib`, asi que el nombre del medio no es libre.",
+    "`orden` es la orden que se ejecuta en `ruta`, y no se supone: `rentas` encadena lint, tipos y",
+    "pruebas en `yarn verificar`, y otro sistema podria llamarla de otra forma.",
+    "",
+    "El motivo entero esta en kamayuk-lib#10: con `link:` no hay `npm publish` que actue de",
+    "compuerta ni rango semver que de margen — cada `main` de aqui es, sin intermediario, el `main`",
+    "de los sistemas."
+  ],
+  "consumidores": [
+    {
+      "repositorio": "hneyra/rentas",
+      "directorio": "rentas",
+      "ruta": "frontend",
+      "orden": "yarn verificar"
+    }
+  ]
+}
