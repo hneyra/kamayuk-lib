@@ -8,6 +8,11 @@ dist/
 *.iml
 .vscode/
 
+# Andamiaje de agentes. `.claude/worktrees/` es donde Claude Code abre un arbol de trabajo
+# aparte por agente: son copias enteras del repositorio, con su `node_modules`, que viven lo
+# que dura la tarea. Versionarlas meteria el repositorio dentro del repositorio.
+.claude/
+
 # Sistema
 .DS_Store
 
