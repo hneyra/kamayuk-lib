@@ -607,3 +607,25 @@ describe('EL AC1 y EL AC2 de #20: el catalogo cambia DESPUES de montar', () => {
     expect(window.location.hash).toBe('#/flo-turnos');
   });
 });
+
+/**
+ * **Y la tabla de rutas tambien discrepaba del render SIN que el catalogo cambiara** (#20).
+ *
+ * Salio al medir lo de arriba, y es un segundo defecto de la misma causa: la ruta decia una cosa y
+ * `Cascara` decia otra. Con una ruta por destino, `#/entradas/` —una barra final, que la escribe
+ * cualquiera al pegar una direccion— la recogia la ruta `entradas`, porque `react-router` come la
+ * barra final al casar; pero `useHojaDeLaRuta` compara el `pathname` en crudo contra el slug, no
+ * encontraba `entradas/` y `Cascara` no ponia el proveedor. `<Pantalla />` dibujada sin hoja, y el
+ * mismo `Unexpected Application Error!` **en la primera pintada, sin rerender ninguno**.
+ *
+ * Con una sola ruta no hay dos opiniones que discrepar: la del render es la unica.
+ */
+describe('una direccion con barra final no revienta, se DICE', () => {
+  it('`#/entradas/` dibuja el aviso, no un error de aplicacion', () => {
+    montar({ hash: '#/entradas/' });
+
+    expect(screen.queryByText(/Unexpected Application Error/i)).toBeNull();
+    expect(screen.getByText(/no corresponde a ningun destino disponible/)).toBeTruthy();
+    expect(screen.queryByText('Contenido de alm-entradas')).toBeNull();
+  });
+});
