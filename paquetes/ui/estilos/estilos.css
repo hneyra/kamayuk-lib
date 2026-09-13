@@ -25,12 +25,24 @@
    es esta linea. Lo vigila `temas/las-seis-llegan-al-css.test.ts`, que compila la hoja como la
    compila Vite y exige las seis combinaciones EN EL CSS EMITIDO.
 
-   EL ORDEN Y LA CAPA NO SON INDIFERENTES
-   ---------------------------------------
-   `@theme` emite sus `--color-*` dentro de `@layer theme`; esto entra SIN capa, asi que gana en
-   la cascada sin depender del orden de los `@import`. Envolverlo en un `@layer` dejaria las seis
-   paletas emitidas y sin efecto, que es la misma clase de fallo silencioso de arriba — y por eso
-   la guarda tambien lo mide.
+   LA CAPA: SIN ELLA, GANAR NO DEPENDE DE NINGUNA SUERTE
+   ------------------------------------------------------
+   `@theme` emite sus `--color-*` dentro de `@layer theme`; esto entra SIN capa, y en la cascada
+   (CSS Cascade 5) lo que esta fuera de toda capa gana a lo que esta dentro de una **con
+   independencia del orden y de la especificidad**. O sea que las seis paletas le ganan al `@theme`
+   POR REGLA.
+
+   ESTE PARRAFO DECIA «envolverlo en un `@layer` dejaria las seis paletas emitidas y sin efecto», Y
+   ES FALSO. Medido con `@import "./temas.css" layer(theme);` puesto y compilando esta misma hoja:
+   las nueve reglas caen en un SEGUNDO bloque `@layer theme` que sale DESPUES del que Tailwind
+   emite para el `@theme`, y dentro de una misma capa gana lo que va despues; ademas
+   `[data-tema='alto-contraste']` y `[data-tema='sepia']` superan en especificidad a `:root, :host`.
+   En un navegador de verdad, encapadas **siguen pintando las seis**.
+
+   Lo que la guarda protege, entonces, no es «que encapadas no pinten» sino que **encapadas pintan
+   por dos casualidades que nadie vigila**: el orden en que Tailwind emite los dos bloques, y el
+   peso de los selectores de tema. El dia que cambie cualquiera de las dos, el fallo es silencioso.
+   Fuera de capa no hay nada que pueda cambiar.
    ============================================================================ */
 @import "./temas.css";
 
@@ -124,7 +136,14 @@
 }
 
 :root {
-  /* El artboard declara `color-scheme: light`; el oscuro lo declara `temas.css`. */
+  /* El artboard declara `color-scheme: light`.
+     ESTE COMENTARIO DECIA «el oscuro lo declara `temas.css`», Y ES FALSO: medido, en `temas.css`
+     la cadena `color-scheme` sale 4 veces —el javadoc y los tres `@media
+     (prefers-color-scheme: dark)`— y `grep -cE '^\s*color-scheme\s*:'` da 0. Ni una es la
+     propiedad. Asi que con el equipo en oscuro la paleta se oscurece y los controles nativos y la
+     barra de desplazamiento se quedan claros. No se arregla aqui: la propiedad tendria que
+     emitirla `temas/generar.ts` en los tres bloques oscuros y `temas.css` es archivo generado con
+     su guarda de regeneracion. Va en kamayuk-lib#33. */
   color-scheme: light;
 
   /* El knob que shadcn lee. Es el `--radio` del artboard, con el nombre que shadcn busca. */
