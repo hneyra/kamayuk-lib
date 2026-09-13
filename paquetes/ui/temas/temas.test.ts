@@ -6,7 +6,14 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
-import { apilar, distanciaCromatica, ratio } from '../color.ts';
+import {
+  aLaVista,
+  apilar,
+  contraste,
+  distanciaCromatica,
+  ratio,
+  ratioQueNoLlega,
+} from '../color.ts';
 import { baseDelTema, RUTA_DE_LOS_TEMAS } from './base.ts';
 import { COMBINACIONES, derivar } from './derivar.ts';
 import {
@@ -134,26 +141,33 @@ describe('las seis se leen: contraste WCAG 2.1', () => {
       const detras = apilar(capas as string[]);
       const fondo = nombreDelFondo(par.detras);
 
-      const medido = ratio(delante, detras);
+      // SE DECIDE CON EL CRUDO y se escribe con el redondeado (#48). Comparar la cifra del
+      // mensaje contra el umbral dejaba pasar la franja [4.495, 4.5): 4.4973 se escribe «4.50» y
+      // satisface el `>=`. Desde #48 `ratio()` devuelve texto, asi que confundirlas no compila.
+      const medido = contraste(delante, detras);
+      const escrito = ratio(delante, detras);
       const exigido = minimos[par.clase];
       if (medido >= exigido) continue;
 
       const exenta = exentas.find((e) => e.delante === par.delante && e.detras === fondo);
       if (exenta === undefined) {
         rotas.push(
-          `  ${par.delante} sobre ${fondo}: ${String(medido)}:1, y ${par.clase} pide ` +
+          `  ${par.delante} sobre ${fondo}: ${ratioQueNoLlega(delante, detras, exigido)}:1, y ` +
+            `${par.clase} pide ` +
             `${String(exigido)}:1 — ${par.donde}`,
         );
         continue;
       }
       exencionesVivas.add(`${par.delante}|${fondo}`);
       // La exencion lleva su cifra, y la cifra tiene que cuadrar. Si empeora, esto sale rojo
-      // aunque la pareja siga exenta: una exencion sin numero es un permiso.
+      // aunque la pareja siga exenta: una exencion sin numero es un permiso. Aqui el redondeo SI
+      // es el sujeto —la lista declara dos decimales, no la cifra cruda—, asi que se comparan las
+      // dos escritas.
       expect(
-        medido,
+        escrito,
         `La exencion de «${par.delante} sobre ${fondo}» en «${clave}» decia ` +
-          `${String(exenta.ratio)}:1 y ahora mide ${String(medido)}:1.\n  ${exenta.porQue}`,
-      ).toBe(exenta.ratio);
+          `${aLaVista(exenta.ratio, 2)}:1 y ahora mide ${escrito}:1.\n  ${exenta.porQue}`,
+      ).toBe(aLaVista(exenta.ratio, 2));
     }
 
     expect(
@@ -209,10 +223,11 @@ describe('las cuatro insignias SIGNIFICAN cosas distintas (#36)', () => {
         const a = paleta.get(uno);
         const b = paleta.get(otro);
         if (a === undefined || b === undefined) continue;
+        // Con el crudo, por lo mismo que el contraste de arriba (#48).
         const distancia = distanciaCromatica(a, b);
         if (distancia >= DISTANCIA_SEMANTICA_MINIMA) continue;
         juntos.push(
-          `  ${uno} (${a}) y ${otro} (${b}) estan a ${String(distancia)}, ` +
+          `  ${uno} (${a}) y ${otro} (${b}) estan a ${aLaVista(distancia, 4)}, ` +
             `y hacen falta ${String(DISTANCIA_SEMANTICA_MINIMA)}`,
         );
       }

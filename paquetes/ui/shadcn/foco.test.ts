@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { compile } from 'tailwindcss';
 import { describe, expect, it } from 'vitest';
 
-import { apilar, ratio } from '../color.ts';
+import { apilar, contraste, ratioQueNoLlega } from '../color.ts';
 import { baseDelTema } from '../temas/base.ts';
 import { COMBINACIONES, derivar } from '../temas/derivar.ts';
 import {
@@ -86,11 +86,13 @@ describe('el contorno de foco contrasta, en las seis', () => {
     // vea sobre uno y no sobre el otro sigue dejando la mitad de las pantallas sin indicador.
     for (const papel of ['--superficie', '--fondo'] as const) {
       const detras = paleta.get(papel) ?? '';
-      const medido = ratio(contorno ?? '', detras);
+      // Se decide con el crudo y se escribe con el redondeado (#48).
+      const medido = contraste(contorno ?? '', detras);
       expect(
         medido,
         `El contorno de foco «${TOKEN_DEL_CONTORNO}» (${contorno ?? ''}) sobre «${papel}» ` +
-          `(${detras}) en «${clave}» da ${String(medido)}:1, y WCAG 1.4.11 pide 3:1.\n` +
+          `(${detras}) en «${clave}» da ${ratioQueNoLlega(contorno ?? '', detras, 3)}:1, y ` +
+          `WCAG 1.4.11 pide 3:1.\n` +
           '  Es el unico indicador que identifica el foco: el halo `--foco` da 1.13:1 en el tema\n' +
           '  por omision y no identifica nada por si solo.',
       ).toBeGreaterThanOrEqual(3);
@@ -110,11 +112,12 @@ describe('el contorno de foco contrasta, en las seis', () => {
       ['la barra', barra],
       ['la barra CON HOVER', conHover],
     ] as const) {
-      const medido = ratio(contorno, detras);
+      const medido = contraste(contorno, detras);
       expect(
         medido,
         `El contorno de foco de la barra «${TOKEN_DEL_CONTORNO_EN_LA_BARRA}» (${contorno}) sobre ` +
-          `${donde} (${detras}) en «${clave}» da ${String(medido)}:1, y WCAG 1.4.11 pide 3:1.`,
+          `${donde} (${detras}) en «${clave}» da ${ratioQueNoLlega(contorno, detras, 3)}:1, y ` +
+          `WCAG 1.4.11 pide 3:1.`,
       ).toBeGreaterThanOrEqual(3);
     }
   });
@@ -123,7 +126,10 @@ describe('el contorno de foco contrasta, en las seis', () => {
     // Es la razon de que haya dos, y conviene que este medida: si algun dia `--azul` se aclarase
     // hasta verse sobre la barra, esto se pondria rojo y sobraria uno de los dos tokens.
     const paleta = derivar(base, 'institucional/claro');
-    const medido = ratio(paleta.get(TOKEN_DEL_CONTORNO) ?? '', paleta.get('--azul-oscuro') ?? '');
+    const medido = contraste(
+      paleta.get(TOKEN_DEL_CONTORNO) ?? '',
+      paleta.get('--azul-oscuro') ?? '',
+    );
     expect(
       medido,
       'El contorno de la pagina ya se ve sobre la barra, asi que el segundo token sobra.',

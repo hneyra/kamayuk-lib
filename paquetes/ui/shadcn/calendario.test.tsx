@@ -11,7 +11,7 @@ import { createRequire } from 'node:module';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
-import { distanciaDeLuminosidad, ratio } from '../color.ts';
+import { aLaVista, contraste, distanciaDeLuminosidad, ratio, ratioQueNoLlega } from '../color.ts';
 import { baseDelTema } from '../temas/base.ts';
 import { COMBINACIONES, derivar } from '../temas/derivar.ts';
 import { MINIMOS } from '../temas/papeles.ts';
@@ -164,11 +164,13 @@ describe('los dias del mes vecino, en las seis combinaciones (#39)', () => {
     for (const papel of PAPELES_DEL_CALENDARIO) {
       const tinta = paleta.get(fuera) ?? '';
       const fondo = paleta.get(papel) ?? '';
-      const medido = ratio(tinta, fondo);
+      // Se decide con el crudo y se escribe con el redondeado (#48).
+      const medido = contraste(tinta, fondo);
       expect(
         medido,
         `El dia de fuera del mes se pinta con «${fuera}» (${tinta}) y sobre «${papel}» (${fondo}) ` +
-          `en «${clave}» da ${String(medido)}:1, cuando WCAG 1.4.3 pide ${String(exigido)}:1.\n` +
+          `en «${clave}» da ${ratioQueNoLlega(tinta, fondo, exigido)}:1, cuando WCAG 1.4.3 ` +
+          `pide ${String(exigido)}:1.\n` +
           '  Son numeros que se leen y se pulsan: no llevan `aria-hidden` y no pueden llevarlo.\n' +
           '  Si lo que se buscaba era atenuarlos, eso se consigue con un token legible —`--tinta-3`\n' +
           '  esta medido por encima del minimo en las seis— y no con uno que la hoja declara\n' +
@@ -183,21 +185,21 @@ describe('los dias del mes vecino, en las seis combinaciones (#39)', () => {
     const deFuera = paleta.get(fuera) ?? '';
     const delMes = paleta.get(dentro) ?? '';
 
-    const atenuado = ratio(deFuera, papel);
-    const lleno = ratio(delMes, papel);
+    const atenuado = contraste(deFuera, papel);
+    const lleno = contraste(delMes, papel);
     expect(
       atenuado,
-      `En «${clave}» el dia de fuera («${fuera}», ${deFuera}) da ${String(atenuado)}:1 sobre la ` +
-        `superficie y el dia del mes («${dentro}», ${delMes}) da ${String(lleno)}:1. El de fuera ` +
-        'tiene que contrastar MENOS: si pesa lo mismo o mas, el mes deja de tener bordes.',
+      `En «${clave}» el dia de fuera («${fuera}», ${deFuera}) da ${ratio(deFuera, papel)}:1 sobre ` +
+        `la superficie y el dia del mes («${dentro}», ${delMes}) da ${ratio(delMes, papel)}:1. El ` +
+        'de fuera tiene que contrastar MENOS: si pesa lo mismo o mas, el mes deja de tener bordes.',
     ).toBeLessThan(lleno);
 
     const separacion = distanciaDeLuminosidad(deFuera, delMes);
     expect(
       separacion,
-      `En «${clave}» las dos tintas estan a ${String(separacion)} de luminosidad y hacen falta ` +
-        `${String(SEPARACION_MINIMA)}. Contrastar menos no basta: a esta distancia los dos dias ` +
-        'se ven del mismo color y la rejilla no dice donde acaba el mes.',
+      `En «${clave}» las dos tintas estan a ${aLaVista(separacion, 4)} de luminosidad y hacen ` +
+        `falta ${String(SEPARACION_MINIMA)}. Contrastar menos no basta: a esta distancia los dos ` +
+        'dias se ven del mismo color y la rejilla no dice donde acaba el mes.',
     ).toBeGreaterThanOrEqual(SEPARACION_MINIMA);
   });
 });
