@@ -94,5 +94,5 @@
   color-scheme: light;
 
   /* El knob que shadcn lee. Es el `--radio` del artboard, con el nombre que shadcn busca. */
-  --radius: 3px;
+  --radius-radio: 3px;
 }
