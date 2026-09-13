@@ -37,6 +37,16 @@ export { Icono } from './Icono.tsx';
 export type { IconoProps } from './Icono.tsx';
 export { ICONOS } from './iconos.ts';
 export type { NombreDeIcono, Trazos } from './iconos.ts';
+// El indicador de foco, para que el armazon pinte el MISMO y no una copia que se desincronice.
+export {
+  CONTORNO_DE_FOCO,
+  CONTORNO_DE_FOCO_EN_LA_BARRA,
+  FOCO,
+  FOCO_EN_LA_BARRA,
+  HALO_DE_FOCO,
+  TOKEN_DEL_CONTORNO,
+  TOKEN_DEL_CONTORNO_EN_LA_BARRA,
+} from './shadcn/foco.ts';
 export { Boton } from './shadcn/boton.tsx';
 export type { BotonProps } from './shadcn/boton.tsx';
 export {

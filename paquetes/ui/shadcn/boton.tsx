@@ -2,6 +2,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import type { ButtonHTMLAttributes } from 'react';
 
 import { cn } from '../utilidades.ts';
+import { FOCO } from './foco.ts';
 
 /**
  * El primer componente de shadcn del producto, con la forma de V8.
@@ -24,7 +25,9 @@ import { cn } from '../utilidades.ts';
  */
 const variantes = cva(
   'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-sm text-[13.5px] ' +
-    'transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-foco ' +
+    // El foco: el CONTORNO del artboard mas el halo. Ni `outline-none` ni el halo solo — ver
+    // `foco.ts`, que explica por que las dos cosas juntas dejaban el contorno sin pintar.
+    `transition-colors ${FOCO} ` +
     'disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {

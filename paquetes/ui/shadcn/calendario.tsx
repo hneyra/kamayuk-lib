@@ -2,6 +2,7 @@ import { DayPicker, getDefaultClassNames, type DayPickerProps } from 'react-day-
 import { es } from 'react-day-picker/locale';
 
 import { cn } from '../utilidades.ts';
+import { FOCO } from './foco.ts';
 
 /**
  * El calendario, y por que no es `<input type="date">`.
@@ -42,8 +43,8 @@ export function Calendario({ className, classNames, ...resto }: CalendarioProps)
         weekday: cn(porOmision.weekday, 'text-[11.5px] font-bold uppercase text-tinta-3'),
         day_button: cn(
           porOmision.day_button,
-          'rounded-sm hover:bg-azul-suave hover:text-info-tinta outline-none',
-          'focus-visible:ring-[3px] focus-visible:ring-foco',
+          'rounded-sm hover:bg-azul-suave hover:text-info-tinta',
+          FOCO,
         ),
         selected: cn(porOmision.selected, '[&>button]:bg-azul [&>button]:text-sobre-azul [&>button]:font-bold'),
         today: cn(porOmision.today, '[&>button]:border [&>button]:border-azul'),
