@@ -130,7 +130,8 @@ const RGBA = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)$
  * `--barra-hover`— no se ven NUNCA con su propio color: se ven mezclados con la barra. Medir
  * `--sobre-barra-2` contra `--azul-oscuro` responde a «¿se lee la entidad sobre la barra?», que
  * es una pregunta distinta de «¿se lee la entidad cuando el raton esta encima?» — y esa segunda
- * la contesta el blanco al 18 % ya mezclado, que es mas claro y por tanto contrasta MENOS con un
+ * la contesta el blanco del hover ya mezclado —entre el 15 % y el 20 %, segun la combinacion—, que
+ * es mas claro y por tanto contrasta MENOS con un
  * texto claro. El hover BAJA el contraste, y ese es justo el estado que nadie media (#38).
  *
  * La mezcla es la de `source-over` en sRGB con gamma, que es lo que hace el navegador con un
@@ -188,6 +189,30 @@ export function apilar(capas: readonly string[]): Hex {
  * Se mide en OKLab y no en HSL por lo mismo que se deriva en OKLCH: en OKLab la distancia entre
  * dos colores se parece a lo que el ojo llama «distintos», y en HSL no.
  */
+/**
+ * La distancia de LUMINOSIDAD entre dos colores: la L de OKLab, y solo la L.
+ *
+ * <h2>Para que hace falta, si ya esta el ratio de contraste</h2>
+ *
+ * Porque el ratio contesta «¿se lee?» y esta contesta «¿se distinguen?», y son dos preguntas
+ * distintas cuando los dos colores son texto. Un dia del mes vecino en el calendario tiene que
+ * estar ATENUADO respecto de un dia del mes —si no, el mes deja de tener bordes— y a la vez
+ * seguir siendo legible (#39). El ratio entre los dos tokens no sirve para eso: entre dos grises
+ * oscuros sobre papel blanco da cifras cercanas a 1 que no dicen nada de lo separados que se ven.
+ *
+ * Se mide en OKLab por lo mismo que se deriva en OKLCH: ahi la L es la que el ojo percibe, asi que
+ * «0.05 de diferencia» significa lo mismo en la zona clara y en la oscura de la escala.
+ *
+ * Es la hermana de `distanciaCromatica()`, y cada una deja fuera lo que a la otra le sobra: dos
+ * rellenos de insignia se distinguen por el TONO —lo palidos que sean no dice «conforme» ni
+ * «vencida»— y dos tintas del mismo gris se distinguen por la LUZ.
+ */
+export function distanciaDeLuminosidad(uno: Hex, otro: Hex): number {
+  // A cuatro decimales, la misma escala que `distanciaCromatica()`: la separacion entre dos
+  // tintas vecinas vive entre 0.05 y 0.12, asi que dos decimales las igualaria de tres en tres.
+  return Math.round(Math.abs(hexAOklch(uno).l - hexAOklch(otro).l) * 10000) / 10000;
+}
+
 export function distanciaCromatica(uno: Hex, otro: Hex): number {
   const ab = (hex: Hex): [number, number] => {
     const { c, h } = hexAOklch(hex);

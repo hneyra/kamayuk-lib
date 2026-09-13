@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { contraste, hexAOklch, oklchAHex, ratio } from './color.ts';
+import { contraste, distanciaDeLuminosidad, hexAOklch, oklchAHex, ratio } from './color.ts';
 
 /**
  * El color, contra valores CONOCIDOS y no contra si mismo.
@@ -66,6 +66,24 @@ describe('OKLCH', () => {
     for (const hex of ['#005284', '#f2f6f9', '#16232c', '#52bdef', '#8f2a17', '#fff4d9']) {
       expect(oklchAHex(hexAOklch(hex))).toBe(hex);
     }
+  });
+
+  it('la distancia de luminosidad va de 0 a 1, y es simetrica', () => {
+    // Los dos extremos son puntos externos: el blanco esta en L=1 y el negro en L=0, asi que su
+    // distancia es la escala entera. Si la aritmetica se moviera, esto no daria 1.
+    expect(distanciaDeLuminosidad('#000000', '#ffffff')).toBe(1);
+    expect(distanciaDeLuminosidad('#005284', '#005284')).toBe(0);
+    expect(distanciaDeLuminosidad('#16232c', '#93a3af')).toBe(
+      distanciaDeLuminosidad('#93a3af', '#16232c'),
+    );
+  });
+
+  it('y NO es el ratio de contraste: dos tintas pueden leerse igual de bien y verse iguales', () => {
+    // `--tinta-2` y `--tinta-3` de `alto-contraste/oscuro`. Las dos pasan AAA sobre su papel y
+    // aun asi estan a 0.0538 una de otra, que es lo que hace que un dia de fuera del calendario
+    // apenas se distinga de uno del mes (#39). El contraste entre ellas —1.18:1— no dice eso.
+    expect(distanciaDeLuminosidad('#e4eaee', '#d3d8dd')).toBe(0.0538);
+    expect(ratio('#e4eaee', '#d3d8dd')).toBe(1.18);
   });
 
   it('un color translucido no se deriva: revienta en vez de adivinar', () => {

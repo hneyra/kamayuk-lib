@@ -102,9 +102,12 @@ export interface Pareja {
    * El fondo: un token opaco, o **una PILA de capas** de arriba abajo, con la opaca al final.
    *
    * La pila existe porque un estado compuesto NO se ve con el color de ninguno de sus tokens:
-   * `--barra-hover` es blanco al 18 % y lo que se ve es esa mezcla sobre la barra. Medir el token
-   * de reposo contesta otra pregunta — y de hecho la contesta mejor de lo que es, porque el hover
-   * BAJA el contraste (#38).
+   * `--barra-hover` es blanco a una fraccion —la que declara su combinacion— y lo que se ve es esa
+   * mezcla sobre la barra. Medir el token de reposo contesta otra pregunta — y de hecho la contesta
+   * mejor de lo que es, porque el hover BAJA el contraste (#38).
+   *
+   * Y la pila puede tener MAS DE DOS capas: el disco del avatar apila su propio velo sobre el del
+   * hover, y ahi el contraste se cae de golpe (#41).
    */
   readonly detras: string | readonly string[];
   /** `texto` pide 4.5:1 (WCAG 1.4.3); `filo`, 3:1 (1.4.11). */
@@ -173,6 +176,20 @@ export const PAREJAS: readonly Pareja[] = [
   { delante: '--sobre-barra-2', detras: ['--barra-hover', '--azul-oscuro'], clase: 'texto', donde: 'la entidad en el boton de busqueda, CON HOVER' },
   { delante: '--sobre-barra', detras: ['--barra-hover', '--azul-oscuro'], clase: 'texto', donde: 'el titulo y los iconos de la barra, CON HOVER' },
 
+  // (d) EL AVATAR, QUE ES LA PILA DE DOS Y LA QUE (c) DEJO FUERA (#41)
+  //
+  // El disco lleva `--barra-realce` de fondo y vive DENTRO del boton de sesion, que al pasar el
+  // raton se tiñe de `--barra-hover`. O sea que bajo las iniciales hay dos velos blancos, uno
+  // encima del otro, sobre la barra — y los alfas no se suman: se componen. Con los del artboard,
+  // 34.4 % de blanco en claro y 43.8 % en oscuro.
+  //
+  // Va a 11 px y en negrita, y 11 px NO es texto grande: WCAG 1.4.3 pide los mismos 4.5:1 que a
+  // cualquier otro texto, y `alto-contraste` sus 7:1. La cifra que traia cuando se declaro esta
+  // pareja: 4.50 / 3.65 / 5.81 / 4.64 / 4.36 / 3.63, o sea cinco de seis por debajo de su minimo
+  // y la sexta pasando por el redondeo —4.4973 escrito 4.50—.
+  { delante: '--sobre-barra', detras: ['--barra-realce', '--azul-oscuro'], clase: 'texto', donde: 'las iniciales del avatar, en reposo' },
+  { delante: '--sobre-barra', detras: ['--barra-realce', '--barra-hover', '--azul-oscuro'], clase: 'texto', donde: 'las iniciales del avatar, CON HOVER' },
+
   // ==========================================================================================
   // Y LOS QUE QUEDABAN CON PAPEL Y CERO PAREJAS
   //
@@ -211,8 +228,10 @@ export const PAREJAS: readonly Pareja[] = [
 export const SIN_PAREJA: Readonly<Record<string, string>> = {
   '--tinta-4':
     'No es color de texto y lo dice el artboard: 2.59:1 sobre papel blanco. Es el trazo de un ' +
-    'icono decorativo —el separador de la miga, la flecha del desplegable, los dias de fuera del ' +
-    'calendario—, y nada de eso se lee.',
+    'icono decorativo —el separador de la miga y la flecha del desplegable—, y nada de eso se ' +
+    'lee: los dos van con `aria-hidden`. Hasta #39 esta frase nombraba tambien los dias de fuera ' +
+    'del calendario, y ESO SI SE LEIA: son numeros que ademas se pulsan, y no pueden llevar ' +
+    '`aria-hidden`. Pasaron a `--tinta-3`, que atenua igual y se lee en las seis.',
   '--acento':
     'No lo pinta ningun componente todavia. El artboard lo reserva para un realce decorativo; el ' +
     'dia que algo lo use encima de un papel, esa es su pareja y sale de aqui.',
@@ -229,17 +248,6 @@ export const SIN_PAREJA: Readonly<Record<string, string>> = {
     'se lee esta encima, sobre una superficie opaca—, y su trabajo es justo el contrario del de ' +
     'un color legible: cuanto menos se distinga lo de abajo, mejor cumple.',
   '--velo-paleta': 'El mismo velo, mas suave, para la paleta de mando. Mismo motivo.',
-  '--barra-realce':
-    'Un filo decorativo sobre la barra: el separador vertical entre bloques y el borde de la ' +
-    'tecla rapida. Separa dos trozos de la MISMA barra, asi que no es un componente de 1.4.11 — ' +
-    'no hay nada que identificar ni que pulsar en el: 1.81:1 en el tema por omision y 1.84:1 en ' +
-    '`alto-contraste`, donde la barra se queda oscura a proposito y por eso alli tampoco llegaria. ' +
-    'DONDE SI HAY ALGO QUE LEER es el disco del avatar, que lo usa de fondo — y eso NO se mide ' +
-    'contra este token sino contra la pila. Medido: `--sobre-barra` sobre ' +
-    '`--barra-realce + --barra-hover + --azul-oscuro` da 4.50 / 3.65 / 5.81 / 4.64 / 4.36 / 3.63 ' +
-    'en las seis, o sea que falla en cuatro. No entra aqui como pareja porque arreglarlo pide ' +
-    'declarar los velos POR COMBINACION y no por modo —en `alto-contraste` pide 7:1 y ese tema no ' +
-    'admite excepciones—, que es un cambio de forma y su propio issue.',
 };
 
 /**
@@ -349,14 +357,20 @@ const HALO_CON_CONTORNO_DETRAS =
 /**
  * La entidad sobre el boton de busqueda, con el raton encima, en el tema por omision.
  *
- * Es la unica de las seis que no se puede mover desde aqui: `institucional/claro` ES el origen,
- * asi que tanto `--sobre-barra-2` (#9fc6df) como el blanco al 18 % del hover son valores que
- * dibuja el artboard y que esta libreria no elige. En las otras cinco si se movio la regla —el
- * tramo bajo de `sobre-barra` subio de 0.82 a 0.84— y `institucional/oscuro` paso de 4.40 a 4.72.
+ * Lo que falta aqui **es luminosidad de `--sobre-barra-2`**, y ese si es del artboard:
+ * `institucional/claro` es el origen para los colores opacos, asi que el #9fc6df con que se pinta
+ * la entidad lo dibuja V8 y esta libreria no lo elige. En las otras cinco se movio la regla —el
+ * tramo bajo de `sobre-barra` subio de 0.82 a 0.84 (#38)— y `institucional/oscuro` paso de 4.40 a
+ * 4.72.
+ *
+ * El velo del hover **ya no es el del artboard**: desde #41 baja al 17 % para que las iniciales del
+ * avatar lleguen a 4.5:1, y eso subio esta pareja de 4.08 a 4.21. Sigue sin llegar, y lo que le
+ * falta no lo puede dar un velo — con el hover apagado del todo daria 5.36:1, que es la misma
+ * pareja sobre `--barra-control`, asi que el margen entero esta en un color que es del artboard.
  */
 const COMPUESTO_DEL_ARTBOARD =
-  'La composicion es del artboard y el origen no pasa por ninguna regla: `--sobre-barra-2` y el ' +
-  'blanco al 18 % del hover son los dos de V8. A 11 px, 4.08:1 no llega a los 4.5:1 de WCAG ' +
+  'Lo que falta es luminosidad de `--sobre-barra-2` (#9fc6df), que es del artboard: el origen no ' +
+  'pasa por ninguna regla para los colores opacos. A 11 px, 4.21:1 no llega a los 4.5:1 de WCAG ' +
   '1.4.3, y arreglarlo pide tocar el artboard, que es una decision de `rentas` y no de aqui. Se ' +
   'declara con su cifra para que no pueda empeorar sin que nadie se entere.';
 
@@ -373,7 +387,7 @@ export const EXCEPCIONES: Readonly<Record<string, readonly Excepcion[]>> = {
     {
       delante: '--sobre-barra-2',
       detras: '--barra-hover sobre --azul-oscuro',
-      ratio: 4.08,
+      ratio: 4.21,
       porQue: COMPUESTO_DEL_ARTBOARD,
     },
   ],
