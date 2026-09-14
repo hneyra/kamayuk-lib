@@ -107,6 +107,10 @@ describe('ninguna libreria comun supone un sistema', () => {
       'EstadoDeLaLectura.tsx',
       'PieDeOperaciones.tsx',
       'PiezaDeLaPantalla.tsx',
+      // Y las de #65, que aprenden las tablas de sus hojas.
+      'AccionesDeLaFila.tsx',
+      'reglas-de-las-tablas.ts',
+      'muestras-de-campos-y-tablas.ts',
     ]) {
       expect(
         leidas.some((a) => a.endsWith(join('interprete', archivo))),

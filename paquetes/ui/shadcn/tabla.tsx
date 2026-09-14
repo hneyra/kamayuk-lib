@@ -22,9 +22,23 @@ import { cn } from '../utilidades.ts';
  * tabla, que es lo unico que lo necesita.
  */
 
-export function Tabla({ className, style, ...resto }: ComponentProps<'table'>) {
+export interface TablaProps extends ComponentProps<'table'> {
+  /**
+   * Lo que se le pone al contenedor que se desplaza (#65, `tabla-de-cabecera-fija`). Una cabecera
+   * `sticky` se pega al contenedor desplazable MAS CERCANO: si el que se desplaza en vertical fuera
+   * otro, por fuera, este —con su `overflow-x`— se quedaria con la cabecera y no se moveria nunca.
+   */
+  readonly marco?: Omit<ComponentProps<'div'>, 'children'> & Readonly<Record<`data-${string}`, string>>;
+}
+
+export function Tabla({ className, style, marco, ...resto }: TablaProps) {
+  const { className: claseDelMarco, ...restoDelMarco } = marco ?? {};
   return (
-    <div data-slot="tabla-marco" className="overflow-x-auto border-t border-linea-2">
+    <div
+      data-slot="tabla-marco"
+      className={cn('overflow-x-auto border-t border-linea-2', claseDelMarco)}
+      {...restoDelMarco}
+    >
       <table
         data-slot="tabla"
         className={cn('w-full border-collapse', className)}

@@ -164,7 +164,9 @@ export function Pantalla({
   };
 
   return (
-    <div className="flex flex-col gap-[14px]">
+    // Con una tabla de cabecera fija, la pantalla cede el alto que le den hasta el marco de esa tabla
+    // (#65). Sin ella, la de siempre.
+    <div className={cedeElAlto(definicion) ? 'flex min-h-0 flex-1 flex-col gap-[14px]' : 'flex flex-col gap-[14px]'}>
       {/* Una vez, arriba: ver el docblock. Sin frase no hay caja: una alerta vacia es un hueco (#44). */}
       {datos.ausencia.explicacion === '' ? null : (
         <Alerta tono={datos.ausencia.tono}>{traducir(datos.ausencia.explicacion)}</Alerta>
@@ -189,6 +191,8 @@ export function Pantalla({
                 valores={valoresDe(i, pieza.campos.length)}
                 filas={datos.filas?.get(i)}
                 conteo={datos.conteos?.get(i)}
+                datosDeLasTablas={datos.tablas}
+                interaccion={interaccion}
                 ausencia={datos.ausencia}
                 ausenciaPorCampo={datos.ausenciaPorCampo}
                 indice={i}
@@ -218,6 +222,15 @@ export function Pantalla({
         />
       ))}
     </div>
+  );
+}
+
+/** Si alguna tabla de la pantalla tiene la cabecera fija: su marco necesita el alto de la hoja (#65). */
+function cedeElAlto(definicion: DefinicionDePantalla<Pieza>): boolean {
+  return definicion.bloques.some(
+    (pieza) =>
+      esBloque(pieza) &&
+      [pieza.tabla, ...(pieza.tablas ?? [])].some((tabla) => tabla?.cabeceraFija === true),
   );
 }
 

@@ -41,9 +41,11 @@ export interface GrupoDeAccionesProps {
   readonly traducir: (texto: string) => string;
   readonly textos: TextosDeLaPantalla;
   readonly interaccion: InteraccionDeLaPantalla;
+  /** Lo que ademas describe a cada boton: el detalle de la fila, en una accion por fila (#65). */
+  readonly describidoPor?: string;
 }
 
-export function GrupoDeAcciones({ acciones, nombrados, traducir, textos, interaccion }: GrupoDeAccionesProps) {
+export function GrupoDeAcciones({ acciones, nombrados, traducir, textos, interaccion, describidoPor }: GrupoDeAccionesProps) {
   const raiz = useId();
   const [pendientes, setPendientes] = useState<ReadonlySet<number>>(() => new Set());
   // El estado llega una pintada tarde: la segunda pulsacion de un doble clic la veria libre. La
@@ -110,6 +112,7 @@ export function GrupoDeAcciones({ acciones, nombrados, traducir, textos, interac
             motivo={motivo}
             idDelMotivo={motivo === undefined ? undefined : idDe(motivo)}
             enCurso={pendientes.has(indice)}
+            aria-describedby={describidoPor}
             onClick={() => {
               pulsar(accion, indice);
             }}
