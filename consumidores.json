@@ -19,6 +19,12 @@
       "directorio": "rentas",
       "ruta": "frontend",
       "orden": "yarn verificar"
+    },
+    {
+      "repositorio": "hneyra/ciudadano",
+      "directorio": "ciudadano",
+      "ruta": "frontend",
+      "orden": "yarn verificar"
     }
   ]
 }

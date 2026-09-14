@@ -10,7 +10,7 @@ import { compile } from 'tailwindcss';
 import { describe, expect, it } from 'vitest';
 
 import { apilar, contraste, ratioQueNoLlega } from '../color.ts';
-import { baseDelTema } from '../temas/base.ts';
+import { leerLosOrigenes } from '../temas/base.ts';
 import { COMBINACIONES, derivar } from '../temas/derivar.ts';
 import {
   CONTORNO_DE_FOCO,
@@ -75,10 +75,10 @@ async function emitir(clases: readonly string[]): Promise<string> {
 }
 
 describe('el contorno de foco contrasta, en las seis', () => {
-  const base = baseDelTema();
+  const origenes = leerLosOrigenes();
 
   it.each(COMBINACIONES)('%s llega a los 3:1 que pide WCAG 1.4.11', (clave) => {
-    const paleta = derivar(base, clave);
+    const paleta = derivar(origenes, clave);
     const contorno = paleta.get(TOKEN_DEL_CONTORNO);
     expect(contorno, `«${TOKEN_DEL_CONTORNO}» no esta en la paleta de «${clave}»`).toBeDefined();
 
@@ -103,7 +103,7 @@ describe('el contorno de foco contrasta, en las seis', () => {
     // `--azul` sobre la barra es azul sobre azul y no se ve; lo que se ve sobre la barra es lo
     // que ya se lee en ella. Se mide contra la barra Y contra la barra con hover, que es mas
     // clara y por tanto el caso malo.
-    const paleta = derivar(base, clave);
+    const paleta = derivar(origenes, clave);
     const contorno = paleta.get(TOKEN_DEL_CONTORNO_EN_LA_BARRA) ?? '';
     const barra = paleta.get('--azul-oscuro') ?? '';
     const conHover = apilar([paleta.get('--barra-hover') ?? '', barra]);
@@ -125,7 +125,7 @@ describe('el contorno de foco contrasta, en las seis', () => {
   it('EL CENTINELA: el contorno de la pagina NO valdria sobre la barra', () => {
     // Es la razon de que haya dos, y conviene que este medida: si algun dia `--azul` se aclarase
     // hasta verse sobre la barra, esto se pondria rojo y sobraria uno de los dos tokens.
-    const paleta = derivar(base, 'institucional/claro');
+    const paleta = derivar(origenes, 'institucional/claro');
     const medido = contraste(
       paleta.get(TOKEN_DEL_CONTORNO) ?? '',
       paleta.get('--azul-oscuro') ?? '',

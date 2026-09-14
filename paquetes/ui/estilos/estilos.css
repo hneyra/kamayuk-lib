@@ -22,7 +22,7 @@
 
    Arrastrado, la paleta viaja con la hoja que el consumidor YA importa —`rentas/src/estilos.css`
    hace `@import '@kamayuk/ui/estilos.css'`— y el camino tiene un solo sitio donde romperse, que
-   es esta linea. Lo vigila `temas/las-seis-llegan-al-css.test.ts`, que compila la hoja como la
+   es esta linea. Lo vigila `temas/las-paletas-llegan-al-css.test.ts`, que compila la hoja como la
    compila Vite y exige las seis combinaciones EN EL CSS EMITIDO.
 
    LA CAPA: SIN ELLA, GANAR NO DEPENDE DE NINGUNA SUERTE
@@ -142,7 +142,7 @@
      los tres bloques oscuros por sus dos caminos, `prefers-color-scheme` y `[data-modo='oscuro']`.
      Hasta #33 daba 0 y esta linea era la unica `color-scheme` del documento: con el equipo en
      oscuro la paleta se oscurecia y los controles nativos, la barra de desplazamiento y el fondo
-     previo del lienzo se quedaban claros. Lo vigila `temas/las-seis-llegan-al-css.test.ts` SOBRE
+     previo del lienzo se quedaban claros. Lo vigila `temas/las-paletas-llegan-al-css.test.ts` SOBRE
      EL CSS EMITIDO —mirar el generador dejaria pasar un `temas.css` sin regenerar—, y la propiedad
      no se escribe a mano en `temas.css`: sale de `temas/generar.ts`. */
   color-scheme: light;

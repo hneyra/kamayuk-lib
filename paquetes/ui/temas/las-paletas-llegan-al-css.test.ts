@@ -10,11 +10,13 @@ import { fileURLToPath } from 'node:url';
 import { compile } from 'tailwindcss';
 import { describe, expect, it } from 'vitest';
 
-import { baseDelTema } from './base.ts';
+import { leerLosOrigenes } from './base.ts';
 import { COMBINACIONES, derivar } from './derivar.ts';
 
 /**
- * **Las seis paletas llegan al CSS QUE EL NAVEGADOR RECIBE** (#23).
+ * **Las paletas llegan al CSS QUE EL NAVEGADOR RECIBE** (#23). Eran seis, y el archivo se llamaba
+ * `las-seis-llegan-al-css`; desde #56 son ocho y el nombre deja de contarlas, porque un nombre con
+ * la cuenta dentro miente en cuanto entra la siguiente.
  *
  * <h2>El hueco que esto tapa, y por que ninguna prueba lo dijo</h2>
  *
@@ -118,6 +120,11 @@ const SELECTORES: Readonly<Record<string, readonly string[]>> = {
     "@media (prefers-color-scheme: dark) { [data-tema='sepia']:not([data-modo='claro']) {",
     "[data-tema='sepia'][data-modo='oscuro'] {",
   ],
+  'clasico/claro': ["[data-tema='clasico'] {"],
+  'clasico/oscuro': [
+    "@media (prefers-color-scheme: dark) { [data-tema='clasico']:not([data-modo='claro']) {",
+    "[data-tema='clasico'][data-modo='oscuro'] {",
+  ],
 };
 
 /** El selector sin la llave con que se busca, para poder nombrarlo en un mensaje. */
@@ -192,16 +199,17 @@ function capasAbiertasEn(plano: string, indice: number): number {
   return abiertas;
 }
 
-const base = baseDelTema();
+const origenes = leerLosOrigenes();
+const base = origenes.institucional.colores;
 
-describe('las seis paletas llegan al CSS emitido', () => {
+describe('las ocho paletas llegan al CSS emitido', () => {
   it('EL CENTINELA: la hoja publicada compila y Tailwind emite', async () => {
     // Sin esto, una hoja que dejara de compilar —o un `build()` que devolviera la cadena vacia—
     // dejaria todo lo de abajo fallando por el motivo equivocado, o pasando si alguien invirtiera
     // una comprobacion. Y la hoja es la PUBLICADA: si `exports` deja de llevar a ella, esto
     // revienta al resolverla, que es la otra mitad del camino.
     expect(base.size, 'el @theme no declaro ni un color').toBe(38);
-    expect(COMBINACIONES).toHaveLength(6);
+    expect(COMBINACIONES).toHaveLength(8);
     // Y cada una con su selector declarado: una combinacion sin entrada en `SELECTORES` se
     // recorreria sobre la lista vacia y saldria verde sin haberse buscado en el CSS.
     expect(
@@ -220,12 +228,12 @@ describe('las seis paletas llegan al CSS emitido', () => {
     expect(aplanar(css), 'no se emitio la utilidad pedida').toContain('.bg-fondo {');
   });
 
-  it('las SEIS combinaciones estan dentro, con sus 38 colores y sus valores', async () => {
+  it('las OCHO combinaciones estan dentro, con sus 38 colores y sus valores', async () => {
     const plano = aplanar(await compilar(['bg-fondo']));
 
     const ausentes: string[] = [];
     for (const clave of COMBINACIONES) {
-      const paleta = derivar(base, clave);
+      const paleta = derivar(origenes, clave);
       for (const selector of SELECTORES[clave] ?? []) {
         if (!plano.includes(selector)) {
           ausentes.push(`  ${clave}: el CSS emitido no trae «${sinLlave(selector)}»`);
@@ -244,7 +252,7 @@ describe('las seis paletas llegan al CSS emitido', () => {
 
     expect(
       ausentes,
-      'Las seis paletas NO llegan al navegador:\n' +
+      'Las paletas NO llegan al navegador:\n' +
         `${ausentes.join('\n')}\n\n` +
         '  Es el defecto de #23: `estilos/temas.css` puede estar perfecto y no importarlo nadie.\n' +
         '  El camino es el `@import "./temas.css"` de `estilos/estilos.css`, y la entrada\n' +
@@ -253,11 +261,12 @@ describe('las seis paletas llegan al CSS emitido', () => {
     ).toEqual([]);
   });
 
-  it('los DOS ejes se pueden leer: tres `data-tema`, dos `data-modo` y el del sistema', async () => {
+  it('los DOS ejes se pueden leer: cuatro `data-tema`, dos `data-modo` y el del sistema', async () => {
     const plano = aplanar(await compilar(['bg-fondo']));
     // Lo mismo de arriba contado por ejes, que es como lo midio el issue sobre el `dist` del
-    // consumidor: tres identidades, los dos modos elegibles, y el que decide el equipo.
-    for (const identidad of ['institucional', 'alto-contraste', 'sepia']) {
+    // consumidor: las identidades, los dos modos elegibles, y el que decide el equipo. La lista va
+    // escrita y no leida de `ORIGEN_DE`, por lo mismo que `SELECTORES`.
+    for (const identidad of ['institucional', 'alto-contraste', 'sepia', 'clasico']) {
       expect(plano, `no hay ni una regla para [data-tema='${identidad}']`).toContain(
         `[data-tema='${identidad}']`,
       );
@@ -268,12 +277,12 @@ describe('las seis paletas llegan al CSS emitido', () => {
     expect(plano, "elegir claro no le ganaria al equipo: no hay [data-modo='claro']").toContain(
       "[data-modo='claro']",
     );
-    // Tres, una por identidad: el oscuro del sistema tiene que existir para las tres, no solo
+    // Cuatro, una por identidad: el oscuro del sistema tiene que existir para todas, no solo
     // para la de por omision.
     expect(
       plano.split('@media (prefers-color-scheme: dark)').length - 1,
-      'el oscuro del sistema no llega para las tres identidades',
-    ).toBe(3);
+      'el oscuro del sistema no llega para las cuatro identidades',
+    ).toBe(4);
   });
 
   /**
@@ -289,7 +298,7 @@ describe('las seis paletas llegan al CSS emitido', () => {
    * fuente puede ser perfecto y no llegar. Aqui ademas hay un segundo camino por el que perderse —
    * `temas.css` es archivo generado— y leer el generador dejaria pasar un `temas.css` sin regenerar.
    */
-  it('los TRES bloques oscuros declaran `color-scheme: dark`, y el claro no', async () => {
+  it('los CUATRO bloques oscuros declaran `color-scheme: dark`, y el claro no', async () => {
     const plano = aplanar(await compilar(['bg-fondo']));
 
     const mal: string[] = [];
@@ -322,18 +331,18 @@ describe('las seis paletas llegan al CSS emitido', () => {
       mal,
       'El oscuro no se lo dice al navegador:\n' +
         `${mal.join('\n')}\n\n` +
-        '  La propiedad sale de `temas/generar.ts`, en los tres bloques oscuros y por duplicado\n' +
-        "  cada uno —bajo `prefers-color-scheme` y bajo `[data-modo='oscuro']`—, o sea SEIS sitios.\n" +
+        '  La propiedad sale de `temas/generar.ts`, en los cuatro bloques oscuros y por duplicado\n' +
+        "  cada uno —bajo `prefers-color-scheme` y bajo `[data-modo='oscuro']`—, o sea OCHO sitios.\n" +
         '  Y `estilos/temas.css` es archivo generado: se regenera con\n' +
         '    KAMAYUK_REGENERAR=1 yarn vitest run paquetes/ui/temas\n' +
         '  Sin ella la paleta se oscurece y los controles nativos, la barra de desplazamiento y el\n' +
         '  fondo previo del lienzo se quedan CLAROS (#33).',
     ).toEqual([]);
 
-    // Y que se hayan medido los nueve bloques, no un subconjunto: sin esto, unos selectores que
+    // Y que se hayan medido los doce bloques, no un subconjunto: sin esto, unos selectores que
     // dejaran de encontrarse dejarian la comprobacion pasando sobre lo poco que quedara.
-    expect([oscurosMedidos, clarosMedidos], 'no se midieron los seis oscuros y los tres claros').toEqual(
-      [6, 3],
+    expect([oscurosMedidos, clarosMedidos], 'no se midieron los ocho oscuros y los cuatro claros').toEqual(
+      [8, 4],
     );
 
     // El otro extremo del asunto: el `light` del documento SE QUEDA. Es el valor por omision y el

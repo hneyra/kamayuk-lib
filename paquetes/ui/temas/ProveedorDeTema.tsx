@@ -7,11 +7,11 @@ import type { Identidad } from './derivar.ts';
  *
  * <h2>Los dos ejes no son lo mismo, y por eso son dos atributos</h2>
  *
- *     data-tema   institucional | alto-contraste | sepia      <- la IDENTIDAD, del servicio
- *     data-modo   claro | oscuro | (ausente)                  <- la APARIENCIA, de la persona
+ *     data-tema   institucional | alto-contraste | sepia | clasico   <- la IDENTIDAD, del servicio
+ *     data-modo   claro | oscuro | (ausente)                         <- la APARIENCIA, de la persona
  *
- * Mezclarlos en una sola lista —«claro, oscuro, alto contraste»— obliga a escribir seis paletas a
- * mano el dia que un servicio quiera su identidad en los dos modos. Cruzados, son tres por dos.
+ * Mezclarlos en una sola lista —«claro, oscuro, alto contraste»— obliga a escribir las paletas a
+ * mano el dia que un servicio quiera su identidad en los dos modos. Cruzados, son cuatro por dos.
  *
  * <h2>El orden de las tres fuentes, y por que ese</h2>
  *
@@ -61,7 +61,10 @@ interface Estado {
 
 const Contexto = createContext<Estado | null>(null);
 
-const IDENTIDADES: readonly Identidad[] = ['institucional', 'alto-contraste', 'sepia'];
+// `clasico` entra en #56, y entra AQUI y no solo en el tipo: esta lista es la que decide si un
+// valor recordado se respeta, asi que una identidad que estuviera en `Identidad` y no aqui se
+// estamparia al elegirla y se olvidaria al recargar, cayendo en silencio a la del servicio.
+const IDENTIDADES: readonly Identidad[] = ['institucional', 'alto-contraste', 'sepia', 'clasico'];
 const MODOS: readonly Modo[] = ['claro', 'oscuro'];
 
 /** Lee una clave sin dejar que el almacenamiento tumbe la aplicacion. Ver el javadoc. */

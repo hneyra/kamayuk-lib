@@ -12,7 +12,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 import { aLaVista, contraste, distanciaDeLuminosidad, ratio, ratioQueNoLlega } from '../color.ts';
-import { baseDelTema } from '../temas/base.ts';
+import { leerLosOrigenes } from '../temas/base.ts';
 import { COMBINACIONES, derivar } from '../temas/derivar.ts';
 import { MINIMOS } from '../temas/papeles.ts';
 import { Calendario } from './calendario.tsx';
@@ -58,7 +58,9 @@ import { Calendario } from './calendario.tsx';
  *      cumple con una diferencia de un punto en un canal, que nadie ve.
  */
 
-const base = baseDelTema();
+const origenes = leerLosOrigenes();
+/** Los tokens que existen: los del `@theme`, que todos los origenes repiten (#56). */
+const base = origenes.institucional.colores;
 
 /** Los dos papeles sobre los que se dibuja un calendario: el emergente y el lienzo. */
 const PAPELES_DEL_CALENDARIO = ['--superficie', '--fondo'] as const;
@@ -157,7 +159,7 @@ describe('los dias del mes vecino, en las seis combinaciones (#39)', () => {
   const { fuera, dentro } = tokensDelCalendario();
 
   it.each(COMBINACIONES)('%s: un dia de fuera SE LEE', (clave) => {
-    const paleta = derivar(base, clave);
+    const paleta = derivar(origenes, clave);
     const identidad = (clave.split('/')[0] ?? '') as keyof typeof MINIMOS;
     const exigido = MINIMOS[identidad].texto;
 
@@ -180,7 +182,7 @@ describe('los dias del mes vecino, en las seis combinaciones (#39)', () => {
   });
 
   it.each(COMBINACIONES)('%s: y SIGUE ATENUADO respecto de un dia del mes', (clave) => {
-    const paleta = derivar(base, clave);
+    const paleta = derivar(origenes, clave);
     const papel = paleta.get('--superficie') ?? '';
     const deFuera = paleta.get(fuera) ?? '';
     const delMes = paleta.get(dentro) ?? '';

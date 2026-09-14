@@ -301,6 +301,8 @@ export const MINIMOS = {
   institucional: { texto: 4.5, filo: 3 },
   sepia: { texto: 4.5, filo: 3 },
   'alto-contraste': { texto: 7, filo: 4.5 },
+  // Los de WCAG AA, como `institucional`: `clasico` es otra apariencia, no otra exigencia (#56).
+  clasico: { texto: 4.5, filo: 3 },
 } as const;
 
 /**
@@ -374,6 +376,35 @@ const COMPUESTO_DEL_ARTBOARD =
   '1.4.3, y arreglarlo pide tocar el artboard, que es una decision de `rentas` y no de aqui. Se ' +
   'declara con su cifra para que no pueda empeorar sin que nadie se entere.';
 
+/**
+ * Los filos finos de `clasico`, que tampoco los elige esta libreria (#56).
+ *
+ * Son los grises del artboard de esa identidad —`#DDD`, `#EEE`, `#CCC`, `#999`— tal como los fija
+ * la tabla de #56, y dan lo mismo que los de V8 por lo mismo: un filo de 1 px que separa dos
+ * superficies. El oscuro los deriva con la regla de `filo` de `institucional/oscuro`, y tampoco
+ * llega, igual que alli.
+ */
+const FILO_DEL_ARTBOARD_CLASICO =
+  'Filo fino del artboard de `clasico`: su valor lo fija la tabla de #56 y esta libreria no lo ' +
+  'elige. Como los de V8, es un filo de 1 px entre dos superficies y no el componente que WCAG ' +
+  '1.4.11 identifica. En oscuro sale de la misma regla de `filo` que `institucional/oscuro`.';
+
+/**
+ * El borde de un campo con error en `clasico`, que es el caso que MERECE revision (#56).
+ *
+ * `#EBCCD1` es el filo de la alerta de error del artboard, y la tabla de #56 lo fija como
+ * `--mal-borde`. Pero `control.ts` pinta con `--mal-borde` el borde de un campo con
+ * `aria-invalid`, y ahi da 1.49:1 en claro: el campo con error se distingue sobre todo por `--mal-campo` y
+ * por el mensaje en `--mal-tinta`, no por el filo. El propio artboard dibuja ese campo con el rojo
+ * de la tinta. Se declara con su cifra para que no empeore sin que nadie lo vea, y el dia que se
+ * quiera el borde legible lo que cambia es el valor del origen, no esta lista.
+ */
+const BORDE_DE_ERROR_CLASICO =
+  'El `#EBCCD1` de la tabla de #56 es el filo de la alerta de error del artboard; como borde de un ' +
+  'campo con `aria-invalid` da 1.49:1 en claro y no identifica el error por si solo —lo hacen `--mal-campo` ' +
+  'y el mensaje en `--mal-tinta`—. El artboard dibuja ese campo con el rojo de la tinta. Se ' +
+  'declara con su cifra: si se quiere legible, se cambia el origen.';
+
 export const EXCEPCIONES: Readonly<Record<string, readonly Excepcion[]>> = {
   'institucional/claro': [
     { delante: '--linea', detras: '--superficie', ratio: 1.36, porQue: FILO_DEL_ARTBOARD },
@@ -429,4 +460,28 @@ export const EXCEPCIONES: Readonly<Record<string, readonly Excepcion[]>> = {
   ],
   'alto-contraste/claro': [],
   'alto-contraste/oscuro': [],
+  'clasico/claro': [
+    { delante: '--linea', detras: '--superficie', ratio: 1.36, porQue: FILO_DEL_ARTBOARD_CLASICO },
+    { delante: '--linea-2', detras: '--superficie', ratio: 1.16, porQue: FILO_DEL_ARTBOARD_CLASICO },
+    { delante: '--borde-campo', detras: '--superficie', ratio: 1.61, porQue: FILO_DEL_ARTBOARD_CLASICO },
+    { delante: '--borde-campo', detras: '--fondo', ratio: 1.48, porQue: FILO_DEL_ARTBOARD_CLASICO },
+    { delante: '--borde-boton', detras: '--superficie', ratio: 1.61, porQue: FILO_DEL_ARTBOARD_CLASICO },
+    { delante: '--borde-hover', detras: '--superficie', ratio: 2.85, porQue: FILO_DEL_ARTBOARD_CLASICO },
+    { delante: '--borde-hover', detras: '--fondo', ratio: 2.63, porQue: FILO_DEL_ARTBOARD_CLASICO },
+    { delante: '--mal-borde', detras: '--superficie', ratio: 1.49, porQue: BORDE_DE_ERROR_CLASICO },
+    { delante: '--foco', detras: '--superficie', ratio: 2.98, porQue: HALO_CON_CONTORNO_DETRAS },
+    { delante: '--foco', detras: '--fondo', ratio: 2.75, porQue: HALO_CON_CONTORNO_DETRAS },
+  ],
+  'clasico/oscuro': [
+    { delante: '--linea', detras: '--superficie', ratio: 1.88, porQue: FILO_DEL_ARTBOARD_CLASICO },
+    { delante: '--linea-2', detras: '--superficie', ratio: 2.04, porQue: FILO_DEL_ARTBOARD_CLASICO },
+    { delante: '--borde-campo', detras: '--superficie', ratio: 1.74, porQue: FILO_DEL_ARTBOARD_CLASICO },
+    { delante: '--borde-campo', detras: '--fondo', ratio: 1.93, porQue: FILO_DEL_ARTBOARD_CLASICO },
+    { delante: '--borde-boton', detras: '--superficie', ratio: 1.74, porQue: FILO_DEL_ARTBOARD_CLASICO },
+    { delante: '--borde-hover', detras: '--superficie', ratio: 1.38, porQue: FILO_DEL_ARTBOARD_CLASICO },
+    { delante: '--borde-hover', detras: '--fondo', ratio: 1.53, porQue: FILO_DEL_ARTBOARD_CLASICO },
+    { delante: '--mal-borde', detras: '--superficie', ratio: 1.78, porQue: BORDE_DE_ERROR_CLASICO },
+    { delante: '--foco', detras: '--superficie', ratio: 1.42, porQue: HALO_CON_CONTORNO_DETRAS },
+    { delante: '--foco', detras: '--fondo', ratio: 1.57, porQue: HALO_CON_CONTORNO_DETRAS },
+  ],
 };

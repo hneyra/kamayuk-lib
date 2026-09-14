@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ProveedorDeTema, useTema } from './ProveedorDeTema.tsx';
+import { IDENTIDADES, ProveedorDeTema, useTema } from './ProveedorDeTema.tsx';
 
 /** Una pantalla de mentira que ensena el tema y deja cambiarlo. */
 function Mando() {
@@ -69,6 +69,38 @@ describe('los dos ejes se estampan en <html>', () => {
     // `removeAttribute` y no `data-modo=""`: es lo que devuelve el mando a `prefers-color-scheme`.
     expect(document.documentElement.hasAttribute('data-modo')).toBe(false);
     expect(localStorage.getItem('kamayuk.pruebas.modo')).toBeNull();
+  });
+});
+
+describe('`clasico`, la cuarta identidad (#56)', () => {
+  const conClasico = () =>
+    render(
+      <ProveedorDeTema configuracion={{ identidadPorOmision: 'clasico', prefijoDeClaves: 'kamayuk.pruebas' }}>
+        <Mando />
+      </ProveedorDeTema>,
+    );
+
+  it('un servicio la trae por omision y se estampa en `data-tema`', () => {
+    conClasico();
+
+    expect(document.documentElement.getAttribute('data-tema')).toBe('clasico');
+    expect(screen.getByTestId('identidad').textContent).toBe('clasico');
+    // La identidad no toca el otro eje: el modo sigue siendo el del sistema.
+    expect(document.documentElement.hasAttribute('data-modo')).toBe(false);
+  });
+
+  it('recordada, se RESPETA: no cae a la del servicio como un tema que ya no existe', () => {
+    // Es la mitad que el tipo no ve. `IDENTIDADES` decide que valor recordado se aplica; con
+    // `clasico` en `Identidad` y fuera de esa lista, elegirla funcionaria y recargar la olvidaria.
+    localStorage.setItem('kamayuk.pruebas.tema', 'clasico');
+    montar();
+
+    expect(screen.getByTestId('identidad').textContent).toBe('clasico');
+    expect(document.documentElement.getAttribute('data-tema')).toBe('clasico');
+  });
+
+  it('esta en `IDENTIDADES`, que es la lista que los mandos de los sistemas ofrecen', () => {
+    expect(IDENTIDADES).toContain('clasico');
   });
 });
 
