@@ -115,6 +115,26 @@ describe('ninguna libreria comun supone un sistema', () => {
     }
   });
 
+  it('EL CENTINELA: y las de #66, que aprenden a escribir y a ir a otra hoja', () => {
+    // Salen del `Acto` de la V6 de `catastro`, que hablaba de campanias y de sectores. Se nombran
+    // una a una, como las de #44, y la de `@kamayuk/shell` tambien: navegar es donde un slug de un
+    // sistema se colaria antes.
+    for (const archivo of [
+      join('ui', 'interprete', 'tipos-de-los-actos.ts'),
+      join('ui', 'interprete', 'acciones.ts'),
+      join('ui', 'interprete', 'interaccion.ts'),
+      join('ui', 'interprete', 'GrupoDeAcciones.tsx'),
+      join('ui', 'interprete', 'ActoDeLaPantalla.tsx'),
+      join('ui', 'shadcn', 'boton-con-motivo.tsx'),
+      join('shell', 'navegacion.tsx'),
+    ]) {
+      expect(
+        PRODUCCION.some((a) => a.endsWith(archivo)),
+        `no se leyo «${archivo}»`,
+      ).toBe(true);
+    }
+  });
+
   it.each(SUPOSICIONES.map((s) => [s.clave, s] as const))('no se supone: %s', (_clave, suposicion) => {
     const hallazgos = hallazgosDe(suposicion, PRODUCCION);
     const detalle = hallazgos

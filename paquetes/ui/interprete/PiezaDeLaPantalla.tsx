@@ -5,6 +5,8 @@ import type { TextosDeLaPantalla } from '../textos.tsx';
 import { esBloque, resolverTexto, seCumple } from './componer.ts';
 import type { DatosDeLaPantalla } from './datos.ts';
 import { EstadoDeLaLectura, FalloDeUnaLectura } from './EstadoDeLaLectura.tsx';
+import { ActoDeLaPantalla } from './ActoDeLaPantalla.tsx';
+import type { InteraccionDeLaPantalla } from './interaccion.ts';
 import { PieDeOperaciones } from './PieDeOperaciones.tsx';
 import type { ComunDeUnaPieza, PiezaDeLaPantalla, Texto } from './tipos.ts';
 
@@ -46,6 +48,8 @@ export interface PiezaDeLaPantallaProps {
   readonly traducir: (texto: string) => string;
   readonly textos: TextosDeLaPantalla;
   readonly piezas: PiezasDelConsumidor | undefined;
+  /** Lo que la pantalla sabe hacer: sus actos, sus acciones y a donde puede ir (#66). */
+  readonly interaccion: InteraccionDeLaPantalla;
   /**
    * Como se dibuja un bloque. Lo pone `Pantalla`, que es quien tiene lo tecleado; aqui solo se le
    * dice que va en el sitio del cuerpo y que va encima.
@@ -60,6 +64,7 @@ export function PiezaDeLaPantalla({
   traducir,
   textos,
   piezas,
+  interaccion,
   dibujarBloque,
 }: PiezaDeLaPantallaProps) {
   const texto = (t: Texto) => resolverTexto(t, datos.nombrados, traducir, textos.datoAusente);
@@ -78,6 +83,8 @@ export function PiezaDeLaPantalla({
 
   const comun: ComunDeUnaPieza = pieza;
   if (!seCumple(comun.cuando, datos.nombrados)) return null;
+  // Un acto solo existe abierto (#66): cerrado no dibuja ni su lectura, ni su espera ni sus fallos.
+  if (pieza.tipo === 'acto' && interaccion.abierto?.clave !== pieza.clave) return null;
 
   const estadoPropio = estadoDe(comun, datos, textos, texto);
   const encima = fallosDeLasVecinas(comun, datos, textos);
@@ -96,6 +103,18 @@ export function PiezaDeLaPantalla({
       <Alerta tono={pieza.tono} titulo={texto(pieza.titulo)}>
         {parrafo === '' ? undefined : parrafo}
       </Alerta>
+    );
+  } else if (pieza.tipo === 'acto') {
+    cuerpo = (
+      <ActoDeLaPantalla
+        // Otra apertura, otro formulario: lo escrito para una fila no pasa a la siguiente.
+        key={JSON.stringify(interaccion.abierto?.parametros ?? {})}
+        acto={pieza}
+        datos={datos}
+        traducir={traducir}
+        textos={textos}
+        interaccion={interaccion}
+      />
     );
   } else {
     const Componente = piezas !== undefined && Object.hasOwn(piezas, pieza.clave) ? piezas[pieza.clave] : undefined;

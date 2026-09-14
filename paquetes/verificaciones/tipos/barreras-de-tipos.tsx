@@ -14,6 +14,8 @@ import type {
 } from '../../ui/index.ts';
 import { formatearImporte } from '../../formato/index.ts';
 import { peldanoDe } from '../../sesion/index.ts';
+import type { NavegacionDelArmazon } from '../../shell/index.ts';
+import type { DefinicionDeAccion, DefinicionDeActo, Impedimento, NavegacionDeLaPantalla } from '../../ui/index.ts';
 
 /**
  * LAS BARRERAS DE TIPO. No es una prueba de vitest: es una prueba DEL COMPILADOR.
@@ -160,3 +162,37 @@ export const datoConNumero: DatosDeLaPantalla = {
  * y no en la pantalla del primer sistema que lo pinte.
  */
 export const elPeldanoDeLaSesionCabe: PeldanoDeUnFallo = peldanoDe(new TypeError('sin red'));
+
+/**
+ * Las barreras de #66: la regla 10 y el motivo de lo impedido, llevados al tipo.
+ *
+ * Un acto sin observacion, una observacion sin sus limites o un impedimento sin motivo **no
+ * compilan**: son justo lo que `acto-con-observacion` e `impedido-con-motivo` existen para quitar, y
+ * con un valor por omision volverian en silencio.
+ */
+export const barrerasDeLosActos: readonly DefinicionDeActo[] = [
+  // @ts-expect-error un acto sin observacion: la regla 10 dice que sin ella no se guarda
+  { tipo: 'acto', clave: 'a', titulo: 'A', campos: [] },
+  // @ts-expect-error los limites de la observacion son dato de la definicion, sin valor por omision
+  { tipo: 'acto', clave: 'a', titulo: 'A', campos: [], observacion: { etiqueta: 'O' } },
+  // @ts-expect-error y los dos: un maximo sin minimo deja pasar una observacion vacia
+  { tipo: 'acto', clave: 'a', titulo: 'A', campos: [], observacion: { etiqueta: 'O', largo: { maximo: 500 } } },
+  // @ts-expect-error un campo de un acto sin `nombre` no tiene con que viajar
+  { tipo: 'acto', clave: 'a', titulo: 'A', campos: [{ etiqueta: 'C', tipo: '' }], observacion: { etiqueta: 'O', largo: { minimo: 1, maximo: 9 } } },
+];
+
+// @ts-expect-error un impedimento sin motivo es el `disabled` mudo que #66 quita
+export const impedimentoMudo: Impedimento = { si: { dato: 'x', hay: false } };
+
+export const accionesImposibles: readonly DefinicionDeAccion[] = [
+  // @ts-expect-error una accion que abre un acto Y va a otra hoja no significa nada
+  { rotulo: 'Dos cosas', abre: 'a', va: { hoja: 'h' } },
+  // @ts-expect-error y una que no hace ninguna, tampoco: seria un boton sin efecto
+  { rotulo: 'Nada' },
+];
+
+/**
+ * Lo que `useNavegacion()` de `@kamayuk/shell` devuelve cabe TAL CUAL en `<Pantalla navegacion>`, sin
+ * que `@kamayuk/ui` importe el marco. Sin `@ts-expect-error`: esto TIENE que compilar.
+ */
+export const laNavegacionDelMarcoCabe = (delMarco: NavegacionDelArmazon): NavegacionDeLaPantalla => delMarco;

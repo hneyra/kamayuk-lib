@@ -42,6 +42,9 @@ export type { AccionesAlPieProps } from './AccionesAlPie.tsx';
 export { AvisoDeCambios } from './AvisoDeCambios.tsx';
 export type { AvisoDeCambiosProps } from './AvisoDeCambios.tsx';
 export { useArmazon, useHoja, useTextos, ProveedorDeLosTextos } from './contexto.tsx';
+// Ir a otra hoja desde una pantalla, por el mismo `irA` que el arbol (#66).
+export { useNavegacion, ProveedorDeLaNavegacion, ubicacionDe } from './navegacion.tsx';
+export type { NavegacionDelArmazon, ResultadoDeIr, ExtraDeLaPeticion } from './navegacion.tsx';
 export type {
   ConfiguracionDelArmazon,
   CuentaEnLaBarra,

@@ -198,3 +198,24 @@ export type {
 // interprete. Las reglas si, para que una pieza del consumidor use las mismas y no una copia.
 export type { PiezasDelConsumidor, PropsDeUnaPiezaDelConsumidor } from './interprete/PiezaDeLaPantalla.tsx';
 export { piezasSinRegistrar, resolverTexto, seCumple } from './interprete/componer.ts';
+// Lo que la hoja HACE (#66): actos con observacion, acciones con su motivo y navegacion entre hojas.
+// Las piezas de dentro —el acto, el grupo de acciones— NO se exportan, por lo mismo que el bloque.
+// `BotonConMotivo` si: el pie de `@kamayuk/shell` tiene el mismo `disabled` mudo (#55, #61).
+export type {
+  CampoDelActo,
+  DefinicionDeAccion,
+  DefinicionDeActo,
+  DestinoDeUnaAccion,
+  EnvioDeUnActo,
+  HechoDelActo,
+  Impedimento,
+  ManejadoresDeLasAcciones,
+  ManejadoresDeLosActos,
+  NavegacionDeLaPantalla,
+  ObservacionDelActo,
+  PeticionDeNavegacion,
+} from './interprete/tipos-de-los-actos.ts';
+export type { ActoAbierto } from './interprete/interaccion.ts';
+export { motivoDeLaAccion, motivoDelActo } from './interprete/acciones.ts';
+export { BotonConMotivo } from './shadcn/boton-con-motivo.tsx';
+export type { BotonConMotivoProps } from './shadcn/boton-con-motivo.tsx';

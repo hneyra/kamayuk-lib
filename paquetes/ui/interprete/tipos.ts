@@ -2,6 +2,7 @@ import type { ComponentProps } from 'react';
 
 import type { Insignia } from '../Insignia.tsx';
 import type { TipoDeCampo } from '../shadcn/campos.ts';
+import type { DefinicionDeAccion, DefinicionDeActo } from './tipos-de-los-actos.ts';
 
 /**
  * Los tipos de **una pantalla como dato**: lo que el interprete lee (#27).
@@ -221,6 +222,12 @@ export interface DefinicionDeBloque<T extends Texto = string> extends ComunDeUna
    * dice como leerlo: «son cifras y no una tasa, a proposito».
    */
   readonly pie?: T;
+  /**
+   * Los botones bajo la cabecera: abrir un acto, ir a otra hoja, volver a leer (#66,
+   * `acciones-del-bloque`). Se quedan aunque la lectura del bloque no este `con-datos`, como la
+   * cabecera. Ver `tipos-de-los-actos.ts`.
+   */
+  readonly acciones?: readonly DefinicionDeAccion[];
 }
 
 /** Un aviso con tono, titulo y parrafo (#44, `aviso`). Es la `Alerta`, como dato. */
@@ -269,12 +276,13 @@ export interface DefinicionDelPie {
   readonly falta?: Texto;
 }
 
-/** Lo que `bloques` puede llevar desde #44: el bloque de #27 y las tres piezas nuevas. */
+/** Lo que `bloques` puede llevar desde #44: el bloque de #27 y las tres piezas nuevas; y desde #66, el acto. */
 export type PiezaDeLaPantalla =
   | DefinicionDeBloque<Texto>
   | DefinicionDeAviso
   | DefinicionDePiezaDelConsumidor
-  | DefinicionDelPie;
+  | DefinicionDelPie
+  | DefinicionDeActo;
 
 /**
  * Una pantalla.

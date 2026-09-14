@@ -125,6 +125,38 @@ export interface TextosDeLasPiezas {
   readonly lecturaSinEstado: (clave: string) => string;
   /** Lo que ocupa el sitio de un dato que no llego, dentro de un texto. */
   readonly datoAusente: string;
+
+  // ── Los actos, las acciones y la navegacion (#66) ────────────────────────────────────────────
+  /** El boton de la cabecera de un acto abierto, que lo cierra sin enviar nada. */
+  readonly cerrarElActo: string;
+  /** El motivo del primario mientras la escritura viaja. No es «se puede pulsar». */
+  readonly escribiendo: string;
+  /** El motivo de una accion cuya operacion esta pendiente. */
+  readonly enCurso: string;
+  /** «Falta rellenar: …», con los rotulos ya traducidos. La lista la une el idioma. */
+  readonly faltaRellenar: (rotulos: readonly string[]) => string;
+  /** La observacion no llega al minimo de la definicion. Las dos cifras entran donde el idioma las ponga. */
+  readonly observacionCorta: (minimo: number, tiene: number) => string;
+  /** La observacion pasa del maximo de la definicion. */
+  readonly observacionLarga: (maximo: number, tiene: number) => string;
+  /** Un acto o una accion que nadie atiende: el sistema no registro su manejador. Nunca un boton mudo. */
+  readonly sinQuienLoAtienda: (clave: string) => string;
+  /** El titulo de la confirmacion de lo irreversible. */
+  readonly estoNoSeDeshace: string;
+  /** La salida que envia lo irreversible. */
+  readonly siConfirmar: string;
+  /** La salida que no hace nada. Es la que se enfoca al abrir. */
+  readonly cancelar: string;
+  /** Lo que se dice cuando el sistema acepta la escritura y la definicion no dio su propia frase. */
+  readonly actoHecho: string;
+  /** El manejador rechazo y nadie puso el fallo en `lecturas`: una costura rota, dicha. */
+  readonly rechazoSinFallo: (clave: string) => string;
+  /** Una accion que va a otra hoja, en una pantalla montada sin marco que sepa ir. */
+  readonly sinNavegacion: string;
+  /** Una accion que va a una hoja que el catalogo de hoy no ofrece. */
+  readonly hojaNoOfrecida: string;
+  /** Una accion que va a otra hoja con un dato que todavia no llego: nunca viaja un hueco. */
+  readonly faltaElDato: (nombre: string) => string;
 }
 
 /** Lo que se ve si nadie pasa nada. */
@@ -140,6 +172,26 @@ export const TEXTOS_DE_LAS_PIEZAS: TextosDeLasPiezas = {
   lecturaSinEstado: (clave) =>
     `Esta parte de la pantalla no sabe en que estado esta su lectura: nadie ha dado el de «${clave}».`,
   datoAusente: '—',
+
+  // #66
+  cerrarElActo: 'Cerrar',
+  escribiendo: 'Escribiendo…',
+  enCurso: 'En curso…',
+  faltaRellenar: (rotulos) => `Falta rellenar: ${rotulos.join(', ')}.`,
+  observacionCorta: (minimo, tiene) =>
+    `La observacion tiene ${String(tiene)} ${tiene === 1 ? 'caracter' : 'caracteres'} y necesita al menos ${String(minimo)}.`,
+  observacionLarga: (maximo, tiene) =>
+    `La observacion tiene ${String(tiene)} caracteres y no puede pasar de ${String(maximo)}.`,
+  sinQuienLoAtienda: (clave) => `Nadie atiende «${clave}» en esta pantalla: pulsarlo no haria nada.`,
+  estoNoSeDeshace: 'Esto no se deshace',
+  siConfirmar: 'Si, confirmar',
+  cancelar: 'Cancelar',
+  actoHecho: 'El servidor acepto la escritura.',
+  rechazoSinFallo: (clave) =>
+    `La escritura «${clave}» no se completo, y nadie ha dado su fallo: esta pantalla no sabe decir por que.`,
+  sinNavegacion: 'Esta pantalla no esta dentro de un marco que sepa abrir otra hoja.',
+  hojaNoOfrecida: 'Esa hoja no esta entre las que esta cuenta puede abrir.',
+  faltaElDato: (nombre) => `Todavia no se sabe «${nombre}», y sin el no hay a donde ir.`,
 };
 
 /** Los dos sacos que `Pantalla` recibe juntos, y lo que una pieza del consumidor recibe ya fundido. */

@@ -220,3 +220,142 @@ export const MUESTRA_DEL_PUNTO_DE_EXTENSION = {
   },
   datos: { ausencia: SIN_FRASE_DE_PANTALLA },
 } as const satisfies Muestra;
+
+/**
+ * **Un ejemplo por cada hueco de #66**: lo que la hoja hace. Aparte de las ocho de #44 para que #65 y
+ * #67, que anaden las suyas a la vez, no choquen en el mismo objeto; su centinela esta en
+ * `actos.test.tsx`.
+ *
+ * Los manejadores no van aqui —son del sistema—: la prueba los pasa al montar.
+ */
+export const MUESTRAS_DE_LOS_ACTOS = {
+  'acciones-del-bloque': {
+    deDonde: 'frontend/src/modulos/fiscalizacion/Fiscalizacion.tsx:87 (y siete hojas)',
+    definicion: {
+      instruccion: 'Escriba el identificador de un grupo.',
+      bloques: [
+        {
+          titulo: 'El grupo',
+          nota: '',
+          campos: [],
+          acciones: [
+            { rotulo: 'Abrir un grupo', principal: true, abre: 'abrir' },
+            {
+              rotulo: 'Cerrar el grupo',
+              abre: 'cerrar',
+              impedida: [
+                { si: { dato: 'grupoId', hay: false }, motivo: 'Falta el identificador del grupo que se va a cerrar.' },
+              ],
+            },
+            { rotulo: 'Volver a leer', hace: 'releer' },
+          ],
+        },
+      ],
+    },
+    datos: { ausencia: SIN_FRASE_DE_PANTALLA },
+  },
+
+  'acto-con-observacion': {
+    deDonde: 'frontend/src/ds/Acto.tsx:95 (Fiscalizacion.tsx:192, Catastro.tsx:2182)',
+    definicion: {
+      instruccion: 'Registre un grupo nuevo.',
+      bloques: [
+        {
+          tipo: 'acto',
+          clave: 'abrir',
+          titulo: 'Abrir un grupo',
+          nota: 'Un grupo nuevo, con su codigo y su nombre.',
+          campos: [
+            { nombre: 'codigo', etiqueta: 'Codigo', tipo: '' },
+            { nombre: 'nombre', etiqueta: 'Nombre', tipo: '', opcional: true },
+          ],
+          observacion: {
+            etiqueta: 'Observacion',
+            ayuda: 'Por que se hace esta escritura.',
+            largo: { minimo: 5, maximo: 500 },
+          },
+          hecho: {
+            titulo: 'Grupo abierto',
+            texto: { plantilla: 'Identificador {grupoId}' },
+            acciones: [{ rotulo: 'Volver a leer la lista', hace: 'releer' }],
+          },
+        },
+      ],
+    },
+    datos: { ausencia: SIN_FRASE_DE_PANTALLA },
+  },
+
+  'impedido-con-motivo': {
+    deDonde: 'frontend/src/modulos/catastro/Catastro.tsx:1954',
+    definicion: {
+      instruccion: 'Elija un grupo en la lista.',
+      bloques: [
+        {
+          titulo: 'Grupos',
+          nota: '',
+          campos: [],
+          acciones: [
+            {
+              rotulo: 'Corregir',
+              abre: 'corregir',
+              impedida: [{ si: { dato: 'grupoId', hay: false }, motivo: 'Falta elegir un grupo en la lista.' }],
+            },
+            {
+              rotulo: 'Dar de baja',
+              abre: 'baja',
+              impedida: [{ si: { dato: 'grupoId', hay: false }, motivo: 'Falta elegir un grupo en la lista.' }],
+            },
+          ],
+        },
+      ],
+    },
+    datos: { ausencia: SIN_FRASE_DE_PANTALLA },
+  },
+
+  'confirmacion-de-lo-irreversible': {
+    deDonde: 'frontend/src/modulos/fiscalizacion/Fiscalizacion.tsx:217',
+    definicion: {
+      instruccion: 'Cierre el grupo.',
+      bloques: [
+        {
+          tipo: 'acto',
+          clave: 'cerrar',
+          titulo: 'Cerrar el grupo',
+          campos: [],
+          observacion: { etiqueta: 'Observacion', largo: { minimo: 5, maximo: 500 } },
+          advertencia: 'El grupo deja de admitir registros para todo el mundo.',
+          impedido: [{ si: { dato: 'grupoId', hay: false }, motivo: 'Falta el identificador del grupo.' }],
+        },
+      ],
+    },
+    datos: { ausencia: SIN_FRASE_DE_PANTALLA, nombrados: new Map([['grupoId', '7']]) },
+  },
+
+  'navegar-a-otra-hoja': {
+    deDonde: 'frontend/src/modulos/catastro/Catastro.tsx:1300',
+    definicion: {
+      instruccion: 'Consulte el registro.',
+      bloques: [
+        {
+          titulo: 'El registro',
+          nota: '',
+          campos: [],
+          acciones: [
+            { rotulo: 'Ver su zona', va: { hoja: 'otra-zona', sujeto: { desde: 'registroId' } } },
+            {
+              rotulo: 'Ver los de baja',
+              va: { hoja: 'otra-lista', parametros: { estado: 'BAJA', grupo: { desde: 'grupo' } } },
+            },
+          ],
+        },
+      ],
+    },
+    datos: {
+      ausencia: SIN_FRASE_DE_PANTALLA,
+      nombrados: new Map([
+        ['registroId', '42'],
+        ['grupo', 'G-01'],
+      ]),
+    },
+  },
+} as const satisfies Record<string, Muestra>;

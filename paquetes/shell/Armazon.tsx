@@ -20,6 +20,12 @@ import {
   type ConfiguracionDelArmazon,
 } from './contexto.tsx';
 import { TEXTOS_DEL_ARMAZON, type TextosDelArmazon } from './textos.ts';
+import {
+  ProveedorDeLaNavegacion,
+  ubicacionDe,
+  type ExtraDeLaPeticion,
+  type NavegacionDelArmazon,
+} from './navegacion.tsx';
 
 /**
  * **El armazón**: lo que rodea a la pantalla y es igual en los cuatro sistemas (#13).
@@ -179,7 +185,11 @@ function Cascara() {
    * pendiente» y «volver a la raíz» serían el MISMO valor, y el aviso de «Volver» no se abriría
    * nunca — que es justo la salida por la que se pierde trabajo sin que nadie la pruebe.
    */
-  const [pendiente, setPendiente] = useState<{ readonly hacia: string | null } | null>(null);
+  const [pendiente, setPendiente] = useState<{
+    readonly hacia: string | null;
+    /** El sujeto y los parametros con que se pidio ir, desde una pantalla (#66). */
+    readonly extra?: ExtraDeLaPeticion;
+  } | null>(null);
 
   const indice = useMemo(() => indiceDelCatalogo(catalogo), [catalogo]);
 
@@ -195,7 +205,7 @@ function Cascara() {
 
   /** Lleva a un destino SIN preguntar nada. Es la mitad que no mira si hay cambios. */
   const saltarA = useCallback(
-    (clave: string | null) => {
+    (clave: string | null, extra?: ExtraDeLaPeticion) => {
       setPaletaAbierta(false);
       if (clave === null) {
         navegar('/', { replace: true });
@@ -205,7 +215,7 @@ function Cascara() {
       if (destino === undefined) {
         return;
       }
-      navegar(`/${slugDe(destino.destino)}`, { replace: true });
+      navegar(ubicacionDe(slugDe(destino.destino), extra), { replace: true });
     },
     [indice, navegar],
   );
@@ -218,15 +228,36 @@ function Cascara() {
    * hacia otra.
    */
   const irA = useCallback(
-    (clave: string | null) => {
+    (clave: string | null, extra?: ExtraDeLaPeticion): 'abierta' | 'pregunta' => {
       if (hoja !== null && sucias.has(hoja.destino.clave) && clave !== hoja.destino.clave) {
         setPaletaAbierta(false);
-        setPendiente({ hacia: clave });
-        return;
+        setPendiente({ hacia: clave, ...(extra === undefined ? {} : { extra }) });
+        return 'pregunta';
       }
-      saltarA(clave);
+      saltarA(clave, extra);
+      return 'abierta';
     },
     [hoja, sucias, saltarA],
+  );
+
+  /**
+   * Lo que una pantalla recibe para ir a otra hoja (#66): el MISMO `irA`, precedido de la pregunta
+   * al catalogo. Ver `navegacion.tsx`.
+   */
+  const navegacion = useMemo<NavegacionDelArmazon>(
+    () => ({
+      ofrece: (clave) => indice.has(clave),
+      ir: ({ hoja: clave, sujeto, parametros }) => {
+        // Antes que `irA`: con la hoja sucia, un destino inexistente abriria el aviso de perder los
+        // cambios para ir a ninguna parte.
+        if (!indice.has(clave)) return 'no-ofrecida';
+        return irA(clave, {
+          ...(sujeto === undefined ? {} : { sujeto }),
+          ...(parametros === undefined ? {} : { parametros }),
+        });
+      },
+    }),
+    [indice, irA],
   );
 
   /**
@@ -314,7 +345,7 @@ function Cascara() {
           }
           const adonde = pendiente;
           setPendiente(null);
-          saltarA(adonde?.hacia ?? null);
+          saltarA(adonde?.hacia ?? null, adonde?.extra);
         }}
         alSalirSinGuardar={() => {
           if (hoja !== null) {
@@ -322,7 +353,7 @@ function Cascara() {
           }
           const adonde = pendiente;
           setPendiente(null);
-          saltarA(adonde?.hacia ?? null);
+          saltarA(adonde?.hacia ?? null, adonde?.extra);
         }}
         alSeguirEditando={() => {
           setPendiente(null);
@@ -351,13 +382,15 @@ function Cascara() {
           <div className="flex flex-1 flex-col overflow-auto">
             {hoja === null ? null : <CabeceraDePantalla hoja={hoja} instruccion={hoja.destino.instruccion} />}
             <div className="flex max-w-[1180px] flex-1 flex-col gap-[14px] px-[18px] pb-0 pt-4">
-              {deLaHoja === null ? (
-                <Outlet />
-              ) : (
-                <ProveedorDeLaHoja value={deLaHoja}>
+              <ProveedorDeLaNavegacion value={navegacion}>
+                {deLaHoja === null ? (
                   <Outlet />
-                </ProveedorDeLaHoja>
-              )}
+                ) : (
+                  <ProveedorDeLaHoja value={deLaHoja}>
+                    <Outlet />
+                  </ProveedorDeLaHoja>
+                )}
+              </ProveedorDeLaNavegacion>
             </div>
             {hoja === null ? null : (
               <div className="max-w-[1180px]">
