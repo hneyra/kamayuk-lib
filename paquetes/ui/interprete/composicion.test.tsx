@@ -7,8 +7,9 @@ import { TEXTOS_DE_LAS_PIEZAS } from '../textos.tsx';
 import { piezasSinRegistrar } from './componer.ts';
 import { indicesDeLasPiezas, nombradosConLaHoja, pestanaAbierta, recorrerLasPiezas } from './composicion.ts';
 import type { DatosDeLaPantalla } from './datos.ts';
-import type { CambioDeLaRuta, HojaDelMarco, RutaDeLaHoja } from './hoja.ts';
+import { actoEnLaRuta, type CambioDeLaRuta, type HojaDelMarco, type RutaDeLaHoja } from './hoja.ts';
 import { MUESTRAS_DE_LA_COMPOSICION } from './muestras-de-la-composicion.ts';
+import { MUESTRAS_DE_LOS_ACTOS } from './muestras.ts';
 import { Pantalla, type PantallaProps } from './Pantalla.tsx';
 import type { DefinicionDePantalla, DefinicionDePestanas, PiezaDeLaPantalla } from './tipos.ts';
 
@@ -55,7 +56,8 @@ function ConHoja({
       }));
     },
   };
-  return <Pantalla definicion={definicion} datos={datos} tonoDeLaInsignia={() => 'ok'} hoja={hoja} {...extra} />;
+  const conActo = extra.actoAbierto === null ? actoEnLaRuta(hoja) : {};
+  return <Pantalla definicion={definicion} datos={datos} tonoDeLaInsignia={() => 'ok'} hoja={hoja} {...extra} {...conActo} />;
 }
 
 const MAESTRO = MUESTRAS_DE_LA_COMPOSICION['maestro-detalle'];
@@ -363,4 +365,51 @@ describe('`maestro-detalle`', () => {
     expect(vacia.container.querySelector('[data-slot="maestro-vacio"]')?.textContent).toBe('Ningun registro coincide.');
   });
 
+});
+
+describe('el acto abierto, en la ruta (`actoEnLaRuta`)', () => {
+  const [acto] = MUESTRAS_DE_LOS_ACTOS['acto-con-observacion'].definicion.bloques;
+  const definicion: Definicion = {
+    instruccion: '',
+    bloques: [
+      { titulo: 'Grupos', nota: '', campos: [], acciones: [{ rotulo: 'Abrir un grupo', abre: 'abrir', con: { desde: { desde: 'grupo' } } }] },
+      acto,
+    ],
+  };
+  const datos: DatosDeLaPantalla = { ausencia: SIN_FRASE, nombrados: new Map([['grupo', '7']]) };
+
+  it('abrir el acto ESCRIBE la ruta con lo que la accion le pasa, y la ruta lo RESTITUYE', async () => {
+    const cambios: CambioDeLaRuta[] = [];
+    const teclado = userEvent.setup({ delay: null });
+    // `actoAbierto: null` en `extra` es la senal de `ConHoja` para cablear `actoEnLaRuta`.
+    const { unmount } = render(
+      <ConHoja inicial={{ sujeto: '1', parametros: { ver: 'x' } }} cambios={cambios} definicion={definicion} datos={datos} extra={{ actoAbierto: null, actos: { abrir: () => {} } }} />,
+    );
+    expect(screen.queryByRole('heading', { name: 'Abrir un grupo' })).toBeNull();
+    await teclado.click(screen.getByRole('button', { name: 'Abrir un grupo' }));
+    expect(cambios, 'abrir el acto no escribio la ruta').toEqual([{ parametros: { desde: '7', acto: 'abrir' } }]);
+    expect(screen.getByRole('heading', { name: 'Abrir un grupo' })).toBeTruthy();
+    unmount();
+
+    // Recargar: la ruta que quedo escrita, y nada mas.
+    render(
+      <ConHoja
+        inicial={{ sujeto: '1', parametros: { ver: 'x', desde: '7', acto: 'abrir' } }}
+        cambios={[]}
+        definicion={definicion}
+        datos={datos}
+        extra={{ actoAbierto: null, actos: { abrir: () => {} } }}
+      />,
+    );
+    expect(screen.getByRole('heading', { name: 'Abrir un grupo' }), 'recargar no restituyo el acto abierto').toBeTruthy();
+  });
+
+  it('cerrarlo quita `acto` y nada mas', () => {
+    const cambios: CambioDeLaRuta[] = [];
+    const hoja: HojaDelMarco = { ruta: { sujeto: null, parametros: { acto: 'abrir', ver: 'x' } }, moverLaRuta: (c) => cambios.push(c) };
+    const { actoAbierto, alAbrirActo } = actoEnLaRuta(hoja);
+    expect(actoAbierto).toEqual({ clave: 'abrir', parametros: { ver: 'x' } });
+    alAbrirActo(null);
+    expect(cambios).toEqual([{ parametros: { acto: null } }]);
+  });
 });

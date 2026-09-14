@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { Outlet, RouterProvider, createHashRouter, useLocation, useNavigate } from 'react-router-dom';
 
-import { Avisos, type CambioDeLaRuta } from '../ui/index.ts';
+import { Avisos, type CambioDeLaRuta, type RutaDeLaHoja } from '../ui/index.ts';
 
 import { AccionesAlPie } from './AccionesAlPie.tsx';
 import { AvisoDeCambios } from './AvisoDeCambios.tsx';
@@ -21,10 +21,11 @@ import {
   type ConfiguracionDelArmazon,
   type HojaAbierta,
 } from './contexto.tsx';
-import { RUTA_VACIA, aplicarElCambio, escribirLaRuta, leerLaRuta, rutaDeLaHoja } from './ruta.ts';
+import { RUTA_VACIA, aplicarElCambio, leerLaRuta, rutaDeLaHoja } from './ruta.ts';
 import { TEXTOS_DEL_ARMAZON, type TextosDelArmazon } from './textos.ts';
 import {
   ProveedorDeLaNavegacion,
+  ubicacionDe,
   type ExtraDeLaPeticion,
   type NavegacionDelArmazon,
 } from './navegacion.tsx';
@@ -84,6 +85,15 @@ import {
  * Ni un módulo, ni un rótulo, ni una ruta de API, ni un slug. Todo lo que se dibuja entra por la
  * configuración. Lo vigila `sin-suponer-un-sistema`, que barre este paquete entero.
  */
+
+/**
+ * La ruta de una hoja como la pide `ubicacionDe`. **Todo lo que el marco escribe en la barra pasa
+ * por `ubicacionDe`** —el árbol, la paleta, `ir` y `moverLaRuta`—: si dos caminos escribieran la
+ * dirección, uno podría cambiar de forma sin que el otro se enterara (#67, alineado con #66).
+ */
+function extraDe(ruta: RutaDeLaHoja): ExtraDeLaPeticion {
+  return { ...(ruta.sujeto === null ? {} : { sujeto: ruta.sujeto }), parametros: ruta.parametros };
+}
 
 /** Los parámetros del marco cuando el sistema no pasa ninguno. Uno solo, para no cambiar en cada pintada. */
 const SIN_MARCO: Readonly<Record<string, string>> = {};
@@ -252,7 +262,7 @@ function Cascara() {
         parametros: extra?.parametros ?? {},
       });
       if (ignorados.length > 0) alIgnorarDeLaRuta({ destino: clave, ignorados });
-      navegar(escribirLaRuta(slugDe(destino.destino), declarada), { replace: true });
+      navegar(ubicacionDe(slugDe(destino.destino), extraDe(declarada)), { replace: true });
     },
     [indice, navegar, alIgnorarDeLaRuta],
   );
@@ -372,7 +382,7 @@ function Cascara() {
             moverLaRuta: (cambio: CambioDeLaRuta) => {
               const { ruta, ignorados } = aplicarElCambio(hoja.destino, deLaRuta.ruta, cambio);
               if (ignorados.length > 0) alIgnorarDeLaRuta({ destino: hoja.destino.clave, ignorados });
-              navegar(escribirLaRuta(slugDe(hoja.destino), ruta), { replace: true });
+              navegar(ubicacionDe(slugDe(hoja.destino), extraDe(ruta)), { replace: true });
             },
             marco: marco ?? SIN_MARCO,
           },

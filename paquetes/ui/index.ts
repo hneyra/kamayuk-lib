@@ -229,7 +229,7 @@ export type {
 } from './interprete/tipos.ts';
 export type { FilaDeUnaLista } from './interprete/datos.ts';
 export type { CambioDeLaRuta, EnLaRuta, HojaDelMarco, RutaDeLaHoja } from './interprete/hoja.ts';
-export { EL_SUJETO, cambioEn, valorEnLaRuta } from './interprete/hoja.ts';
+export { EL_SUJETO, actoEnLaRuta, cambioEn, valorEnLaRuta } from './interprete/hoja.ts';
 export type { PiezaEnSuSitio } from './interprete/composicion.ts';
 export {
   hijasDe,

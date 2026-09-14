@@ -67,3 +67,46 @@ export function valorEnLaRuta(ruta: RutaDeLaHoja, enLaRuta: EnLaRuta): string | 
 export function cambioEn(enLaRuta: EnLaRuta, valor: string | null): CambioDeLaRuta {
   return enLaRuta === EL_SUJETO ? { sujeto: valor } : { parametros: { [enLaRuta]: valor } };
 }
+
+/**
+ * **El acto abierto, en la ruta** (#67, `estado-en-la-ruta`; el acto de #66).
+ *
+ * `<Pantalla>` guarda el acto abierto en su estado salvo que se le pase `actoAbierto` y
+ * `alAbrirActo` (#66). Esto da los dos a partir de la hoja, para que abrir un acto escriba
+ * `?acto=<clave>` y recargar lo deje abierto:
+ *
+ * ```tsx
+ * const hoja = useHoja();
+ * <Pantalla hoja={hoja} {...actoEnLaRuta(hoja)} … />
+ * ```
+ *
+ * Lo que la accion que lo abre le pasa (`con`) viaja como parametros de la misma ruta, y por eso la
+ * hoja los tiene que declarar como declara `acto`: lo que no declare se ignora con aviso. Al leer, el
+ * acto recibe **los parametros de la ruta menos `acto`**: la ruta no distingue cuales puso la accion,
+ * y un parametro de mas no estorba a quien envia. Cerrarlo quita `acto` y **nada mas**: un filtro o
+ * una pestana no son del acto.
+ */
+export function actoEnLaRuta(
+  hoja: HojaDelMarco,
+  enLaRuta: EnLaRuta = 'acto',
+): {
+  readonly actoAbierto: { readonly clave: string; readonly parametros: Readonly<Record<string, string>> } | null;
+  readonly alAbrirActo: (clave: string | null, parametros?: Readonly<Record<string, string>>) => void;
+} {
+  const clave = valorEnLaRuta(hoja.ruta, enLaRuta);
+  return {
+    actoAbierto: clave === null ? null : { clave, parametros: sinLaClave(hoja.ruta.parametros, enLaRuta) },
+    alAbrirActo: (abierto, parametros = {}) => {
+      if (abierto === null) {
+        hoja.moverLaRuta(cambioEn(enLaRuta, null));
+        return;
+      }
+      const cambio = cambioEn(enLaRuta, abierto);
+      hoja.moverLaRuta({ ...cambio, parametros: { ...parametros, ...cambio.parametros } });
+    },
+  };
+}
+
+function sinLaClave(parametros: Readonly<Record<string, string>>, clave: string): Readonly<Record<string, string>> {
+  return Object.fromEntries(Object.entries(parametros).filter(([nombre]) => nombre !== clave));
+}
