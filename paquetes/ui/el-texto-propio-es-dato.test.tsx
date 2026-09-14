@@ -5,11 +5,13 @@ import { elRojo, loQueNoPasoPorElSaco, marca, marcarElSaco } from '../verificaci
 
 import { FechaDeCalculo } from './FechaDeCalculo.tsx';
 import { Importe } from './Importe.tsx';
+import { Pantalla } from './interprete/Pantalla.tsx';
+import type { DefinicionDePantalla } from './interprete/tipos.ts';
 import { Campo } from './shadcn/campo.tsx';
 import { Avisos } from './shadcn/avisos.tsx';
 import { Etiqueta } from './shadcn/etiqueta.tsx';
 import { Miga, PasoDeLaMiga } from './shadcn/miga.tsx';
-import { TEXTOS_DE_LA_UI } from './textos.tsx';
+import { TEXTOS_DE_LA_UI, TEXTOS_DEL_INTERPRETE } from './textos.tsx';
 
 /**
  * **Las palabras que `@kamayuk/ui` decía por su cuenta salen del saco** (#19, AC1).
@@ -55,6 +57,49 @@ beforeAll(() => {
 
 /** El saco de la ui, marcado clave a clave. */
 const MARCADOS = marcarElSaco(TEXTOS_DE_LA_UI);
+
+/** El del interprete (#27), igual. */
+const MARCADOS_DEL_INTERPRETE = marcarElSaco(TEXTOS_DEL_INTERPRETE);
+
+/**
+ * Una pantalla que usa los siete tipos, una tabla con filas y otra sin ellas, y una ausencia: todo
+ * lo que el interprete sabe dibujar. Sus palabras son de quien la escribe y entran marcadas por
+ * `traducir`; lo que el interprete dice por su cuenta, por el saco.
+ */
+const PANTALLA_ENTERA: DefinicionDePantalla = {
+  instruccion: 'no la dibuja el interprete',
+  bloques: [
+    {
+      titulo: 'bloque',
+      nota: 'nota',
+      campos: [
+        { etiqueta: 'texto', tipo: '', ayuda: 'ayuda, opcional' },
+        { etiqueta: 'otro', tipo: 't' },
+        { etiqueta: 'lista', tipo: 's', opciones: ['una', 'dos'] },
+        { etiqueta: 'fecha', tipo: 'd' },
+        { etiqueta: 'dato', tipo: 'r' },
+        { etiqueta: 'casilla', tipo: 'c', casilla: 'marca' },
+        { etiqueta: 'area', tipo: 'a1' },
+      ],
+      tabla: {
+        titulo: 'tabla',
+        columnas: [
+          { rotulo: 'columna', alineadoDerecha: false },
+          { rotulo: 'situacion', alineadoDerecha: false },
+        ],
+        columnaDeInsignia: 1,
+        nota: 'nota de la tabla',
+        accion: 'accion',
+      },
+    },
+    {
+      titulo: 'bloque sin filas',
+      nota: '',
+      campos: [],
+      tabla: { titulo: 'tabla vacia', columnas: [{ rotulo: 'columna', alineadoDerecha: true }] },
+    },
+  ],
+};
 
 /**
  * Lo que llega a la persona sin ser una palabra. Un importe formateado y una fecha formateada son
@@ -103,12 +148,30 @@ const PIEZAS: readonly (readonly [string, () => React.ReactElement])[] = [
     () => <Importe valor="1842.6" fechaCalculo="2026-09-06" rotuloDeLaFecha={MARCADOS.aLaFecha} />,
   ],
   ['Avisos', () => <Avisos rotulo={MARCADOS.avisos} />],
+  [
+    'Pantalla',
+    () => (
+      <Pantalla
+        definicion={PANTALLA_ENTERA}
+        datos={{
+          ausencia: { enElCampo: 'hueco', explicacion: 'explicacion', tono: 'info' },
+          // Las celdas son DATOS y no se traducen: entran marcadas para que el recorrido no las
+          // confunda con una palabra que se escapo.
+          filas: new Map([[0, [[marca('celda'), marca('Abierto')]]]]),
+        }}
+        tonoDeLaInsignia={() => 'ok'}
+        traducir={marca}
+        textos={MARCADOS_DEL_INTERPRETE}
+      />
+    ),
+  ],
 ];
 
 describe('EL CENTINELA: la lista tiene sujeto, y el arnes ve un literal cuando lo hay', () => {
   it('hay piezas que montar, y el saco tiene una clave por cada palabra', () => {
-    expect(PIEZAS.length).toBeGreaterThanOrEqual(5);
+    expect(PIEZAS.length).toBeGreaterThanOrEqual(6);
     expect(Object.keys(TEXTOS_DE_LA_UI).length).toBeGreaterThanOrEqual(6);
+    expect(Object.keys(TEXTOS_DEL_INTERPRETE).length).toBeGreaterThanOrEqual(3);
   });
 
   it('una pieza que IGNORA el saco sale roja', () => {
@@ -153,5 +216,22 @@ describe('EL AC4: sin pasar nada, lo que se ve es lo de hoy', () => {
     expect(container.textContent).toContain('(opcional)');
     expect(container.textContent).toContain('Cifras actualizadas al 06/09/2026');
     expect(container.textContent).toContain('al 06/09/2026');
+  });
+
+  it('y el interprete, sin `textos` ni `traducir`, dice lo que decia en `rentas` (#27)', () => {
+    const { container } = render(
+      <Pantalla
+        definicion={PANTALLA_ENTERA}
+        datos={{
+          ausencia: { enElCampo: 'hueco', explicacion: 'explicacion', tono: 'info' },
+          filas: new Map([[0, [['celda', 'Abierto']]]]),
+        }}
+        tonoDeLaInsignia={() => 'ok'}
+      />,
+    );
+    expect(container.textContent).toContain('dd/mm/aaaa');
+    expect(container.textContent).toContain('(opcional)');
+    expect(container.textContent).toContain('1 registro');
+    expect(container.textContent).not.toContain('1 registros');
   });
 });

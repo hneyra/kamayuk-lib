@@ -3,7 +3,8 @@
    de compilar el dia que alguien afloje el tipo. Va en linea y no en el config porque la
    excepcion pertenece a ESTE archivo, y una excepcion en el config se ensancha sin que nadie
    la mire. Es el mismo patron que usa `rentas`. */
-import { FechaDeCalculo, Icono, Importe, Insignia } from '../../ui/index.ts';
+import { FechaDeCalculo, Icono, Importe, Insignia, Pantalla } from '../../ui/index.ts';
+import type { DefinicionDeCampo, DefinicionDeTabla } from '../../ui/index.ts';
 import { formatearImporte } from '../../formato/index.ts';
 
 /**
@@ -62,6 +63,42 @@ export function barreras() {
       {/* @ts-expect-error «triangulo» no es un NombreDeIcono */}
       <Icono nombre="triangulo" />
     </>
+  );
+}
+
+/**
+ * Las barreras del interprete de pantallas (#27), que suben con el desde `rentas`.
+ *
+ * El tipo de un campo es una union de catorce, y lo que acompana a cada uno depende de cual es.
+ * Cada `@ts-expect-error` de abajo es una definicion que HOY no compila y que, si compilara, se
+ * dibujaria mal sin que nada lo dijera.
+ */
+export const barrerasDelInterprete: readonly DefinicionDeCampo[] = [
+  // @ts-expect-error «select» no es uno de los siete tipos: se dibujaria como texto
+  { etiqueta: 'Turno', tipo: 'select', opciones: ['Manana'] },
+  // @ts-expect-error la marca de ancho es `1`, no cualquier cifra
+  { etiqueta: 'Nota', tipo: 'a2' },
+  // @ts-expect-error un desplegable SIN opciones no tiene nada que ofrecer
+  { etiqueta: 'Turno', tipo: 's' },
+  // @ts-expect-error y un campo de texto no trae opciones: quien las escribio queria una lista
+  { etiqueta: 'Nombre', tipo: '', opciones: ['Una'] },
+  // @ts-expect-error un campo de solo lectura NO lleva su valor: una cifra de ejemplo viajaria servida
+  { etiqueta: 'Cobrado', tipo: 'r', valor: 'S/ 1,842.60' },
+];
+
+/** Una tabla no lleva sus filas: entran por los datos, y sin ellas la tabla dice por que. */
+export const barreraDeLaTabla: DefinicionDeTabla = {
+  titulo: 'Puestos',
+  columnas: [],
+  // @ts-expect-error las filas no son parte de la definicion
+  filas: [['Puesto 14']],
+};
+
+/** Y el interprete sin su reparto de tonos: pintaria cualquier situacion con el mismo color. */
+export function interpreteSinTonos() {
+  return (
+    // @ts-expect-error `tonoDeLaInsignia` es obligatoria y no tiene valor por omision
+    <Pantalla definicion={{ instruccion: '', bloques: [] }} datos={{ ausencia: { enElCampo: '', explicacion: '', tono: 'info' } }} />
   );
 }
 

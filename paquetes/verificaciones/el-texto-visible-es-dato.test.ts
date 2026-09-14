@@ -173,6 +173,13 @@ describe('EL AC1: el texto literal visible vive SOLO en los dos sacos', () => {
       ARCHIVOS.some((a) => relative(RAIZ, a).includes(join('ui', 'shadcn'))),
       'el recorrido no bajo de un nivel: esta listando, no recorriendo',
     ).toBe(true);
+    // Y baja tambien al interprete (#27), que es la pieza con mas palabras de todo el paquete:
+    // todas vienen de la definicion, y la unica forma de saber que ninguna se escribio dentro es
+    // que el barrido lo mire.
+    expect(
+      ARCHIVOS.some((a) => relative(RAIZ, a).includes(join('ui', 'interprete'))),
+      'el barrido no llego al interprete de pantallas',
+    ).toBe(true);
     // Y que el analizador ve texto cuando lo hay: los sacos lo tienen, a proposito.
     expect(
       textoLiteralVisible(join(RAIZ, 'paquetes', 'ui', 'textos.tsx')).length,

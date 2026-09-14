@@ -87,6 +87,16 @@ describe('ninguna libreria comun supone un sistema', () => {
     }
   });
 
+  it('EL CENTINELA: el interprete de pantallas se barre (#27)', () => {
+    // Es el archivo que MAS tentado esta de suponer un sistema: subio de `rentas`, y en `rentas`
+    // su tabla de tonos hablaba de coactiva y de deuda. Si el recorrido dejara de bajar a
+    // `ui/interprete`, esa tentacion volveria sin que nada lo dijera.
+    expect(
+      PRODUCCION.filter((a) => a.includes(join('ui', 'interprete'))).length,
+      'no se leyo el interprete: sus cuatro piezas y sus dos archivos de tipos',
+    ).toBeGreaterThanOrEqual(6);
+  });
+
   it.each(SUPOSICIONES.map((s) => [s.clave, s] as const))('no se supone: %s', (_clave, suposicion) => {
     const hallazgos = hallazgosDe(suposicion, PRODUCCION);
     const detalle = hallazgos

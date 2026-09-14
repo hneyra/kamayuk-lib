@@ -1,0 +1,84 @@
+import { Tarjeta, TarjetaCabecera, TarjetaCampos, TarjetaNota } from '../shadcn/tarjeta.tsx';
+import type { TextosDelInterprete } from '../textos.tsx';
+import { CampoDelBloque } from './CampoDelBloque.tsx';
+import type { Ausencia, Coordenada } from './datos.ts';
+import { coordenada } from './datos.ts';
+import { TablaDelBloque } from './TablaDelBloque.tsx';
+import type { DefinicionDeBloque, TonoDeInsignia } from './tipos.ts';
+
+/**
+ * Un bloque: la tarjeta con su cabecera, su nota, su rejilla de campos y su tabla (#27).
+ *
+ * Las cuatro zonas son opcionales salvo la cabecera, y las definiciones las usan en todas las
+ * combinaciones: hay bloques que solo son una tabla, y bloques que solo son campos.
+ */
+
+export interface BloqueDeLaPantallaProps {
+  readonly bloque: DefinicionDeBloque;
+  /** Lo tecleado y lo sabido, por indice de campo. Lo que no esta aqui no se sabe. */
+  readonly valores: Readonly<Record<number, string | boolean>>;
+  /** Las filas de su tabla, si se saben. */
+  readonly filas?: readonly (readonly string[])[];
+  readonly conteo?: string;
+  readonly ausencia: Ausencia;
+  /** La palabra del hueco para campos concretos. Ver `datos.ts`. */
+  readonly ausenciaPorCampo?: ReadonlyMap<Coordenada, string>;
+  /** El indice de este bloque, para componer la coordenada de sus campos. */
+  readonly indice: number;
+  readonly alCambiar: (indiceDelCampo: number, valor: string | boolean) => void;
+  readonly traducir: (texto: string) => string;
+  readonly textos: TextosDelInterprete;
+  readonly tonoDeLaInsignia: (texto: string) => TonoDeInsignia;
+}
+
+export function BloqueDeLaPantalla({
+  bloque,
+  valores,
+  filas,
+  conteo,
+  ausencia,
+  ausenciaPorCampo,
+  indice,
+  alCambiar,
+  traducir,
+  textos,
+  tonoDeLaInsignia,
+}: BloqueDeLaPantallaProps) {
+  return (
+    <Tarjeta>
+      <TarjetaCabecera>{traducir(bloque.titulo)}</TarjetaCabecera>
+      {bloque.nota === '' ? null : <TarjetaNota>{traducir(bloque.nota)}</TarjetaNota>}
+      {bloque.campos.length === 0 ? null : (
+        <TarjetaCampos>
+          {bloque.campos.map((campo, i) => (
+            <CampoDelBloque
+              // La etiqueta mas su tipo: dos campos del mismo bloque no comparten rotulo, y el
+              // indice haria que reordenar reusara el control equivocado con el valor del anterior.
+              key={`${campo.etiqueta}|${campo.tipo}`}
+              campo={campo}
+              valor={valores[i]}
+              ausencia={ausencia}
+              enElCampo={ausenciaPorCampo?.get(coordenada(indice, i))}
+              alCambiar={(v) => {
+                alCambiar(i, v);
+              }}
+              traducir={traducir}
+              textos={textos}
+            />
+          ))}
+        </TarjetaCampos>
+      )}
+      {bloque.tabla === undefined ? null : (
+        <TablaDelBloque
+          tabla={bloque.tabla}
+          filas={filas}
+          conteo={conteo}
+          ausencia={ausencia}
+          traducir={traducir}
+          textos={textos}
+          tonoDeLaInsignia={tonoDeLaInsignia}
+        />
+      )}
+    </Tarjeta>
+  );
+}
