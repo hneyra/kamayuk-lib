@@ -86,7 +86,7 @@ export {
   TablaCelda,
   TablaNota,
 } from './shadcn/tabla.tsx';
-export type { TablaCeldaProps } from './shadcn/tabla.tsx';
+export type { TablaCeldaProps, TablaProps } from './shadcn/tabla.tsx';
 export { Alerta } from './shadcn/alerta.tsx';
 export type { AlertaProps } from './shadcn/alerta.tsx';
 export { Avance } from './shadcn/avance.tsx';
@@ -167,7 +167,9 @@ export type {
   Coordenada,
   DatoConNombre,
   DatosDeLaPantalla,
+  DatosDeUnaTabla,
   EstadoDeUnaLectura,
+  FilaDeLaTabla,
   PeldanoDeUnFallo,
 } from './interprete/datos.ts';
 export type {
@@ -219,3 +221,16 @@ export type { ActoAbierto } from './interprete/interaccion.ts';
 export { motivoDeLaAccion, motivoDelActo } from './interprete/acciones.ts';
 export { BotonConMotivo } from './shadcn/boton-con-motivo.tsx';
 export type { BotonConMotivoProps } from './shadcn/boton-con-motivo.tsx';
+// Los campos y las tablas de #65: sus tipos y sus tres reglas puras, por lo mismo que las de #44.
+export type {
+  AccionDeFila,
+  AccionesPorFila,
+  CasoDeInsignia,
+  DefinicionDeTablaConClave,
+  DetalleDeFila,
+  OpcionDeLista,
+  OpcionDelCampo,
+  ReglaDeLaInsignia,
+} from './interprete/tipos.ts';
+export type { InsigniaResuelta } from './interprete/reglas-de-las-tablas.ts';
+export { accionesQueOfrece, resolverInsignia, tablasSinVacio } from './interprete/reglas-de-las-tablas.ts';

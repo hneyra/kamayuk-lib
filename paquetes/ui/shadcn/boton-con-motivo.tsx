@@ -49,11 +49,15 @@ export function BotonConMotivo({
   onClick,
   className,
   children,
+  'aria-describedby': tambienDescrito,
   ...resto
 }: BotonConMotivoProps) {
   const propio = useId();
   const impedido = motivo !== undefined;
-  const describe = impedido ? (idDelMotivo ?? `${propio}-motivo`) : undefined;
+  const idDelSuyo = impedido ? (idDelMotivo ?? `${propio}-motivo`) : undefined;
+  // Lo que ya describia al boton se SUMA al motivo, no lo pisa: la accion de una fila lleva ademas
+  // el detalle de su fila (#65), y perder cualquiera de las dos es callar algo a quien no ve.
+  const describe = [idDelSuyo, tambienDescrito].filter((id) => id !== undefined && id !== '').join(' ') || undefined;
   const alPulsar = (evento: MouseEvent<HTMLButtonElement>) => {
     if (impedido) {
       // Tambien el `submit` de un formulario: un boton impedido no envia, se pulse como se pulse.
@@ -77,7 +81,7 @@ export function BotonConMotivo({
         {children}
       </Boton>
       {impedido && idDelMotivo === undefined ? (
-        <span id={describe} data-slot="motivo" className="text-[12.5px] leading-[1.5] text-tinta-3 text-pretty">
+        <span id={idDelSuyo} data-slot="motivo" className="text-[12.5px] leading-[1.5] text-tinta-3 text-pretty">
           {motivo}
         </span>
       ) : null}
