@@ -157,6 +157,12 @@ export interface TextosDeLasPiezas {
   readonly hojaNoOfrecida: string;
   /** Una accion que va a otra hoja con un dato que todavia no llego: nunca viaja un hueco. */
   readonly faltaElDato: (nombre: string) => string;
+
+  // #65
+  /** El aviso de una tabla vacia cuya definicion no dice por que (#65). Nunca una tabla muda. */
+  readonly tablaSinMotivo: string;
+  /** El nombre del grupo de botones de una fila, con su primera celda, si la definicion no da otro (#65). */
+  readonly accionesDeLaFila: (fila: string) => string;
 }
 
 /** Lo que se ve si nadie pasa nada. */
@@ -192,6 +198,10 @@ export const TEXTOS_DE_LAS_PIEZAS: TextosDeLasPiezas = {
   sinNavegacion: 'Esta pantalla no esta dentro de un marco que sepa abrir otra hoja.',
   hojaNoOfrecida: 'Esa hoja no esta entre las que esta cuenta puede abrir.',
   faltaElDato: (nombre) => `Todavia no se sabe «${nombre}», y sin el no hay a donde ir.`,
+
+  // #65
+  tablaSinMotivo: 'Esta lista no tiene filas, y la definicion de la pantalla no dice por que.',
+  accionesDeLaFila: (fila) => `Acciones de «${fila}»`,
 };
 
 /** Los dos sacos que `Pantalla` recibe juntos, y lo que una pieza del consumidor recibe ya fundido. */

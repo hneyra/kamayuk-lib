@@ -1,0 +1,83 @@
+import type {
+  CampoDeLista,
+  DatosDeLaPantalla,
+  DefinicionDeBloque,
+  DefinicionDeCampo,
+  DefinicionDeTabla,
+  OpcionDelCampo,
+  PiezaDeLaPantalla,
+  Texto,
+} from '../../ui/index.ts';
+
+/**
+ * LAS BARRERAS DE TIPO de los campos y las tablas de #65. Son pruebas DEL COMPILADOR, como las de
+ * `barreras-de-tipos.tsx`: cada `@ts-expect-error` esta sobre algo que hoy no compila, y si manana
+ * compilara, `yarn typecheck` sale rojo por la directiva no usada (TS2578).
+ *
+ * Van en su archivo, y no al final de aquel, porque #66 y #67 anaden las suyas a la vez.
+ */
+
+/**
+ * **La definicion de hoy sigue estrecha en sus opciones**: `rentas` hace
+ * `salida.push(...campo.opciones)` sobre un `string[]` (`src/i18n/catalogo-de-claves.ts:56`), y con
+ * una opcion `{ valor, rotulo }` dentro deja de compilar alli. Si alguien ensanchara el valor por
+ * omision, sale rojo aqui primero.
+ */
+export const lasOpcionesDeHoySiguenSiendoCadenas: DefinicionDeCampo = {
+  etiqueta: 'Tipo',
+  tipo: 's',
+  // @ts-expect-error la definicion por omision solo lleva opciones de cadena; `{ valor, rotulo }` se pide con el parametro
+  opciones: [{ valor: '', rotulo: 'Todos' }],
+};
+
+/** Y el bloque de hoy, igual: sus campos son los estrechos. */
+export const elBloqueDeHoySigueEstrecho: DefinicionDeBloque = {
+  titulo: 'B',
+  nota: '',
+  // @ts-expect-error en el bloque de #27 una opcion es una cadena
+  campos: [{ etiqueta: 'Tipo', tipo: 's', opciones: [{ valor: 'UNO', rotulo: 'Uno' }] }],
+};
+
+/** El de las piezas SI las admite, junto a las de cadena. Sin `@ts-expect-error`: esto TIENE que compilar. */
+export const elDeLasPiezasLasAdmite: PiezaDeLaPantalla = {
+  titulo: 'B',
+  nota: '',
+  campos: [{ etiqueta: 'Tipo', tipo: 's', opciones: ['Libre', { valor: '', rotulo: 'Todos' }], ayuda: 'Una ayuda' }],
+};
+
+export const barrerasDeLosCampos: readonly CampoDeLista<OpcionDelCampo>[] = [
+  // @ts-expect-error una opcion con valor y SIN rotulo no tiene que decir
+  { etiqueta: 'Tipo', tipo: 's', opciones: [{ valor: 'UNO' }] },
+];
+
+/**
+ * **Una regla de insignia es total**: sin `otro`, lo que no casa con ningun caso no tendria tono, y
+ * lo unico que quedaria seria deducirlo del texto (AC-2).
+ */
+export const barrerasDeLaInsignia: DefinicionDeTabla<Texto> = {
+  titulo: 'T',
+  columnas: [
+    // @ts-expect-error `otro` es obligatorio: una regla que no dice que pasa con el resto no es una regla
+    { rotulo: 'Estado', alineadoDerecha: false, insignia: { casos: { FIRME: { tono: 'ok' } } } },
+    // @ts-expect-error un tono que no es de los cuatro del artboard
+    { rotulo: 'Estado', alineadoDerecha: false, insignia: { casos: {}, otro: { tono: 'bad' } } },
+    // @ts-expect-error `tonoDesde` sin `siNoTrae`: un tono traido que no es de los cuatro no tendria a donde ir
+    { rotulo: 'Estado', alineadoDerecha: false, insignia: { tonoDesde: 'tono' } },
+  ],
+};
+
+/** Por indice, dos tablas del mismo bloque no tienen de donde sacar filas distintas: `clave` obligatoria. */
+export const barreraDeVariasTablas: PiezaDeLaPantalla = {
+  titulo: 'B',
+  nota: '',
+  campos: [],
+  // @ts-expect-error una tabla de `tablas` sin `clave`
+  tablas: [{ titulo: 'Zonas', columnas: [] }],
+};
+
+/** Una fila no lleva sus celdas como numeros: una cifra llega formateada (regla 1). */
+export const barreraDeLasFilas: DatosDeLaPantalla = {
+  ausencia: { enElCampo: '', explicacion: '', tono: 'info' },
+  // @ts-expect-error una celda es texto, jamas number
+  tablas: new Map([['t', { filas: [{ celdas: [1842.6] }] }]]),
+};

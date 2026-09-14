@@ -5,6 +5,7 @@ import { elRojo, loQueNoPasoPorElSaco, marca, marcarElSaco } from '../verificaci
 
 import { FechaDeCalculo } from './FechaDeCalculo.tsx';
 import { Importe } from './Importe.tsx';
+import { coordenada } from './interprete/datos.ts';
 import { Pantalla } from './interprete/Pantalla.tsx';
 import type { DefinicionDePantalla, PiezaDeLaPantalla } from './interprete/tipos.ts';
 import { Campo } from './shadcn/campo.tsx';
@@ -91,6 +92,56 @@ const LAS_PIEZAS_DE_44: DefinicionDePantalla<PiezaDeLaPantalla> = {
     { tipo: 'aviso', tono: 'atencion', titulo: 'aviso', texto: { desde: 'motivo' } },
     { tipo: 'delConsumidor', clave: 'olvidada' },
     { tipo: 'pie', lee: ['GET /uno'], escribe: ['POST /uno', 'PUT /uno'], falta: 'lo que falta' },
+  ],
+};
+
+/**
+ * Y una con TODO lo de #65 que dice algo: una tabla vacia con su frase y otra sin ella —el aviso
+ * del saco—, una columna de insignia con la frase de la regla, acciones por fila SIN quien las
+ * atienda —su motivo, del saco— y con el nombre de grupo del saco, «sin acciones», un detalle de
+ * fila, dos tablas en un bloque, la cabecera fija, un marcador, una lista con ayuda y opciones con
+ * rotulo, y un dato con insignia. Las palabras de la definicion entran marcadas por `traducir`, las
+ * celdas y los datos marcados como datos, y lo que el interprete dice por su cuenta, por el saco.
+ */
+const LOS_CAMPOS_Y_TABLAS_DE_65: DefinicionDePantalla<PiezaDeLaPantalla> = {
+  instruccion: 'no la dibuja el interprete',
+  bloques: [
+    {
+      titulo: 'campos',
+      nota: '',
+      campos: [
+        { etiqueta: 'con marcador', tipo: '', marcador: 'marcador' },
+        { etiqueta: 'fecha con marcador', tipo: 'd', marcador: 'marcador de fecha' },
+        { etiqueta: 'lista', tipo: 's', opciones: [{ valor: '', rotulo: 'todos' }, { valor: 'UNO', rotulo: 'uno' }], ayuda: 'ayuda de la lista' },
+        { etiqueta: 'dato', tipo: 'r', insignia: { casos: { true: { tono: 'ok', texto: 'si' } }, otro: { tono: 'mal', texto: 'no' } } },
+      ],
+    },
+    {
+      titulo: 'tablas',
+      nota: '',
+      campos: [],
+      tablas: [
+        {
+          clave: 'con-filas',
+          titulo: 'con filas',
+          cabeceraFija: true,
+          columnas: [
+            { rotulo: 'codigo', alineadoDerecha: false },
+            { rotulo: 'estado', alineadoDerecha: false, insignia: { segun: 'activa', casos: { true: { tono: 'ok', texto: 'vigente' } }, otro: { tono: 'mal', texto: 'retirada' } } },
+          ],
+          vacio: 'vacio',
+          detalleDeFila: { texto: { plantilla: 'detalle {motivo}' }, cuando: { dato: 'motivo', hay: true } },
+          accionesPorFila: {
+            columna: 'acciones',
+            acciones: [{ clave: 'abrir', rotulo: 'abrir', abre: 'abrir', con: { fila: { desde: 'motivo' } } }],
+            segun: { dato: 'estado', ofrece: { ABIERTO: ['abrir'] } },
+            sinAcciones: 'sin acciones',
+          },
+        },
+        { clave: 'vacia', titulo: 'vacia', columnas: [{ rotulo: 'columna', alineadoDerecha: false }], vacio: { plantilla: 'nada en {id}' } },
+        { clave: 'muda', titulo: 'muda', columnas: [{ rotulo: 'columna', alineadoDerecha: false }] },
+      ],
+    },
   ],
 };
 
@@ -283,6 +334,35 @@ const PIEZAS: readonly (readonly [string, () => React.ReactElement])[] = [
     ),
   ],
   [
+    'Pantalla con los campos y tablas de #65',
+    () => (
+      <Pantalla
+        definicion={LOS_CAMPOS_Y_TABLAS_DE_65}
+        datos={{
+          ausencia: { enElCampo: 'hueco', explicacion: '', tono: 'info' },
+          valores: new Map([[coordenada(0, 3), 'true']]),
+          nombrados: new Map([['id', marca('dato.id')]]),
+          tablas: new Map([
+            [
+              'con-filas',
+              {
+                filas: [
+                  { celdas: [marca('celda.uno'), ''], datos: new Map<string, string | boolean>([['activa', true], ['estado', 'ABIERTO'], ['motivo', marca('dato.motivo')]]) },
+                  { celdas: [marca('celda.dos'), ''], datos: new Map<string, string | boolean>([['activa', false], ['estado', 'CERRADO']]), realzada: true },
+                ],
+              },
+            ],
+            ['vacia', { filas: [] }],
+            ['muda', { filas: [] }],
+          ]),
+        }}
+        tonoDeLaInsignia={() => 'ok'}
+        traducir={marca}
+        textos={{ ...MARCADOS_DEL_INTERPRETE, ...MARCADAS_LAS_PIEZAS }}
+      />
+    ),
+  ],
+  [
     'Pantalla con las piezas de #67',
     () => (
       <Pantalla
@@ -306,7 +386,7 @@ describe('EL CENTINELA: la lista tiene sujeto, y el arnes ve un literal cuando l
     expect(PIEZAS.length).toBeGreaterThanOrEqual(6);
     expect(Object.keys(TEXTOS_DE_LA_UI).length).toBeGreaterThanOrEqual(6);
     expect(Object.keys(TEXTOS_DEL_INTERPRETE).length).toBeGreaterThanOrEqual(3);
-    expect(Object.keys(TEXTOS_DE_LAS_PIEZAS).length).toBeGreaterThanOrEqual(9);
+    expect(Object.keys(TEXTOS_DE_LAS_PIEZAS).length).toBeGreaterThanOrEqual(12);
   });
 
   it('una pieza que IGNORA el saco sale roja', () => {

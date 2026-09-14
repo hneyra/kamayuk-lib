@@ -66,11 +66,41 @@ export interface DatosDeLaPantalla {
    */
   readonly nombrados?: ReadonlyMap<string, DatoConNombre>;
   /**
+   * Las filas de cada tabla que declara `clave`, por esa clave (#65). Una clave que no esta aqui es
+   * una tabla sin dato —dice la ausencia, como #27—; con `filas: []` es una tabla VACIA, que dice
+   * su `vacio`.
+   */
+  readonly tablas?: ReadonlyMap<string, DatosDeUnaTabla>;
+  /**
    * Las filas de cada maestro, por la clave con que la definicion las nombra (#67,
    * `maestro-detalle`). Por nombre y no por indice, como `lecturas`: un maestro puede ir dentro de
    * otra pieza, y un nombre no se mueve cuando la definicion crece.
    */
   readonly listas?: ReadonlyMap<string, readonly FilaDeUnaLista[]>;
+}
+
+/**
+ * Una fila de una tabla con nombre (#65).
+ *
+ * Las **celdas** son lo que se lee, en el orden de las columnas, y son datos: no se traducen. Los
+ * **datos** son lo que leen las reglas de la fila —el tono de su insignia, su detalle, las
+ * acciones que ofrece— con las mismas `resolverTexto` y `seCumple` que la pantalla: una fila es
+ * una pantalla pequena.
+ */
+export interface FilaDeLaTabla {
+  readonly celdas: readonly string[];
+  readonly datos?: ReadonlyMap<string, DatoConNombre>;
+  /** La clave de React. Sin ella, las celdas unidas: dos filas con las mismas celdas la necesitan. */
+  readonly clave?: string;
+  /** La fila sobre la que se esta actuando: se realza y se marca con `aria-current`. */
+  readonly realzada?: boolean;
+}
+
+/** Lo que se sabe de una tabla con nombre. */
+export interface DatosDeUnaTabla {
+  readonly filas: readonly FilaDeLaTabla[];
+  /** El conteo de su barra, si quien pide lo sabe. Sin el, se cuentan las filas **cuando hay**. */
+  readonly conteo?: string;
 }
 
 /**

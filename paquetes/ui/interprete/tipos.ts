@@ -50,12 +50,20 @@ export type ConAnchoCompleto<T extends string> = T | `${T}1`;
 /** Los catorce valores que un `tipo` puede tomar: los siete de `TipoDeCampo`, con y sin ancho. */
 export type TipoDeCampoConAncho = ConAnchoCompleto<TipoDeCampo>;
 
-/** Un desplegable de lista cerrada. Sus opciones son el dato; sin ellas no dibuja nada. */
-export interface CampoDeLista {
+/**
+ * Un desplegable de lista cerrada. Sus opciones son el dato; sin ellas no dibuja nada.
+ *
+ * **Generico en sus opciones, y por omision de cadenas** (#65): `rentas` mete `campo.opciones` en
+ * una lista de cadenas (`src/i18n/catalogo-de-claves.ts:56`), asi que la de hoy no se ensancha. La
+ * de las piezas —la de `DefinicionDeBloque<Texto>`— admite `{ valor, rotulo }`.
+ */
+export interface CampoDeLista<O extends OpcionDelCampo = string> {
   readonly etiqueta: string;
   readonly tipo: ConAnchoCompleto<'s'>;
   /** Las opciones, en su orden. La primera es la que el interprete deja seleccionada. */
-  readonly opciones: readonly string[];
+  readonly opciones: readonly O[];
+  /** La linea de debajo (#65, `ayuda-en-una-lista`): «solo los campos que el servidor admite». */
+  readonly ayuda?: string;
 }
 
 /**
@@ -69,6 +77,11 @@ export interface CampoDeLista {
 export interface CampoDeSoloLectura {
   readonly etiqueta: string;
   readonly tipo: ConAnchoCompleto<'r'>;
+  /**
+   * Se pinta como insignia, con el tono que dice la regla (#65, `dato-con-insignia`). La regla lee
+   * el valor del campo o, con `segun`, un dato de `DatosDeLaPantalla.nombrados`.
+   */
+  readonly insignia?: ReglaDeLaInsignia;
 }
 
 /** Una casilla. Su texto no es ayuda: es lo que se lee AL LADO de la marca. */
@@ -88,10 +101,19 @@ export interface CampoDeEntrada {
   readonly tipo: TipoDeEntrada;
   /** La linea de ayuda. La mayoria no la lleva. Si dice «opcional», el campo se marca como tal. */
   readonly ayuda?: string;
+  /**
+   * El texto gris dentro del campo vacio (#65, `marcador`): «el numero que devolvio el alta». Es una
+   * frase, y pasa por `traducir`. En una fecha sustituye a `textos.marcadorDeFecha`.
+   */
+  readonly marcador?: string;
 }
 
-/** Un campo de un bloque, discriminado por su `tipo`. */
-export type DefinicionDeCampo = CampoDeLista | CampoDeSoloLectura | CampoDeCasilla | CampoDeEntrada;
+/** Un campo de un bloque, discriminado por su `tipo`. Generico en las opciones de su lista (#65). */
+export type DefinicionDeCampo<O extends OpcionDelCampo = string> =
+  | CampoDeLista<O>
+  | CampoDeSoloLectura
+  | CampoDeCasilla
+  | CampoDeEntrada;
 
 /** Una columna de la tabla de un bloque. */
 export interface ColumnaDeTabla {
@@ -103,6 +125,12 @@ export interface ColumnaDeTabla {
    * comparar de un vistazo con la de la fila de arriba.
    */
   readonly alineadoDerecha: boolean;
+  /**
+   * La columna se pinta como insignia, con el tono que dice la regla y NO el que se deduzca de su
+   * texto (#65, `insignia-con-tono-por-regla`). Con ella, `tonoDeLaInsignia` no se llama para esta
+   * columna. Sin ella, la `columnaDeInsignia` de #27 sigue igual.
+   */
+  readonly insignia?: ReglaDeLaInsignia;
 }
 
 /**
@@ -112,7 +140,7 @@ export interface ColumnaDeTabla {
  * se conserva es la FORMA —que columnas hay, cual va a la derecha, cual es la insignia—, que es lo
  * que el interprete necesita para dibujar la tabla con dato o sin el.
  */
-export interface DefinicionDeTabla {
+export interface DefinicionDeTabla<T extends Texto = string> {
   readonly titulo: string;
   readonly columnas: readonly ColumnaDeTabla[];
   /** La linea de debajo: lo que hay que saber para leer la tabla sin equivocarse. */
@@ -121,7 +149,125 @@ export interface DefinicionDeTabla {
   readonly columnaDeInsignia?: number;
   /** El rotulo del boton de alta, si la lista admite anadir una fila. */
   readonly accion?: string;
+  /**
+   * El nombre con que los datos traen sus filas: `DatosDeLaPantalla.tablas.get(clave)` (#65). Sin
+   * ella, las filas son las de `DatosDeLaPantalla.filas` por indice de bloque, como en #27.
+   */
+  readonly clave?: string;
+  /**
+   * **Por que no tiene filas**, cuando la lectura contesto una lista vacia (#65, `tabla-con-vacio`):
+   * «este registro no tiene ninguna evidencia». Es una respuesta, no la ausencia de #27. Sin ella,
+   * una tabla vacia lo dice con un aviso del saco: nunca una tabla muda.
+   */
+  readonly vacio?: T;
+  /**
+   * La cabecera queda fija y el cuerpo se desplaza dentro de su propio marco
+   * (#65, `tabla-de-cabecera-fija`). La altura la pone quien la contiene.
+   */
+  readonly cabeceraFija?: boolean;
+  /** Una segunda linea bajo las filas que la tengan (#65, `detalle-de-fila`). */
+  readonly detalleDeFila?: DetalleDeFila<T>;
+  /** Los botones de cada fila, segun un dato suyo (#65, `acciones-por-fila`). */
+  readonly accionesPorFila?: AccionesPorFila<T>;
 }
+
+/**
+ * Una opcion de una lista **cuyo valor no es su rotulo** (#65, `opciones-con-valor-y-rotulo`).
+ *
+ * Lo que viaja es `valor` y lo que se lee es `rotulo`. **El valor nunca pasa por `traducir`**:
+ * cambiar de idioma no puede cambiar lo que se envia. `valor: ''` es legitimo —«Todos»—.
+ *
+ * Las opciones de un enumerado del contrato no son otra forma: la definicion es codigo, y el
+ * sistema escribe `TIPOS.map((v) => ({ valor: v, rotulo: ROTULOS[v] }))`.
+ */
+export interface OpcionDeLista {
+  readonly valor: string;
+  readonly rotulo: string;
+}
+
+/** Lo que una lista admite como opcion: una cadena —valor y rotulo a la vez, como en #27— o las dos cosas aparte. */
+export type OpcionDelCampo = string | OpcionDeLista;
+
+/** Lo que se pinta para un valor: su tono y, si no es el valor mismo, la frase que lo dice. */
+export interface CasoDeInsignia {
+  readonly tono: TonoDeInsignia;
+  /** Una frase, y por eso pasa por `traducir`. Sin ella se pinta el valor, que es un dato y no pasa. */
+  readonly texto?: string;
+}
+
+/**
+ * **El tono de una insignia es dato o regla declarada, nunca deducido de su texto** (#65, AC-2).
+ *
+ * <table>
+ *   <tr><td>`{ segun?, casos, otro }`</td><td>casos declarados. Lee el valor mismo —la celda, el
+ *     campo— o, con `segun`, un dato con nombre: el de la fila en una tabla, el de la pantalla en un
+ *     campo. `otro` es obligatorio: sin el la regla no es total, y lo que no casa caeria en
+ *     deducir</td></tr>
+ *   <tr><td>`{ tonoDesde, siNoTrae }`</td><td>el tono YA viene en los datos, decidido por el
+ *     sistema. Un «0» es `mal` en una lista y `atencion` en otra (`normativa`, #61 H18)</td></tr>
+ * </table>
+ *
+ * Los casos se buscan por el valor escrito: `true` casa con la clave `'true'`.
+ */
+export type ReglaDeLaInsignia =
+  | {
+      readonly segun?: string;
+      readonly casos: Readonly<Record<string, CasoDeInsignia>>;
+      readonly otro: CasoDeInsignia;
+    }
+  | {
+      readonly tonoDesde: string;
+      /** El tono si el dato no trae uno de los cuatro. */
+      readonly siNoTrae: TonoDeInsignia;
+    };
+
+/**
+ * La segunda linea de una fila (#65, `detalle-de-fila`): lo que solo tienen algunas filas y solo
+ * dice algo junto —quien anulo, cuando y por que—. Se resuelve contra los datos DE LA FILA.
+ */
+export interface DetalleDeFila<T extends Texto = string> {
+  readonly texto: T;
+  /** Sin ella, toda fila lleva su detalle. */
+  readonly cuando?: Condicion;
+}
+
+/**
+ * Un boton de una fila: **una accion de #66**, con la `clave` por la que `segun.ofrece` la nombra.
+ *
+ * Abre un acto (`abre`, con `con` para pasarle datos de la fila), va a otra hoja (`va`) o hace una
+ * operacion del sistema (`hace`), y se impide con su motivo (`impedida`), igual que las del bloque.
+ * Sus textos se resuelven contra los datos de la pantalla **y los de su fila**, que ganan.
+ */
+export type AccionDeFila = DefinicionDeAccion & { readonly clave: string };
+
+/**
+ * **Los botones de cada fila, y cuales ofrece cada una** (#65, `acciones-por-fila`).
+ *
+ * La fila declara sus acciones **como las declara un bloque** (#66): lo que pasa al pulsar lo atiende
+ * `<Pantalla actos>`, `alHacer` o `navegacion`, y sin quien lo atienda el boton sale impedido con su
+ * motivo. Lo unico que la fila anade es **cuales ofrece**, segun un dato suyo.
+ */
+export interface AccionesPorFila<T extends Texto = string> {
+  /** El rotulo de la columna. */
+  readonly columna: string;
+  /** Todas las que alguna fila puede ofrecer, en el orden en que se dibujan. */
+  readonly acciones: readonly AccionDeFila[];
+  /**
+   * Cuales ofrece cada fila, segun un dato suyo: una tabla de transiciones por estado. Un valor que
+   * no esta en `ofrece` no ofrece ninguna. Sin `segun`, todas las filas ofrecen todas.
+   */
+  readonly segun?: {
+    readonly dato: string;
+    readonly ofrece: Readonly<Record<string, readonly string[]>>;
+  };
+  /** Lo que se lee en la fila que no ofrece ninguna: «Sin acciones». */
+  readonly sinAcciones: string;
+  /** El nombre del grupo de botones de cada fila. Sin el, `textos.accionesDeLaFila(primeraCelda)`. */
+  readonly nombreDelGrupo?: T;
+}
+
+/** Una tabla de `bloque.tablas`: con `clave`, porque por indice dos tablas no tienen de donde sacar filas distintas. */
+export type DefinicionDeTablaConClave<T extends Texto = string> = DefinicionDeTabla<T> & { readonly clave: string };
 
 /**
  * Una palabra de la definicion: **fija, o con un dato dentro** (#44, `texto-con-dato`).
@@ -208,15 +354,26 @@ export interface ComunDeUnaPieza {
  * compilar; con el parametro, `DefinicionDeBloque` sigue siendo el de #27 y la pieza nueva es
  * `DefinicionDeBloque<Texto>`.
  */
-export interface DefinicionDeBloque<T extends Texto = string> extends ComunDeUnaPieza {
+export interface DefinicionDeBloque<
+  T extends Texto = string,
+  O extends OpcionDelCampo = [T] extends [string] ? string : OpcionDelCampo,
+> extends ComunDeUnaPieza {
   /** Opcional: un bloque sin `tipo` es un bloque, que es como lo escribe `rentas`. */
   readonly tipo?: 'bloque';
   readonly titulo: T;
   /** Que ES esta parte de la pantalla. Vacia cuando el titulo ya lo dice todo. */
   readonly nota: T;
-  /** Los campos del grupo. Vacio en los bloques que solo traen una tabla. */
-  readonly campos: readonly DefinicionDeCampo[];
-  readonly tabla?: DefinicionDeTabla;
+  /**
+   * Los campos del grupo. Vacio en los bloques que solo traen una tabla. En la de hoy sus listas son
+   * de cadenas; en la de las piezas admiten `{ valor, rotulo }` (#65).
+   */
+  readonly campos: readonly DefinicionDeCampo<O>[];
+  readonly tabla?: DefinicionDeTabla<T>;
+  /**
+   * Mas de una tabla en el mismo bloque (#65, `varias-tablas-en-un-bloque`), cada una con sus
+   * columnas, su vacio y su nota. Van despues de `tabla`, si el bloque trae las dos.
+   */
+  readonly tablas?: readonly DefinicionDeTablaConClave<T>[];
   /**
    * Lo que hay que saber para leer lo de arriba, **debajo** de los campos y de la tabla
    * (#44, `nota-al-pie-del-bloque`). La `nota` va arriba y dice que es el bloque; esto va abajo y
