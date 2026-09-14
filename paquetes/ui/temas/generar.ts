@@ -1,7 +1,7 @@
-import { COMBINACIONES, derivar } from './derivar.ts';
+import { COMBINACIONES, derivar, fuenteDeLaIdentidad, identidadDe, type Origenes } from './derivar.ts';
 
 /**
- * De la paleta base a las seis, como texto CSS.
+ * De las paletas de origen a las ocho combinaciones, como texto CSS.
  *
  * La salida se VERSIONA (`estilos/temas.css`) y una guarda comprueba que volver a generarla da
  * exactamente lo mismo. Sin esa comprobacion, «derivado» seria una palabra: nadie sabria si los
@@ -35,17 +35,30 @@ function selector(clave: string): string {
  * menus nativos y el fondo del lienzo antes de que el CSS cargue. Sin esta propiedad la pantalla
  * se oscurece entera menos eso, que se queda blanco — medido en #33.
  *
- * Va DENTRO de cada bloque oscuro, y por eso son seis sitios y no uno: los dos ejes son
+ * Va DENTRO de cada bloque oscuro, y por eso son ocho sitios y no uno: los dos ejes son
  * independientes, asi que el oscuro llega por dos caminos —el del equipo y el elegido— para cada
- * una de las tres identidades. Una sola declaracion suelta no podria decir «oscuro» solo cuando
+ * una de las cuatro identidades. Una sola declaracion suelta no podria decir «oscuro» solo cuando
  * toca, que es justo lo que el `color-scheme: light` de `estilos.css` hace mal por sitio.
  */
 const ESQUEMA_OSCURO = '    color-scheme: dark;';
 
-export function generar(base: ReadonlyMap<string, string>): string {
+/**
+ * La fuente de una identidad, como declaracion, o nada si su origen no declara ninguna (#56).
+ *
+ * Va SOLO en el bloque claro, y basta: `[data-tema='clasico']` casa con el documento en los dos
+ * modos —el oscuro solo le suma `data-modo` o `prefers-color-scheme`—, asi que la fuente llega a
+ * los tres caminos sin escribirse tres veces. Y las identidades cuyo origen no la declara no
+ * emiten nada: sus bloques salen byte a byte como antes de que esto existiera.
+ */
+function declaracionDeLaFuente(origenes: Origenes, clave: string): string {
+  const fuente = fuenteDeLaIdentidad(origenes, identidadDe(clave));
+  return fuente === null ? '' : `\n    --font-sans: ${fuente};`;
+}
+
+export function generar(origenes: Origenes): string {
   const bloques: string[] = [];
   for (const clave of COMBINACIONES) {
-    const paleta = derivar(base, clave);
+    const paleta = derivar(origenes, clave);
     const colores = [...paleta]
       .map(([n, v]) => `    --color-${n.slice(2)}: ${v};`)
       .join('\n');
@@ -57,7 +70,7 @@ export function generar(base: ReadonlyMap<string, string>): string {
       // El claro NO declara `color-scheme`: el `:root` de `estilos.css` ya dice `light`, que es el
       // valor por omision y el que el artboard declara. Repetirlo aqui seria una segunda fuente.
       const sel = identidad === 'institucional' ? `:root,\n[data-tema='institucional']` : raiz;
-      bloques.push(`/* ${clave} */\n${sel} {\n${colores}\n}`);
+      bloques.push(`/* ${clave} */\n${sel} {\n${colores}${declaracionDeLaFuente(origenes, clave)}\n}`);
       continue;
     }
     const cuerpo = `${ESQUEMA_OSCURO}\n${colores}`;
@@ -73,26 +86,35 @@ export function generar(base: ReadonlyMap<string, string>): string {
 }
 
 const CABECERA = `/* ============================================================================
-   LAS SEIS PALETAS. ARCHIVO GENERADO — no se edita a mano.
+   LAS OCHO PALETAS. ARCHIVO GENERADO — no se edita a mano.
 
-   Tres identidades por dos modos. Sale de \`temas/generar.ts\` aplicando las reglas de
-   \`temas/derivar.ts\` a la paleta del artboard, y \`temas/contraste.test.ts\` comprueba que
-   volver a generarlo da EXACTAMENTE esto. Un valor tocado a mano sale rojo.
+   Cuatro identidades por dos modos. Sale de \`temas/generar.ts\` aplicando las reglas de
+   \`temas/derivar.ts\` a la paleta de origen de cada identidad, y \`temas/temas.test.ts\`
+   comprueba que volver a generarlo da EXACTAMENTE esto. Un valor tocado a mano sale rojo.
+
+   Los origenes son dos, y cada identidad sale de uno solo:
+
+       estilos/estilos.css (@theme)   institucional, alto-contraste, sepia
+       estilos/clasico.css            clasico
 
    Los dos ejes son independientes a proposito:
 
-       data-tema   institucional | alto-contraste | sepia     <- la identidad, del servicio
-       data-modo   claro | oscuro | (ausente = el del sistema) <- la apariencia, de la persona
+       data-tema   institucional | alto-contraste | sepia | clasico   <- la identidad, del servicio
+       data-modo   claro | oscuro | (ausente = el del sistema)        <- la apariencia, de la persona
 
    El oscuro se escribe dos veces —bajo \`prefers-color-scheme\` y bajo \`[data-modo='oscuro']\`—
    y el primero lleva \`:not([data-modo='claro'])\`: sin eso, quien pide claro en un equipo puesto
    en oscuro no podria salir de ahi.
 
-   Y los TRES bloques oscuros —los seis sitios, contando ese duplicado— declaran ademas
+   Y los CUATRO bloques oscuros —los ocho sitios, contando ese duplicado— declaran ademas
    \`color-scheme: dark\` (#33). Los \`--color-*\` pintan lo que pinta la hoja; \`color-scheme\`
    pinta lo que dibuja el navegador por su cuenta: controles nativos, barra de desplazamiento y
    fondo del lienzo. Sin ella la pantalla se oscurece entera menos eso. El claro no la declara: el
    \`:root\` de \`estilos.css\` ya dice \`light\`, que es el valor por omision.
+
+   La fuente es de la identidad y no del modo: la declara el bloque claro de la identidad cuyo
+   origen la trae (\`--font-sans\`), y ese selector casa tambien en oscuro. Las que no la traen
+   se quedan con la de Tailwind.
    ============================================================================ */
 `;
 

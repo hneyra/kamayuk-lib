@@ -1,0 +1,115 @@
+/* ============================================================================
+   EL ORIGEN DE `clasico`. NO SE IMPORTA: SE LEE (#56).
+
+   Es la segunda paleta de origen de la libreria. La primera es el `@theme` de `estilos.css`, de
+   la que salen `institucional`, `alto-contraste` y `sepia`; de esta sale `clasico`, y solo
+   `clasico`. Una fuente por identidad, y ninguna identidad con dos.
+
+   QUE ES, Y DE DONDE SALE
+   -----------------------
+   La apariencia clasica de un portal publico: azul `#0D5FA8`, Arial, filos grises y las insignias
+   con los verdes, rojos y ambar de siempre. Los valores son los del artboard que la pidio, tal
+   como los fija la tabla de `kamayuk-lib`#56 —que es donde esta citada su procedencia—; los que
+   el artboard no da se eligieron aqui y el motivo va junto a cada uno. El NOMBRE es de apariencia
+   y no de sistema, a proposito (ADR-0030 §4): la libreria no sabe quien la usa, y cualquier
+   sistema puede pedir esta identidad.
+
+   POR QUE UN ARCHIVO APARTE Y NO UN SEGUNDO BLOQUE EN `estilos.css`
+   -----------------------------------------------------------------
+   Todo lo que esta en `estilos.css` llega al navegador: un segundo bloque ahi se emitiria DOS
+   veces —el suyo y el que genera `temas/generar.ts`—, y la copia que se quedara vieja seria la que
+   gana por ir despues. `@theme` no tiene ese problema porque Tailwind lo consume; un bloque
+   corriente si. Asi que este archivo NO lo importa nadie, y no es el defecto de #23 al reves: lo
+   que llega al navegador es `temas.css`, generado desde aqui, y lo vigila la misma guarda que
+   compila la hoja publicada.
+
+   COMO SE USA
+   -----------
+   `clasico/claro` es ESTE BLOQUE TAL CUAL —los 38 colores, incluidos los cinco translucidos, y la
+   fuente—: no pasa por ninguna regla. `clasico/oscuro` se DERIVA de el con las reglas de
+   `temas/derivar.ts`, como el oscuro de las otras tres. Cambiar un valor aqui y no regenerar
+   `temas.css` sale rojo.
+
+   El selector es el del bloque generado, para que importarlo por error no pinte nada distinto.
+   ============================================================================ */
+
+[data-tema='clasico'] {
+  /* Superficies */
+  --color-fondo: #f4f6f8;
+  --color-superficie: #ffffff;
+  --color-sup: #f9fbfd;
+
+  /* Tinta. `#777` y `#888`, que el artboard usa para notas, NO entran: sobre blanco dan 4.48:1 y
+     3.54:1 y WCAG 1.4.3 pide 4.5:1. La tinta mas tenue que se lee es `--tinta-3`. */
+  --color-tinta: #333333;
+  --color-tinta-2: #555555;
+  --color-tinta-3: #666666;
+  /* No es color de texto, como en el `@theme`: el trazo de un icono decorativo. */
+  --color-tinta-4: #999999;
+
+  /* Accion */
+  --color-azul: #0d5fa8;
+  --color-azul-oscuro: #0a4c86;
+  --color-azul-hover: #0a4c86;
+  --color-azul-suave: #e8f1f9;
+  --color-acento: #1ba0d7;
+  --color-sobre-azul: #ffffff;
+
+  /* Filos y foco */
+  --color-linea: #dddddd;
+  --color-linea-2: #eeeeee;
+  --color-borde-campo: #cccccc;
+  --color-borde-boton: #cccccc;
+  --color-borde-hover: #999999;
+  --color-foco: #1ba0d7;
+
+  /* Las cuatro insignias */
+  --color-ok-fondo: #dff0d8;
+  --color-ok-tinta: #3c763d;
+  --color-atencion-fondo: #fcf8e3;
+  --color-atencion-tinta: #8a6d3b;
+  --color-mal-fondo: #f2dede;
+  --color-mal-tinta: #a94442;
+  --color-info-fondo: #f0f6fb;
+  --color-info-tinta: #0d5fa8;
+  /* `--mal-borde` NO es el `#EBCCD1` de la tabla de #56, y lo corrigio la revision: en esta
+     libreria el token es el borde del campo con `aria-invalid` (`shadcn/control.ts`) y el fondo de
+     la insignia de avisos de la barra, y el artboard dibuja el campo con error en `#A94442`.
+     `#EBCCD1` es solo el filo de la alerta, que `Alerta` ya saca de `border-mal-borde/40`. */
+  --color-mal-borde: #a94442;
+  --color-mal-campo: #fff9f9;
+
+  /* El esqueleto: NO LO DIBUJA EL ARTBOARD. Se hace como el del `@theme`, que es `--linea-2` y
+     `--sup`: el hueco con el color del filo mas tenue y la raya con el del papel secundario. */
+  --color-esqueleto: #eeeeee;
+  --color-esqueleto-brillo: #f9fbfd;
+
+  /* La barra. `--azul-oscuro` es su superficie. `--sobre-barra-2` es el `#CFE3F4` con que el
+     artboard escribe lo secundario sobre la barra. */
+  --color-sobre-barra: #ffffff;
+  --color-sobre-barra-2: #cfe3f4;
+
+  /* Los tres velos blancos de la barra. NO SON LOS DEL ARTBOARD, y es la historia de #41 otra
+     vez: el artboard pone el boton en reposo al 10 %, el disco del avatar al 22 % y el hover al
+     18 %, y sobre esta barra eso deja las iniciales del avatar con hover en 3.55:1 y lo
+     secundario sobre el hover en 4.22:1, cuando WCAG 1.4.3 pide 4.5:1. Medido sobre `#0a4c86`,
+     la barra admite un 25.9 % de blanco TOTAL bajo `--sobre-barra` y un 15.3 % bajo
+     `--sobre-barra-2`, que es del artboard y no se toca.
+
+     Asi que el hover se queda en el techo que deja `--sobre-barra-2` (15 %), el reposo baja lo
+     justo para que el hover siga distinguiendose de el por los 0.09 de margen que #41 exige (6 %),
+     y el disco toma lo que queda de la pila: 1 - 0.88 x 0.85 = 25.2 % <= 25.9 %. */
+  --color-barra-control: rgba(255, 255, 255, 0.06);
+  --color-barra-realce: rgba(255, 255, 255, 0.12);
+  --color-barra-hover: rgba(255, 255, 255, 0.15);
+
+  /* Los dos que apagan: NO LOS DIBUJA EL ARTBOARD. Se hacen como los del `@theme`, que tiñen con
+     su `--azul-oscuro` al 40 % y con su `--tinta` al 38 %; aqui con los de esta paleta. */
+  --color-velo: rgba(10, 76, 134, 0.4);
+  --color-velo-paleta: rgba(51, 51, 51, 0.38);
+
+  /* La fuente de la identidad. Es la variable que Tailwind v4 lee: su preflight pinta `html` con
+     `--default-font-family`, que vale `var(--font-sans)`. Las otras identidades no la declaran y
+     se quedan con la de Tailwind. */
+  --font-sans: Arial, Helvetica, sans-serif;
+}

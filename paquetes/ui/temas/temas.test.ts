@@ -2,6 +2,7 @@
 //
 // Lee y escribe archivos. No es un DOM lo que necesita.
 
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
@@ -14,8 +15,8 @@ import {
   ratio,
   ratioQueNoLlega,
 } from '../color.ts';
-import { baseDelTema, RUTA_DE_LOS_TEMAS } from './base.ts';
-import { COMBINACIONES, derivar } from './derivar.ts';
+import { leerLosOrigenes, RUTA_DE_LOS_TEMAS, RUTAS_DE_LOS_ORIGENES } from './base.ts';
+import { COMBINACIONES, derivar, ORIGEN_DE, type IdentidadDeOrigen } from './derivar.ts';
 import {
   capasDe,
   DISTANCIA_SEMANTICA_MINIMA,
@@ -30,9 +31,9 @@ import {
 import { generar } from './generar.ts';
 
 /**
- * **Las seis paletas: completas, reproducibles y legibles** (#8).
+ * **Las paletas: completas, reproducibles y legibles** (#8). Eran seis; desde #56 son ocho.
  *
- * Tres identidades por dos modos. Lo que esta guarda sostiene son tres cosas que, rotas, no hacen
+ * Cuatro identidades por dos modos, de dos paletas de origen. Lo que esta guarda sostiene son tres cosas que, rotas, no hacen
  * ruido:
  *
  *   1. **Completas.** Un token que falte en un tema cae al de por omision y rompe **una sola** de
@@ -45,15 +46,46 @@ import { generar } from './generar.ts';
  *      permiso, y con numero es una medicion que se pone roja si empeora.
  */
 
-const base = baseDelTema();
+const origenes = leerLosOrigenes();
+/** La base del `@theme`: la que fija QUE tokens existen. Los demas origenes tienen que tener los mismos. */
+const base = origenes.institucional.colores;
 const REGENERAR = process.env['KAMAYUK_REGENERAR'] === '1';
 
-describe('las seis paletas estan completas', () => {
-  it('EL CENTINELA: la base tiene tokens y hay seis combinaciones', () => {
+describe('las ocho paletas estan completas', () => {
+  it('EL CENTINELA: la base tiene tokens y hay ocho combinaciones', () => {
     // Sin esto, un cambio de formato en el `@theme` dejaria la base VACIA y todo lo de abajo
     // pasaria sobre el conjunto vacio — que es como una guarda se queda sin sujeto.
     expect(base.size, 'el @theme no declaro ni un color').toBe(38);
-    expect(COMBINACIONES).toHaveLength(6);
+    expect(COMBINACIONES).toHaveLength(8);
+  });
+
+  it.each(Object.keys(RUTAS_DE_LOS_ORIGENES))(
+    'el origen de «%s» declara los MISMOS 38 colores que el @theme, ni uno mas ni uno menos (#56)',
+    (identidad) => {
+      // Un token que falte en un origen revienta al derivar; uno que SOBRE no lo pinta nadie y
+      // se queda en el archivo pareciendo parte de la paleta. Las dos direcciones, nombradas.
+      const colores = origenes[identidad as IdentidadDeOrigen].colores;
+      expect(
+        [...base.keys()].filter((n) => !colores.has(n)),
+        `el origen de «${identidad}» no declara estos colores del @theme`,
+      ).toEqual([]);
+      expect(
+        [...colores.keys()].filter((n) => !base.has(n)),
+        `el origen de «${identidad}» declara colores que el @theme no tiene`,
+      ).toEqual([]);
+    },
+  );
+
+  it('cada identidad sale de UN origen que existe, y cada origen es la identidad de si mismo (#56)', () => {
+    // «Una fuente por identidad»: `ORIGEN_DE` da exactamente una, y tiene que ser un origen con
+    // archivo. Y un origen que saliera de otro no seria origen: su claro pasaria por reglas.
+    const rutas = RUTAS_DE_LOS_ORIGENES as Readonly<Record<string, string>>;
+    for (const [identidad, origen] of Object.entries(ORIGEN_DE)) {
+      expect(rutas[origen], `«${identidad}» sale de «${origen}», que no tiene archivo`).toBeDefined();
+    }
+    for (const origen of Object.keys(RUTAS_DE_LOS_ORIGENES)) {
+      expect(ORIGEN_DE[origen as IdentidadDeOrigen], `«${origen}» tiene archivo y sale de otro`).toBe(origen);
+    }
   });
 
   it('todo token de la base tiene papel declarado', () => {
@@ -97,19 +129,19 @@ describe('las seis paletas estan completas', () => {
   });
 
   it.each(COMBINACIONES)('%s declara los 38 colores, ni uno menos', (clave) => {
-    const paleta = derivar(base, clave);
+    const paleta = derivar(origenes, clave);
     const faltan = [...base.keys()].filter((n) => !paleta.has(n));
     expect(
       faltan,
       `«${clave}» no declara estos tokens. Un token que falta cae al del tema por omision y se ve ` +
-        'mal en UNA SOLA de las seis combinaciones, que es el defecto mas caro de ver.',
+        'mal en UNA SOLA de las combinaciones, que es el defecto mas caro de ver.',
     ).toEqual([]);
   });
 });
 
-describe('las seis son reproducibles', () => {
+describe('las ocho son reproducibles', () => {
   it('volver a generar el archivo da exactamente lo que hay', () => {
-    const generado = generar(base);
+    const generado = generar(origenes);
     if (REGENERAR) writeFileSync(RUTA_DE_LOS_TEMAS, generado, 'utf8');
 
     expect(existsSync(RUTA_DE_LOS_TEMAS), 'falta `estilos/temas.css`').toBe(true);
@@ -123,9 +155,9 @@ describe('las seis son reproducibles', () => {
   });
 });
 
-describe('las seis se leen: contraste WCAG 2.1', () => {
+describe('las ocho se leen: contraste WCAG 2.1', () => {
   it.each(COMBINACIONES)('%s', (clave) => {
-    const paleta = derivar(base, clave);
+    const paleta = derivar(origenes, clave);
     const identidad = (clave.split('/')[0] ?? '') as keyof typeof MINIMOS;
     const minimos = MINIMOS[identidad];
     const exentas = EXCEPCIONES[clave] ?? [];
@@ -213,7 +245,7 @@ describe('las cuatro insignias SIGNIFICAN cosas distintas (#36)', () => {
    * semantica se queda quieta.
    */
   it.each(COMBINACIONES)('%s', (clave) => {
-    const paleta = derivar(base, clave);
+    const paleta = derivar(origenes, clave);
 
     const juntos: string[] = [];
     for (let i = 0; i < SEMANTICOS.length; i++) {
@@ -248,5 +280,102 @@ describe('las cuatro insignias SIGNIFICAN cosas distintas (#36)', () => {
     // el conjunto vacio, que es como se queda sin sujeto sin ponerse roja.
     expect(SEMANTICOS).toHaveLength(4);
     expect(DISTANCIA_SEMANTICA_MINIMA).toBeGreaterThan(0.005);
+  });
+});
+
+describe('`clasico`: su claro es su origen y su oscuro sale de el (#56)', () => {
+  it('`clasico/claro` es `estilos/clasico.css` TAL CUAL: los 38, en su orden y con su valor', () => {
+    // Incluidos los cinco translucidos, que en `institucional/claro` NO son los del origen (#41):
+    // aqui el origen se escribio ya medido contra su barra, y el issue lo pide tal cual.
+    expect([...derivar(origenes, 'clasico/claro')]).toEqual([...origenes.clasico.colores]);
+  });
+
+  it('`clasico/oscuro` se deriva de SU origen, y el de las otras tres no se entera', () => {
+    // «Derivado con reglas» dicho con una medida y no con un comentario: se mueve un color del
+    // origen de `clasico` y tiene que moverse su oscuro —sale de ahi— y NO el de `institucional`,
+    // que sale de otro. Si `derivar()` volviera a tomar una base unica, una de las dos mitades
+    // saldria roja.
+    const azulOtro = new Map(origenes.clasico.colores).set('--azul', '#7a1f5c');
+    const tocados = { ...origenes, clasico: { ...origenes.clasico, colores: azulOtro } };
+
+    expect(derivar(tocados, 'clasico/oscuro').get('--azul')).not.toBe(
+      derivar(origenes, 'clasico/oscuro').get('--azul'),
+    );
+    expect([...derivar(tocados, 'institucional/oscuro')]).toEqual([
+      ...derivar(origenes, 'institucional/oscuro'),
+    ]);
+  });
+});
+
+describe('`clasico` no mueve ni un byte de las otras tres identidades (#56)', () => {
+  /**
+   * **Los nueve bloques de `institucional`, `alto-contraste` y `sepia`, como estaban en `main`.**
+   *
+   * Es la huella SHA-256 de cada bloque de `estilos/temas.css` medida sobre `main` en `3e027f7`,
+   * justo antes de #56: el texto desde su comentario de cabecera hasta su `}` final, sin la linea en
+   * blanco que los separa. Se guarda la huella y no el texto porque lo que se pregunta es «¿es el
+   * mismo byte a byte?», y para eso el texto no añade nada que la huella no diga.
+   *
+   * Por que hace falta, si ya esta la guarda de regeneracion: aquella dice que el archivo sale de
+   * las reglas, y seguiria verde si #56 hubiera cambiado una regla compartida o la forma de
+   * `generar()` y regenerado — o sea, justo si hubiera movido las otras tres. Esta dice que no.
+   *
+   * **Si un cambio FUTURO mueve una de las tres a proposito**, esta tabla se actualiza en ese PR,
+   * con la huella nueva medida y el motivo en su fila del registro. Lo que no puede pasar es que
+   * se muevan sin que el PR lo diga.
+   */
+  const COMO_ESTABAN_EN_MAIN: readonly (readonly [string, string])[] = [
+    ['/* institucional/claro */', 'abbd0db7e5bd244a611a47e2aa0330a16b1178d09f94f886acd3a50788ea5471'],
+    ['/* institucional/oscuro — para quien no ha elegido modo */', '3fa0291b73918712c0df6de5331c17ef8f57535172d1858777bb4ee462f0bd5b'],
+    ['/* institucional/oscuro — para quien lo eligio */', '27a10ba3f6a7e205c0519b522005d7488e783217cb12f1175781d18524feb437'],
+    ['/* alto-contraste/claro */', '66616ddce9f288910c7e4c18c93b923e198895d25443124a4024ccaf6aa0b572'],
+    ['/* alto-contraste/oscuro — para quien no ha elegido modo */', '895563b921434f044e457c8918e60cd48bbd63660762e3937b705e024faeb18c'],
+    ['/* alto-contraste/oscuro — para quien lo eligio */', 'be8f8586aef85a9ff2ff21ffaf23fc65a59484d92398cca7eb808926555750bc'],
+    ['/* sepia/claro */', '4ead2faadd6433b49c056886bd533ca28907bb4e4f97c34ad7fadae5242abfc8'],
+    ['/* sepia/oscuro — para quien no ha elegido modo */', '3fb62d261d1b6ecfc42d80f0dd794d61bc171bfda7c6e2a77e91fc646e9578b1'],
+    ['/* sepia/oscuro — para quien lo eligio */', '9ab79b73edb294cafc57e8e6d34cc64288161b4a58464cc9777f98a474691257'],
+  ];
+
+  /** Los bloques de `temas.css` tras la cabecera, cada uno con la primera linea de su comentario. */
+  function bloquesDelArchivo(): (readonly [string, string])[] {
+    const texto = readFileSync(RUTA_DE_LOS_TEMAS, 'utf8');
+    // La cabecera termina donde empieza el primer bloque, que es siempre `institucional/claro`.
+    const inicio = texto.indexOf('\n/* institucional/claro */');
+    if (inicio < 0) return [];
+    return texto
+      .slice(inicio + 1)
+      .replace(/\n$/, '')
+      .split(/\n\n(?=\/\* )/)
+      .map((bloque) => [bloque.split('\n')[0] ?? '', bloque] as const);
+  }
+
+  it('EL CENTINELA: el archivo se trocea en los nueve de antes mas los tres de `clasico`', () => {
+    // Sin esto, un cambio en la forma de trocear —o una cabecera que dejara de encontrarse— dejaria
+    // la comparacion de abajo recorriendo una lista vacia, en verde.
+    expect(bloquesDelArchivo().map(([cabecera]) => cabecera)).toEqual([
+      ...COMO_ESTABAN_EN_MAIN.map(([cabecera]) => cabecera),
+      '/* clasico/claro */',
+      '/* clasico/oscuro — para quien no ha elegido modo */',
+      '/* clasico/oscuro — para quien lo eligio */',
+    ]);
+  });
+
+  it('los nueve bloques de antes son byte a byte los de `main`, y en el mismo orden', () => {
+    const huella = (texto: string): string => createHash('sha256').update(texto, 'utf8').digest('hex');
+    const ahora = bloquesDelArchivo()
+      .filter(([cabecera]) => !cabecera.startsWith('/* clasico/'))
+      .map(([cabecera, bloque]) => [cabecera, huella(bloque)] as const);
+    const movidos = COMO_ESTABAN_EN_MAIN.filter(
+      ([cabecera, antes], i) => ahora[i]?.[0] !== cabecera || ahora[i]?.[1] !== antes,
+    ).map(([cabecera]) => `  ${cabecera}`);
+    expect(
+      movidos,
+      'Estos bloques de `estilos/temas.css` ya no son los de `main` antes de #56:\n' +
+        `${movidos.join('\n')}\n\n` +
+        '  Una identidad nueva no mueve las otras. Si este cambio lo hace a proposito, dilo en el PR\n' +
+        '  y actualiza la huella en `COMO_ESTABAN_EN_MAIN`; si no, lo que se movio es una regla\n' +
+        '  compartida, el orden de `COMBINACIONES` o la forma de `generar()`.',
+    ).toEqual([]);
+    expect(ahora).toHaveLength(COMO_ESTABAN_EN_MAIN.length);
   });
 });

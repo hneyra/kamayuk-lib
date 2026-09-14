@@ -53,14 +53,63 @@ interface Regla {
 }
 
 export type Modo = 'claro' | 'oscuro';
-export type Identidad = 'institucional' | 'alto-contraste' | 'sepia';
+export type Identidad = 'institucional' | 'alto-contraste' | 'sepia' | 'clasico';
+
+/**
+ * Las identidades cuyo claro ES una paleta de origen, y no una derivacion (#56).
+ *
+ * Hasta #56 habia una, y por eso el origen era una comparacion de cadenas —`clave ===
+ * 'institucional/claro'`— y la base era un argumento suelto. Con dos, la base de una identidad
+ * deja de ser «la base»: es **la de su origen**, y pasarle a `clasico` la de `institucional`
+ * tiene que ser imposible, no un descuido que produce un `clasico` azul marino.
+ */
+export type IdentidadDeOrigen = Extract<Identidad, 'institucional' | 'clasico'>;
+
+/**
+ * De que paleta de origen sale cada identidad. **Una fuente por identidad, y ninguna con dos.**
+ *
+ * `alto-contraste` y `sepia` son derivaciones del artboard de `institucional`, y lo siguen siendo:
+ * #56 no las toca, y lo comprueba una guarda que compara sus bloques de `temas.css` byte a byte con
+ * los de antes. `clasico` sale del suyo, que no es una derivacion de ninguno: es otro artboard.
+ */
+export const ORIGEN_DE: Readonly<Record<Identidad, IdentidadDeOrigen>> = {
+  institucional: 'institucional',
+  'alto-contraste': 'institucional',
+  sepia: 'institucional',
+  clasico: 'clasico',
+};
+
+/** Una paleta de origen: sus 38 colores y, si la declara, la fuente de las identidades que salen de ella. */
+export interface Origen {
+  readonly colores: ReadonlyMap<string, string>;
+  readonly fuente: string | null;
+}
+
+/** Las paletas de origen, una por `IdentidadDeOrigen`. Se leen del CSS con `leerLosOrigenes()`. */
+export type Origenes = Readonly<Record<IdentidadDeOrigen, Origen>>;
+
+/** La identidad de una clave `identidad/modo`, comprobada: una que no existe revienta nombrandola. */
+export function identidadDe(clave: string): Identidad {
+  const identidad = clave.split('/')[0] ?? '';
+  if (!(identidad in ORIGEN_DE)) {
+    throw new Error(
+      `«${clave}» no es de ninguna identidad conocida. Las que hay: ${Object.keys(ORIGEN_DE).join(', ')}.`,
+    );
+  }
+  return identidad as Identidad;
+}
+
+/** La fuente de una identidad: la de su origen, o `null` si su origen no declara ninguna. */
+export const fuenteDeLaIdentidad = (origenes: Origenes, identidad: Identidad): string | null =>
+  origenes[ORIGEN_DE[identidad]].fuente;
 
 /**
  * Las reglas, tema por tema.
  *
  * `institucional`/`claro` no esta: **es el origen**. La paleta del artboard se usa tal cual, sin
  * pasar por ninguna regla — si pasara, el tema que V8 dibuja seria una derivacion de si mismo y
- * un redondeo lo movería.
+ * un redondeo lo movería. Y desde #56 tampoco esta `clasico/claro`, por lo mismo: es el otro
+ * origen (ver `ORIGEN_DE`).
  */
 const REGLAS: Readonly<Record<string, Readonly<Record<Papel, Regla>>>> = {
   // El oscuro: se invierte la luminosidad y se baja el croma, porque un color saturado sobre
@@ -164,6 +213,27 @@ const REGLAS: Readonly<Record<string, Readonly<Record<Papel, Regla>>>> = {
     adorno: { a: [0.58, 0.52], croma: 0.9, tono: 30 },
     velo: { a: [0, 0], croma: 1 },
   },
+
+  // CLASICO (#56). Se deriva de SU origen —`estilos/clasico.css`—, no del artboard de
+  // `institucional`: las rampas se miden sobre esa paleta, asi que los mismos tramos hablan aqui
+  // de SUS grises (tinta de #333 a #666) y de SU azul, y dan otros colores. Los numeros son hoy
+  // los de `institucional/oscuro` —que ya resolvieron el orden del papel y la accion legible—, y
+  // medidos sobre este origen pasan las mismas guardas sin tocar ninguno. Van COPIADOS y no
+  // compartidos a proposito: una regla que se afine para `institucional` no puede mover `clasico`
+  // sin que su PR lo mida.
+  'clasico/oscuro': {
+    papel: { a: [0.13, 0.22], croma: 0.6 },
+    tinta: { a: [0.96, 0.7], croma: 0.7 },
+    filo: { a: [0.32, 0.42], croma: 0.7 },
+    accion: { a: [0.8, 0.7], croma: 0.9 },
+    'sobre-accion': { a: [0.16, 0.16], croma: 0.2 },
+    barra: { a: [0.24, 0.24], croma: 0.8 },
+    'sobre-barra': { a: [0.84, 0.97], croma: 0.5 },
+    'insignia-fondo': { a: [0.3, 0.26], croma: 0.8 },
+    'insignia-tinta': { a: [0.86, 0.8], croma: 0.9 },
+    adorno: { a: [0.55, 0.5], croma: 0.7 },
+    velo: { a: [0, 0], croma: 1 },
+  },
 };
 
 /** Cuanto blanco lleva cada uno de los tres velos de la barra. */
@@ -228,7 +298,18 @@ interface VelosDeLaBarra {
  * tambien baja: su barra es casi negra (#010a16), el 7:1 deja 0.324 de presupuesto, y con el
  * control en 0.14 no quedaba sitio para un hover que se distinguiera de el.
  */
-const VELOS_DE_LA_BARRA: Readonly<Record<string, VelosDeLaBarra>> = {
+/**
+ * «Los translucidos de esta combinacion son los que declara su origen, tal cual» (#56).
+ *
+ * El de `institucional/claro` NO puede usarlo, y es la historia de #41: su origen es el artboard de
+ * V8, cuyo hover al 18 % no cabe en su barra. `clasico/claro` si, porque su origen se escribio en
+ * esta libreria ya medido contra su barra, y el issue lo pide «tal cual para los 38». Es una marca
+ * y no la ausencia de la entrada a proposito: una combinacion que se olvide de declarar sus velos
+ * tiene que seguir reventando, y no caer en silencio en los del origen.
+ */
+const DEL_ORIGEN = 'del-origen';
+
+const VELOS_DE_LA_BARRA: Readonly<Record<string, VelosDeLaBarra | typeof DEL_ORIGEN>> = {
   // Reposo intacto: 0.09 y 0.2 son los del artboard. Solo cede el hover. Pila 0.336 <= 0.343.
   'institucional/claro': { control: 0.09, realce: 0.2, hover: 0.17 },
   // Pila 0.368 <= 0.371. El realce cede para que el hover pueda quedarse en 0.2, seis puntos por
@@ -242,6 +323,9 @@ const VELOS_DE_LA_BARRA: Readonly<Record<string, VelosDeLaBarra>> = {
   'sepia/claro': { control: 0.09, realce: 0.2, hover: 0.16 },
   // Pila 0.368 <= 0.373.
   'sepia/oscuro': { control: 0.14, realce: 0.21, hover: 0.2 },
+  // Los del origen, tal cual: ver `DEL_ORIGEN`.
+  'clasico/claro': DEL_ORIGEN,
+  'clasico/oscuro': { control: 0.14, realce: 0.21, hover: 0.2 },
 };
 
 /**
@@ -266,13 +350,16 @@ const VELOS_QUE_APAGAN: Readonly<Record<Modo, Readonly<Record<string, string>>>>
 const blancoAl = (alfa: number): string => `rgba(255, 255, 255, ${String(alfa)})`;
 
 /** Los cinco translucidos de una combinacion, ya escritos como los escribe el artboard. */
-function velosDe(clave: string): ReadonlyMap<string, string> {
+function velosDe(clave: string, base: ReadonlyMap<string, string>): ReadonlyMap<string, string> {
   const barra = VELOS_DE_LA_BARRA[clave];
   if (barra === undefined) {
     throw new Error(
       `«${clave}» no declara sus velos de barra. Las que los declaran: ` +
         `${Object.keys(VELOS_DE_LA_BARRA).join(', ')}.`,
     );
+  }
+  if (barra === DEL_ORIGEN) {
+    return new Map([...base].filter(([nombre]) => PAPELES[nombre] === 'velo'));
   }
   const modo: Modo = clave.endsWith('/oscuro') ? 'oscuro' : 'claro';
   return new Map<string, string>([
@@ -294,18 +381,21 @@ function remapear(x: number, min: number, max: number, [a, b]: readonly [number,
 }
 
 /**
- * Deriva una paleta entera desde la del artboard.
+ * Deriva una paleta entera desde la de SU origen.
  *
- * @param base los tokens del artboard, `--nombre` -> valor
+ * @param origenes las paletas de origen, leidas del CSS con `leerLosOrigenes()`. Se reciben todas
+ *   y se elige aqui la de la identidad (`ORIGEN_DE`): quien llama no puede equivocarse de base.
  * @param clave `identidad/modo`, p. ej. `sepia/oscuro`
  */
-export function derivar(base: ReadonlyMap<string, string>, clave: string): Map<string, string> {
+export function derivar(origenes: Origenes, clave: string): Map<string, string> {
+  const identidad = identidadDe(clave);
+  const base = origenes[ORIGEN_DE[identidad]].colores;
   // El origen no pasa por ninguna regla PARA SUS COLORES OPACOS. Ver el javadoc de REGLAS — y el
   // de `VELOS_DE_LA_BARRA`, que es la excepcion: los translucidos nunca se derivaron de la paleta
   // y desde #41 se declaran por combinacion, tambien para el origen, porque lo que los limita no
   // es de donde salen sino cuanto blanco admite la barra que tienen debajo.
-  const esElOrigen = clave === 'institucional/claro';
-  const velos = velosDe(clave);
+  const esElOrigen = clave === `${ORIGEN_DE[identidad]}/claro`;
+  const velos = velosDe(clave, base);
   const reglas = REGLAS[clave];
   if (!esElOrigen && reglas === undefined) {
     throw new Error(`No hay reglas para «${clave}». Las que hay: ${Object.keys(REGLAS).join(', ')}.`);
@@ -361,7 +451,13 @@ export function derivar(base: ReadonlyMap<string, string>, clave: string): Map<s
   return salida;
 }
 
-/** Las seis combinaciones, en orden estable. */
+/**
+ * Las ocho combinaciones, en orden estable.
+ *
+ * `clasico` va AL FINAL, y no por gusto (#56): `generar()` escribe los bloques en este orden, y
+ * ponerla en medio desplazaria los de `sepia` en `temas.css` — o sea que el diff de un cambio que
+ * no toca `sepia` diria que lo toca. Al final, los seis bloques de antes quedan donde estaban.
+ */
 export const COMBINACIONES: readonly string[] = [
   'institucional/claro',
   'institucional/oscuro',
@@ -369,4 +465,6 @@ export const COMBINACIONES: readonly string[] = [
   'alto-contraste/oscuro',
   'sepia/claro',
   'sepia/oscuro',
+  'clasico/claro',
+  'clasico/oscuro',
 ];

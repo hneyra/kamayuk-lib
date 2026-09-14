@@ -1,24 +1,33 @@
 /* ============================================================================
-   LAS SEIS PALETAS. ARCHIVO GENERADO — no se edita a mano.
+   LAS OCHO PALETAS. ARCHIVO GENERADO — no se edita a mano.
 
-   Tres identidades por dos modos. Sale de `temas/generar.ts` aplicando las reglas de
-   `temas/derivar.ts` a la paleta del artboard, y `temas/contraste.test.ts` comprueba que
-   volver a generarlo da EXACTAMENTE esto. Un valor tocado a mano sale rojo.
+   Cuatro identidades por dos modos. Sale de `temas/generar.ts` aplicando las reglas de
+   `temas/derivar.ts` a la paleta de origen de cada identidad, y `temas/temas.test.ts`
+   comprueba que volver a generarlo da EXACTAMENTE esto. Un valor tocado a mano sale rojo.
+
+   Los origenes son dos, y cada identidad sale de uno solo:
+
+       estilos/estilos.css (@theme)   institucional, alto-contraste, sepia
+       estilos/clasico.css            clasico
 
    Los dos ejes son independientes a proposito:
 
-       data-tema   institucional | alto-contraste | sepia     <- la identidad, del servicio
-       data-modo   claro | oscuro | (ausente = el del sistema) <- la apariencia, de la persona
+       data-tema   institucional | alto-contraste | sepia | clasico   <- la identidad, del servicio
+       data-modo   claro | oscuro | (ausente = el del sistema)        <- la apariencia, de la persona
 
    El oscuro se escribe dos veces —bajo `prefers-color-scheme` y bajo `[data-modo='oscuro']`—
    y el primero lleva `:not([data-modo='claro'])`: sin eso, quien pide claro en un equipo puesto
    en oscuro no podria salir de ahi.
 
-   Y los TRES bloques oscuros —los seis sitios, contando ese duplicado— declaran ademas
+   Y los CUATRO bloques oscuros —los ocho sitios, contando ese duplicado— declaran ademas
    `color-scheme: dark` (#33). Los `--color-*` pintan lo que pinta la hoja; `color-scheme`
    pinta lo que dibuja el navegador por su cuenta: controles nativos, barra de desplazamiento y
    fondo del lienzo. Sin ella la pantalla se oscurece entera menos eso. El claro no la declara: el
    `:root` de `estilos.css` ya dice `light`, que es el valor por omision.
+
+   La fuente es de la identidad y no del modo: la declara el bloque claro de la identidad cuyo
+   origen la trae (`--font-sans`), y ese selector casa tambien en oscuro. Las que no la traen
+   se quedan con la de Tailwind.
    ============================================================================ */
 
 /* institucional/claro */
@@ -405,6 +414,137 @@
     --color-esqueleto-brillo: #201b16;
     --color-sobre-barra: #eeeeee;
     --color-sobre-barra-2: #d5c0af;
+    --color-barra-control: rgba(255, 255, 255, 0.14);
+    --color-barra-realce: rgba(255, 255, 255, 0.21);
+    --color-barra-hover: rgba(255, 255, 255, 0.2);
+    --color-velo: rgba(0, 0, 0, 0.62);
+    --color-velo-paleta: rgba(0, 0, 0, 0.58);
+}
+
+/* clasico/claro */
+[data-tema='clasico'] {
+    --color-fondo: #f4f6f8;
+    --color-superficie: #ffffff;
+    --color-sup: #f9fbfd;
+    --color-tinta: #333333;
+    --color-tinta-2: #555555;
+    --color-tinta-3: #666666;
+    --color-tinta-4: #999999;
+    --color-azul: #0d5fa8;
+    --color-azul-oscuro: #0a4c86;
+    --color-azul-hover: #0a4c86;
+    --color-azul-suave: #e8f1f9;
+    --color-acento: #1ba0d7;
+    --color-sobre-azul: #ffffff;
+    --color-linea: #dddddd;
+    --color-linea-2: #eeeeee;
+    --color-borde-campo: #cccccc;
+    --color-borde-boton: #cccccc;
+    --color-borde-hover: #999999;
+    --color-foco: #1ba0d7;
+    --color-ok-fondo: #dff0d8;
+    --color-ok-tinta: #3c763d;
+    --color-atencion-fondo: #fcf8e3;
+    --color-atencion-tinta: #8a6d3b;
+    --color-mal-fondo: #f2dede;
+    --color-mal-tinta: #a94442;
+    --color-info-fondo: #f0f6fb;
+    --color-info-tinta: #0d5fa8;
+    --color-mal-borde: #a94442;
+    --color-mal-campo: #fff9f9;
+    --color-esqueleto: #eeeeee;
+    --color-esqueleto-brillo: #f9fbfd;
+    --color-sobre-barra: #ffffff;
+    --color-sobre-barra-2: #cfe3f4;
+    --color-barra-control: rgba(255, 255, 255, 0.06);
+    --color-barra-realce: rgba(255, 255, 255, 0.12);
+    --color-barra-hover: rgba(255, 255, 255, 0.15);
+    --color-velo: rgba(10, 76, 134, 0.4);
+    --color-velo-paleta: rgba(51, 51, 51, 0.38);
+    --font-sans: Arial, Helvetica, sans-serif;
+}
+
+/* clasico/oscuro — para quien no ha elegido modo */
+@media (prefers-color-scheme: dark) {
+  [data-tema='clasico']:not([data-modo='claro']) {
+      color-scheme: dark;
+      --color-fondo: #0f1010;
+      --color-superficie: #1b1b1b;
+      --color-sup: #151516;
+      --color-tinta: #f2f2f2;
+      --color-tinta-2: #b8b8b8;
+      --color-tinta-3: #9e9e9e;
+      --color-tinta-4: #636363;
+      --color-azul: #62a2e9;
+      --color-azul-oscuro: #001e48;
+      --color-azul-hover: #8cc2fe;
+      --color-azul-suave: #23282d;
+      --color-acento: #2f7a9f;
+      --color-sobre-azul: #0d0d0d;
+      --color-linea: #4a4a4a;
+      --color-linea-2: #4d4d4d;
+      --color-borde-campo: #464646;
+      --color-borde-boton: #464646;
+      --color-borde-hover: #3c3c3c;
+      --color-foco: #004263;
+      --color-ok-fondo: #242e20;
+      --color-ok-tinta: #a3daa1;
+      --color-atencion-fondo: #272418;
+      --color-atencion-tinta: #d6b98b;
+      --color-mal-fondo: #362a2a;
+      --color-mal-tinta: #ffa6a0;
+      --color-info-fondo: #222628;
+      --color-info-tinta: #94d6ff;
+      --color-mal-borde: #591a1a;
+      --color-mal-campo: #171515;
+      --color-esqueleto: #070707;
+      --color-esqueleto-brillo: #151516;
+      --color-sobre-barra: #f5f5f5;
+      --color-sobre-barra-2: #c2ccd4;
+      --color-barra-control: rgba(255, 255, 255, 0.14);
+      --color-barra-realce: rgba(255, 255, 255, 0.21);
+      --color-barra-hover: rgba(255, 255, 255, 0.2);
+      --color-velo: rgba(0, 0, 0, 0.62);
+      --color-velo-paleta: rgba(0, 0, 0, 0.58);
+  }
+}
+
+/* clasico/oscuro — para quien lo eligio */
+[data-tema='clasico'][data-modo='oscuro'] {
+    color-scheme: dark;
+    --color-fondo: #0f1010;
+    --color-superficie: #1b1b1b;
+    --color-sup: #151516;
+    --color-tinta: #f2f2f2;
+    --color-tinta-2: #b8b8b8;
+    --color-tinta-3: #9e9e9e;
+    --color-tinta-4: #636363;
+    --color-azul: #62a2e9;
+    --color-azul-oscuro: #001e48;
+    --color-azul-hover: #8cc2fe;
+    --color-azul-suave: #23282d;
+    --color-acento: #2f7a9f;
+    --color-sobre-azul: #0d0d0d;
+    --color-linea: #4a4a4a;
+    --color-linea-2: #4d4d4d;
+    --color-borde-campo: #464646;
+    --color-borde-boton: #464646;
+    --color-borde-hover: #3c3c3c;
+    --color-foco: #004263;
+    --color-ok-fondo: #242e20;
+    --color-ok-tinta: #a3daa1;
+    --color-atencion-fondo: #272418;
+    --color-atencion-tinta: #d6b98b;
+    --color-mal-fondo: #362a2a;
+    --color-mal-tinta: #ffa6a0;
+    --color-info-fondo: #222628;
+    --color-info-tinta: #94d6ff;
+    --color-mal-borde: #591a1a;
+    --color-mal-campo: #171515;
+    --color-esqueleto: #070707;
+    --color-esqueleto-brillo: #151516;
+    --color-sobre-barra: #f5f5f5;
+    --color-sobre-barra-2: #c2ccd4;
     --color-barra-control: rgba(255, 255, 255, 0.14);
     --color-barra-realce: rgba(255, 255, 255, 0.21);
     --color-barra-hover: rgba(255, 255, 255, 0.2);
