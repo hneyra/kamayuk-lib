@@ -1,5 +1,5 @@
 /**
- * LA MUESTRA de `sin-suponer-un-sistema`. Viola las cuatro suposiciones A PROPOSITO.
+ * LA MUESTRA de `sin-suponer-un-sistema`. Viola las cinco suposiciones A PROPOSITO.
  *
  * Una regla que no puede fallar no protege nada. Este archivo esta fuera de `tsc`, fuera de
  * ESLint y fuera de `vitest` —`muestras/` esta apartada en los tres— y la guarda lo lee **como
@@ -23,4 +23,9 @@ export const MODULO_PROPIO = 'RENTAS_REGISTRO';
 // vocabulario-tributario
 export function totalDeArbitrios(): string {
   return '0.00';
+}
+
+// vocabulario-catastral (#44): la forma en que se cuela de verdad, un identificador
+export function codigoDelPredioId(predioId: string): string {
+  return predioId;
 }

@@ -4,8 +4,16 @@
    excepcion pertenece a ESTE archivo, y una excepcion en el config se ensancha sin que nadie
    la mire. Es el mismo patron que usa `rentas`. */
 import { FechaDeCalculo, Icono, Importe, Insignia, Pantalla } from '../../ui/index.ts';
-import type { DefinicionDeCampo, DefinicionDeTabla } from '../../ui/index.ts';
+import type {
+  DatosDeLaPantalla,
+  DefinicionDeCampo,
+  DefinicionDePantalla,
+  DefinicionDeTabla,
+  PeldanoDeUnFallo,
+  PiezaDeLaPantalla,
+} from '../../ui/index.ts';
 import { formatearImporte } from '../../formato/index.ts';
+import { peldanoDe } from '../../sesion/index.ts';
 
 /**
  * LAS BARRERAS DE TIPO. No es una prueba de vitest: es una prueba DEL COMPILADOR.
@@ -107,3 +115,48 @@ export function formatoConNumero() {
   // @ts-expect-error un importe es texto decimal, jamas number
   return formatearImporte(1842.6);
 }
+
+/**
+ * Las barreras de las piezas de #44.
+ *
+ * Tres son de forma —lo que cada pieza exige— y dos son de compatibilidad: que `rentas` siga
+ * teniendo su definicion estrecha, y que el peldano de `@kamayuk/sesion` quepa donde el interprete
+ * dibuja un fallo SIN que `@kamayuk/ui` lo importe.
+ */
+export const barrerasDeLasPiezas: readonly PiezaDeLaPantalla[] = [
+  // @ts-expect-error el pie no depende de ninguna lectura: sigue ahi con el servidor caido
+  { tipo: 'pie', lee: ['GET /recursos'], lectura: { clave: 'principal' } },
+  // @ts-expect-error y tampoco de ningun dato: un pie que desaparece no dice lo que falta
+  { tipo: 'pie', lee: ['GET /recursos'], cuando: { dato: 'x', hay: true } },
+  // @ts-expect-error un aviso sin titulo es un parrafo de color sin sujeto
+  { tipo: 'aviso', tono: 'info', texto: 'Algo' },
+  // @ts-expect-error un tono que no es de los cuatro del artboard
+  { tipo: 'aviso', tono: 'warn', titulo: 'Algo' },
+  // @ts-expect-error una pieza del consumidor sin clave no se puede buscar en el registro
+  { tipo: 'delConsumidor' },
+];
+
+/**
+ * `DefinicionDePantalla` a secas sigue siendo la de #27, y un aviso no cabe: es lo que deja a
+ * `rentas` leer `bloque.campos` sobre sus cuarenta definiciones. Si alguien ensanchara el valor por
+ * omision, esta barrera saldria roja aqui antes de que `rentas` dejara de compilar alli.
+ */
+export const laDeHoySigueEstrecha: DefinicionDePantalla = {
+  instruccion: '',
+  // @ts-expect-error la definicion por omision solo lleva bloques; las piezas se piden con el parametro
+  bloques: [{ tipo: 'aviso', tono: 'info', titulo: 'Algo' }],
+};
+
+/** Un dato con nombre no es un `number`: una cifra llega formateada (regla 1). */
+export const datoConNumero: DatosDeLaPantalla = {
+  ausencia: { enElCampo: '', explicacion: '', tono: 'info' },
+  // @ts-expect-error un dato con nombre es texto, booleano o null, jamas number
+  nombrados: new Map([['total', 1842.6]]),
+};
+
+/**
+ * Y el peldano de `@kamayuk/sesion` se pasa TAL CUAL al estado de fallo (#44, AC-3). Sin
+ * `@ts-expect-error`: esto TIENE que compilar. Si #52 renombra `titulo` o `detalle`, sale rojo aqui
+ * y no en la pantalla del primer sistema que lo pinte.
+ */
+export const elPeldanoDeLaSesionCabe: PeldanoDeUnFallo = peldanoDe(new TypeError('sin red'));

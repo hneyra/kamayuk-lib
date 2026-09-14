@@ -90,3 +90,57 @@ export const TEXTOS_DEL_INTERPRETE: TextosDelInterprete = {
   marcadorDeFecha: 'dd/mm/aaaa',
   registros: (cuantos) => (cuantos === 1 ? '1 registro' : `${String(cuantos)} registros`),
 };
+
+/**
+ * **Las palabras que dicen las piezas de #44**: los estados de una lectura, el pie de operaciones
+ * y el aviso de lo que no se pudo dibujar.
+ *
+ * <h2>Por que es un saco hermano y no cuatro claves mas en `TextosDelInterprete`</h2>
+ *
+ * Porque `TextosDelInterprete` lo construye entero su consumidor. `rentas` lo tiene escrito como
+ * `satisfies Record<keyof TextosDelInterprete, string>` (`src/i18n/textosDelMarco.ts:133`) y lo
+ * devuelve como `TextosDelInterprete` desde un `useMemo` con sus tres claves (`:146-156`): una
+ * cuarta lo deja sin compilar, y lo nuevo tiene que ser aditivo. `Pantalla` recibe los dos sacos
+ * juntos en `textos`, y el que `rentas` pasa sigue cabiendo.
+ *
+ * Estas palabras solo salen cuando la definicion usa las piezas nuevas, que `rentas` no usa: su
+ * guarda de cobertura no las echa de menos, y el dia que las use las pasara por aqui.
+ */
+export interface TextosDeLasPiezas {
+  /** Lo que se lee bajo las barras mientras se pide. Nunca una cifra. */
+  readonly pidiendo: string;
+  /** Lo que se dice en `en-espera` cuando la definicion no dio su propia frase. */
+  readonly enEspera: string;
+  /** El boton que vuelve a pedir. Solo sale donde reintentar puede cambiar algo. */
+  readonly reintentar: string;
+  /** La linea del identificador que soporte necesita. Es una funcion: el dato va donde diga el idioma. */
+  readonly incidencia: (identificador: string) => string;
+  /** «La sirve» o «La sirven», delante de las operaciones que leen la hoja. */
+  readonly lasQueLeen: (cuantas: number) => string;
+  /** «La escribe» o «La escriben», delante de las que la escriben. */
+  readonly lasQueEscriben: (cuantas: number) => string;
+  /** El aviso de una pieza del consumidor cuya clave nadie registro. Nunca un hueco en blanco. */
+  readonly piezaSinRegistrar: (clave: string) => string;
+  /** El aviso de una lectura declarada cuyo estado nadie dio. Decir «pidiendo» seria mentir para siempre. */
+  readonly lecturaSinEstado: (clave: string) => string;
+  /** Lo que ocupa el sitio de un dato que no llego, dentro de un texto. */
+  readonly datoAusente: string;
+}
+
+/** Lo que se ve si nadie pasa nada. */
+export const TEXTOS_DE_LAS_PIEZAS: TextosDeLasPiezas = {
+  pidiendo: 'Pidiendo al servidor…',
+  enEspera: 'Todavia no hay nada que pedir.',
+  reintentar: 'Reintentar',
+  incidencia: (identificador) => `Incidencia ${identificador}`,
+  lasQueLeen: (cuantas) => (cuantas === 1 ? 'La sirve' : 'La sirven'),
+  lasQueEscriben: (cuantas) => (cuantas === 1 ? 'La escribe' : 'La escriben'),
+  piezaSinRegistrar: (clave) =>
+    `Esta parte de la pantalla no se puede dibujar: nadie ha registrado la pieza «${clave}».`,
+  lecturaSinEstado: (clave) =>
+    `Esta parte de la pantalla no sabe en que estado esta su lectura: nadie ha dado el de «${clave}».`,
+  datoAusente: '—',
+};
+
+/** Los dos sacos que `Pantalla` recibe juntos, y lo que una pieza del consumidor recibe ya fundido. */
+export type TextosDeLaPantalla = TextosDelInterprete & TextosDeLasPiezas;

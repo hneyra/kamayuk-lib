@@ -121,18 +121,174 @@ export interface DefinicionDeTabla {
   readonly accion?: string;
 }
 
-/** Un grupo de campos con su titulo, su nota y —a veces— su tabla. */
-export interface DefinicionDeBloque {
-  readonly titulo: string;
+/**
+ * Una palabra de la definicion: **fija, o con un dato dentro** (#44, `texto-con-dato`).
+ *
+ * <h2>Las cuatro formas, y que pasa por `traducir` en cada una</h2>
+ *
+ * <table>
+ *   <tr><td>`'Aqui no se sella nada'`</td><td>fija. Se traduce entera</td></tr>
+ *   <tr><td>`{ plantilla: 'Registro {registroId}' }`</td><td>se traduce **la plantilla** y despues
+ *     se pone el dato. El hueco nombra el dato directamente: la clave de traduccion es la plantilla
+ *     misma, y no hay una segunda tabla `valores` que se desincronice</td></tr>
+ *   <tr><td>`{ desde: 'motivo' }`</td><td>el dato tal cual. **No se traduce**: es lo que dijo el
+ *     servidor</td></tr>
+ *   <tr><td>`{ segun: 'vista', casos: {…}, otro? }`</td><td>una frase u otra segun lo que valga
+ *     un dato. Se traduce el caso elegido</td></tr>
+ * </table>
+ *
+ * **El dato nunca pasa por `traducir`**, por lo mismo que no pasa una celda: traducir un
+ * identificador lo cambia. Los datos salen de `DatosDeLaPantalla.nombrados`.
+ */
+export type Texto =
+  | string
+  | { readonly plantilla: string }
+  | { readonly desde: string }
+  | {
+      readonly segun: string;
+      readonly casos: Readonly<Record<string, string>>;
+      /** Lo que se dice si el dato no casa con ningun caso. Sin el, `textos.datoAusente`. */
+      readonly otro?: string;
+    };
+
+/**
+ * Cuando una pieza **existe** (#44, `pieza-condicional`).
+ *
+ * Lee `DatosDeLaPantalla.nombrados`. Un dato ausente no cumple `vale`: el aviso de «no esta
+ * sellado» no sale hasta que la lectura ha contestado que no lo esta, y no antes.
+ */
+export type Condicion =
+  | { readonly dato: string; readonly vale: string | boolean | null }
+  /** `hay: true` es «ni ausente, ni `null`, ni `''`». Un `false` SI es un dato. */
+  | { readonly dato: string; readonly hay: boolean };
+
+/**
+ * La lectura de la que depende una pieza (#44, `estados-de-una-lectura`).
+ *
+ * La pieza no pide nada —la libreria no conecta datos—: nombra la lectura por su `clave`, y el
+ * estado lo pone el sistema en `DatosDeLaPantalla.lecturas`.
+ */
+export interface LecturaDeUnaPieza {
+  readonly clave: string;
+  /**
+   * Lo que se dice mientras falta el sujeto para poder pedir: «Escriba el identificador y aqui
+   * saldra su detalle». Es de la hoja, y por eso va en la definicion. Sin el, `textos.enEspera`.
+   */
+  readonly espera?: Texto;
+}
+
+/**
+ * Lo que toda pieza puede declarar, **salvo el pie de operaciones** (#44).
+ *
+ * Son tres modificadores y no una pieza cada uno, porque se combinan: un aviso con condicion, un
+ * bloque que depende de una lectura y avisa del fallo de otra, una pieza del consumidor que solo
+ * se monta con datos.
+ */
+export interface ComunDeUnaPieza {
+  /** Sin ella, la pieza existe siempre. Oculta, **conserva su indice** en `bloques`. */
+  readonly cuando?: Condicion;
+  /** La lectura cuyos cuatro estados dibuja esta pieza en su sitio. */
+  readonly lectura?: LecturaDeUnaPieza;
+  /**
+   * Lecturas vecinas cuyo **fallo** se dice encima, sin tapar lo que si llego
+   * (`fallo-fuera-de-su-lectura`). Solo el fallo: su espera no tapa nada.
+   */
+  readonly fallosDe?: readonly string[];
+}
+
+/**
+ * Un grupo de campos con su titulo, su nota y —a veces— su tabla.
+ *
+ * <h2>Por que es generico en el tipo de sus textos, y por omision `string`</h2>
+ *
+ * Porque `rentas` recorre sus definiciones y mete `bloque.titulo` y `bloque.nota` en listas de
+ * cadenas (`src/i18n/catalogo-de-claves.ts:51-62`). Con `titulo: Texto` a secas eso deja de
+ * compilar; con el parametro, `DefinicionDeBloque` sigue siendo el de #27 y la pieza nueva es
+ * `DefinicionDeBloque<Texto>`.
+ */
+export interface DefinicionDeBloque<T extends Texto = string> extends ComunDeUnaPieza {
+  /** Opcional: un bloque sin `tipo` es un bloque, que es como lo escribe `rentas`. */
+  readonly tipo?: 'bloque';
+  readonly titulo: T;
   /** Que ES esta parte de la pantalla. Vacia cuando el titulo ya lo dice todo. */
-  readonly nota: string;
+  readonly nota: T;
   /** Los campos del grupo. Vacio en los bloques que solo traen una tabla. */
   readonly campos: readonly DefinicionDeCampo[];
   readonly tabla?: DefinicionDeTabla;
+  /**
+   * Lo que hay que saber para leer lo de arriba, **debajo** de los campos y de la tabla
+   * (#44, `nota-al-pie-del-bloque`). La `nota` va arriba y dice que es el bloque; esto va abajo y
+   * dice como leerlo: «son cifras y no una tasa, a proposito».
+   */
+  readonly pie?: T;
 }
 
-/** Una pantalla. */
-export interface DefinicionDePantalla {
+/** Un aviso con tono, titulo y parrafo (#44, `aviso`). Es la `Alerta`, como dato. */
+export interface DefinicionDeAviso extends ComunDeUnaPieza {
+  readonly tipo: 'aviso';
+  readonly tono: TonoDeInsignia;
+  readonly titulo: Texto;
+  readonly texto?: Texto;
+}
+
+/**
+ * **El punto de extension** (#44, AC-2): una parte de la pantalla que dibuja el sistema.
+ *
+ * La `clave` busca un componente en `PantallaProps.piezas`. La libreria no sabe que hay detras
+ * —un plano, una rejilla de casillas, un flujo de tres pasos— y no tiene por que: el componente es
+ * del sistema, cierra sobre sus propios hooks y recibe lo mismo que el interprete tiene.
+ *
+ * No lleva un `ajustes: unknown` para configurarlo desde la definicion, a proposito: un dato sin
+ * tipo es un contrato que ningun compilador lee. Dos usos distintos de la misma pieza son dos
+ * claves, o un componente que lee lo suyo de `datos`.
+ */
+export interface DefinicionDePiezaDelConsumidor extends ComunDeUnaPieza {
+  readonly tipo: 'delConsumidor';
+  readonly clave: string;
+}
+
+/**
+ * **Que operaciones sirven la hoja y que le falta al backend** (#44, `pie-de-operaciones`).
+ *
+ * <h2>No extiende `ComunDeUnaPieza`, y es a proposito</h2>
+ *
+ * Sin `cuando` ni `lectura`: el pie sigue diciendolo **con el servidor caido**, que es cuando mas
+ * falta. Con la red cortada la pantalla no puede ensenar una cifra y sigue nombrando lo que le
+ * habria contestado. Lo vigila una barrera de tipo.
+ */
+export interface DefinicionDelPie {
+  readonly tipo: 'pie';
+  /**
+   * Las operaciones que la leen, **cada una con su verbo**: `'GET /recursos'`. Son codigo: no se
+   * traducen, y la libreria no les antepone ningun prefijo —el prefijo es del sistema, ADR-0030 §2—.
+   */
+  readonly lee: readonly string[];
+  /** Y las que la escriben. Van aparte: una escritura que no llega no deja la pantalla sin datos. */
+  readonly escribe?: readonly string[];
+  /** Lo que el backend no publica, y por eso esta pantalla no lo dibuja. */
+  readonly falta?: Texto;
+}
+
+/** Lo que `bloques` puede llevar desde #44: el bloque de #27 y las tres piezas nuevas. */
+export type PiezaDeLaPantalla =
+  | DefinicionDeBloque<Texto>
+  | DefinicionDeAviso
+  | DefinicionDePiezaDelConsumidor
+  | DefinicionDelPie;
+
+/**
+ * Una pantalla.
+ *
+ * <h2>Por que es generica, y por omision lleva solo bloques</h2>
+ *
+ * Porque ensanchar `bloques` a `PiezaDeLaPantalla` rompe a quien las lee: `rentas` recorre sus
+ * cuarenta definiciones leyendo `bloque.campos` en siete sitios —`src/catalogo.ts:68`, su
+ * inventario de claves, sus guardas y su `e2e`— y sobre una union esa lectura no compila. Asi que
+ * `DefinicionDePantalla` sigue siendo la de #27, y quien use las piezas nuevas escribe
+ * `DefinicionDePantalla<PiezaDeLaPantalla>`. `<Pantalla>` acepta las dos: un arreglo de solo lectura
+ * de bloques cabe en uno de piezas.
+ */
+export interface DefinicionDePantalla<Pieza extends PiezaDeLaPantalla = DefinicionDeBloque> {
   /**
    * La linea de la barra de instruccion: **que hay que hacer aqui**.
    *
@@ -141,7 +297,7 @@ export interface DefinicionDePantalla {
    * `@kamayuk/shell`, no el interprete: el sistema la pasa al catalogo.
    */
   readonly instruccion: string;
-  readonly bloques: readonly DefinicionDeBloque[];
+  readonly bloques: readonly Pieza[];
 }
 
 /**

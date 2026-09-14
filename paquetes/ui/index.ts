@@ -26,8 +26,13 @@
  *   entra con su archivo y con quien lo pida, no como promesa.
  */
 
-export { TEXTOS_DE_LA_UI, TEXTOS_DEL_INTERPRETE } from './textos.tsx';
-export type { TextosDeLaUi, TextosDelInterprete } from './textos.tsx';
+export { TEXTOS_DE_LA_UI, TEXTOS_DEL_INTERPRETE, TEXTOS_DE_LAS_PIEZAS } from './textos.tsx';
+export type {
+  TextosDeLaUi,
+  TextosDelInterprete,
+  TextosDeLasPiezas,
+  TextosDeLaPantalla,
+} from './textos.tsx';
 export { Importe } from './Importe.tsx';
 export type { ImporteProps } from './Importe.tsx';
 export { Insignia } from './Insignia.tsx';
@@ -56,6 +61,7 @@ export {
   TarjetaNota,
   TarjetaCampos,
   TarjetaBarraDeTabla,
+  TarjetaPie,
 } from './shadcn/tarjeta.tsx';
 export { Etiqueta } from './shadcn/etiqueta.tsx';
 export type { EtiquetaProps } from './shadcn/etiqueta.tsx';
@@ -156,19 +162,39 @@ export type { AvisosProps } from './shadcn/avisos.tsx';
 export { Pantalla } from './interprete/Pantalla.tsx';
 export type { PantallaProps } from './interprete/Pantalla.tsx';
 export { coordenada } from './interprete/datos.ts';
-export type { Ausencia, Coordenada, DatosDeLaPantalla } from './interprete/datos.ts';
+export type {
+  Ausencia,
+  Coordenada,
+  DatoConNombre,
+  DatosDeLaPantalla,
+  EstadoDeUnaLectura,
+  PeldanoDeUnFallo,
+} from './interprete/datos.ts';
 export type {
   CampoDeCasilla,
   CampoDeEntrada,
   CampoDeLista,
   CampoDeSoloLectura,
   ColumnaDeTabla,
+  ComunDeUnaPieza,
   ConAnchoCompleto,
+  Condicion,
+  DefinicionDeAviso,
   DefinicionDeBloque,
   DefinicionDeCampo,
   DefinicionDePantalla,
+  DefinicionDePiezaDelConsumidor,
+  DefinicionDelPie,
   DefinicionDeTabla,
+  LecturaDeUnaPieza,
+  PiezaDeLaPantalla,
+  Texto,
   TipoDeCampoConAncho,
   TipoDeEntrada,
   TonoDeInsignia,
 } from './interprete/tipos.ts';
+// El punto de extension y las tres reglas puras de #44. Las piezas de dentro —el estado de la
+// lectura, el pie, el despachador— NO se exportan, por lo mismo que el bloque: nadie dibuja medio
+// interprete. Las reglas si, para que una pieza del consumidor use las mismas y no una copia.
+export type { PiezasDelConsumidor, PropsDeUnaPiezaDelConsumidor } from './interprete/PiezaDeLaPantalla.tsx';
+export { piezasSinRegistrar, resolverTexto, seCumple } from './interprete/componer.ts';

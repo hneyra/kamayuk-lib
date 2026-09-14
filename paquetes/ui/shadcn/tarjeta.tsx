@@ -99,3 +99,24 @@ export function TarjetaBarraDeTabla({ className, ...resto }: HTMLAttributes<HTML
     />
   );
 }
+
+/**
+ * El pie del bloque: lo que hay que saber para leer lo de arriba, **debajo** (#44).
+ *
+ * No es la `TarjetaNota`, y la diferencia es de lectura: la nota va arriba y dice que es el
+ * bloque; el pie va abajo, en el gris de la nota de una tabla, y dice como leer lo que se acaba de
+ * ver —«son cifras y no una tasa, a proposito»—. Con el filo arriba, porque debajo de una rejilla
+ * sin el se leeria como un campo mas.
+ */
+export function TarjetaPie({ className, ...resto }: HTMLAttributes<HTMLParagraphElement>) {
+  return (
+    <p
+      data-slot="tarjeta-pie"
+      className={cn(
+        'm-0 px-[15px] py-[10px] border-t border-linea-2 bg-sup text-[12.5px] leading-[1.55] text-tinta-3 text-pretty',
+        className,
+      )}
+      {...resto}
+    />
+  );
+}
