@@ -63,4 +63,19 @@ export const SUPOSICIONES: readonly Suposicion[] = [
       'un arbitrio, dejo de ser comun y es el monolito otra vez, repartido y sin que el build ' +
       'lo vea».',
   },
+  {
+    clave: 'vocabulario-catastral',
+    // #44: el interprete aprende lo que `catastro` dibuja, y es exactamente el momento en que su
+    // vocabulario se cuela. SIN `\b` en ningun lado, por la leccion de la tributaria y una mas: con
+    // `predio\b`, `predioId` —el identificador que la V6 lleva en cada lectura— no casaba, porque
+    // detras de `predio` viene una letra. Sin limites, `predio`, `ficha` y `catastral` casan dentro
+    // de cualquier identificador; y medido sobre el codigo de produccion de hoy, sin comentarios, no
+    // hay ninguna palabra comun que las lleve dentro.
+    patron: /predio|ficha|catastral/i,
+    porQue:
+      'Es la misma frontera que la tributaria, con las palabras de `catastro` (#44, AC-4): el ' +
+      'interprete sube lo que DOS hojas o mas dibujan, y lo propio —un codigo por tramos, la ficha ' +
+      'por su clase— entra por el punto de extension, como pieza del consumidor. Si la libreria ' +
+      'necesita saber que es un predio, esa pieza es de `catastro`.',
+  },
 ];

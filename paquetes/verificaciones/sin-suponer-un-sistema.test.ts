@@ -97,6 +97,24 @@ describe('ninguna libreria comun supone un sistema', () => {
     ).toBeGreaterThanOrEqual(6);
   });
 
+  it('EL CENTINELA: y las piezas de #44 tambien, que son las que aprenden lo que `catastro` dibuja', () => {
+    // Son las que mas tentadas estan de nombrar un predio: salen de su V6 hoja por hoja. Se nombran
+    // una a una, y no se cuentan: un conteo seguiria cuadrando con una renombrada y otra nueva.
+    const leidas = PRODUCCION.filter((a) => a.includes(join('ui', 'interprete')));
+    for (const archivo of [
+      'componer.ts',
+      'muestras.ts',
+      'EstadoDeLaLectura.tsx',
+      'PieDeOperaciones.tsx',
+      'PiezaDeLaPantalla.tsx',
+    ]) {
+      expect(
+        leidas.some((a) => a.endsWith(join('interprete', archivo))),
+        `no se leyo «interprete/${archivo}»`,
+      ).toBe(true);
+    }
+  });
+
   it.each(SUPOSICIONES.map((s) => [s.clave, s] as const))('no se supone: %s', (_clave, suposicion) => {
     const hallazgos = hallazgosDe(suposicion, PRODUCCION);
     const detalle = hallazgos

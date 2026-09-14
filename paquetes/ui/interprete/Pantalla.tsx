@@ -1,11 +1,17 @@
 import { useState } from 'react';
 
 import { Alerta } from '../shadcn/alerta.tsx';
-import { TEXTOS_DEL_INTERPRETE, type TextosDelInterprete } from '../textos.tsx';
+import {
+  TEXTOS_DE_LAS_PIEZAS,
+  TEXTOS_DEL_INTERPRETE,
+  type TextosDeLaPantalla,
+} from '../textos.tsx';
 import { BloqueDeLaPantalla } from './BloqueDeLaPantalla.tsx';
 import type { DatosDeLaPantalla } from './datos.ts';
 import { coordenada } from './datos.ts';
-import type { DefinicionDePantalla, TonoDeInsignia } from './tipos.ts';
+import { esBloque } from './componer.ts';
+import { PiezaDeLaPantalla, type PiezasDelConsumidor } from './PiezaDeLaPantalla.tsx';
+import type { DefinicionDePantalla, PiezaDeLaPantalla as Pieza, TonoDeInsignia } from './tipos.ts';
 
 /**
  * **El interprete**: una definicion, dibujada (#27).
@@ -38,18 +44,35 @@ import type { DefinicionDePantalla, TonoDeInsignia } from './tipos.ts';
  * El interprete no pide datos y no puede. Recibe lo que se sepa —y, cuando no se sabe, por que—, y
  * lo dibuja. **La explicacion va UNA vez arriba, y no en cada hueco**: repetirla en cada campo la
  * convierte en ruido, y ponerla solo en los huecos deja una pantalla de rayas sin una palabra.
+ *
+ * <h2>Desde #44, `bloques` lleva piezas, y una la dibuja el sistema</h2>
+ *
+ * Ademas del bloque de #27, una definicion `DefinicionDePantalla<PiezaDeLaPantalla>` puede llevar
+ * un aviso, el pie de operaciones y **una pieza del consumidor**: una `clave` que se busca en
+ * `piezas`. Toda pieza salvo el pie puede depender de una lectura (`lectura`), existir solo si un
+ * dato lo dice (`cuando`) y avisar del fallo de una vecina (`fallosDe`). Lo resuelve
+ * `PiezaDeLaPantalla.tsx`, en un solo sitio.
  */
 
 export interface PantallaProps {
-  readonly definicion: DefinicionDePantalla;
+  /** La de #27 —solo bloques— o una con piezas (#44). Las dos caben. */
+  readonly definicion: DefinicionDePantalla<Pieza>;
   /** Lo que se sabe de los datos, y que decir donde no se sabe. */
   readonly datos: DatosDeLaPantalla;
   /** El tono de una celda de situacion, deducido de su texto. Obligatorio: ver arriba. */
   readonly tonoDeLaInsignia: (texto: string) => TonoDeInsignia;
   /** Las palabras de la definicion y de la ausencia, en el idioma de la sesion. Por omision, tal cual. */
   readonly traducir?: (texto: string) => string;
-  /** Las tres palabras propias del interprete. Ver `TEXTOS_DEL_INTERPRETE`. */
-  readonly textos?: Partial<TextosDelInterprete>;
+  /**
+   * Las palabras propias del interprete: las tres de `TEXTOS_DEL_INTERPRETE` y, desde #44, las de
+   * `TEXTOS_DE_LAS_PIEZAS`. Un `TextosDelInterprete` entero sigue cabiendo.
+   */
+  readonly textos?: Partial<TextosDeLaPantalla>;
+  /**
+   * **El punto de extension** (#44, AC-2): el componente de cada `{ tipo: 'delConsumidor', clave }`.
+   * Una clave sin componente dibuja un aviso visible, nunca un hueco en blanco.
+   */
+  readonly piezas?: PiezasDelConsumidor;
   /** Se avisa la primera vez que se toca un campo: es lo que marca la hoja como sucia. */
   readonly alEnsuciar?: () => void;
 }
@@ -65,10 +88,11 @@ export function Pantalla({
   tonoDeLaInsignia,
   traducir = TAL_CUAL,
   textos,
+  piezas,
   alEnsuciar = () => {},
 }: PantallaProps) {
   const [tecleado, setTecleado] = useState<Tecleado>({});
-  const palabras: TextosDelInterprete = { ...TEXTOS_DEL_INTERPRETE, ...textos };
+  const palabras: TextosDeLaPantalla = { ...TEXTOS_DEL_INTERPRETE, ...TEXTOS_DE_LAS_PIEZAS, ...textos };
 
   const cambiar = (bloque: number, campo: number, valor: string | boolean) => {
     setTecleado((antes) => {
@@ -96,28 +120,57 @@ export function Pantalla({
 
   return (
     <div className="flex flex-col gap-[14px]">
-      {/* Una vez, arriba: ver el docblock. */}
-      <Alerta tono={datos.ausencia.tono}>{traducir(datos.ausencia.explicacion)}</Alerta>
-      {definicion.bloques.map((bloque, i) => (
-        <BloqueDeLaPantalla
-          // El titulo del bloque es unico dentro de cada pantalla, y con el indice reordenar los
-          // bloques dejaria a React reusando el estado del anterior.
-          key={bloque.titulo}
-          bloque={bloque}
-          valores={valoresDe(i, bloque.campos.length)}
-          filas={datos.filas?.get(i)}
-          conteo={datos.conteos?.get(i)}
-          ausencia={datos.ausencia}
-          ausenciaPorCampo={datos.ausenciaPorCampo}
+      {/* Una vez, arriba: ver el docblock. Sin frase no hay caja: una alerta vacia es un hueco (#44). */}
+      {datos.ausencia.explicacion === '' ? null : (
+        <Alerta tono={datos.ausencia.tono}>{traducir(datos.ausencia.explicacion)}</Alerta>
+      )}
+      {definicion.bloques.map((pieza, i) => (
+        <PiezaDeLaPantalla
+          // Un bloque conserva la clave de #27, su titulo, por lo que dice abajo. Lo demas, su tipo
+          // y su sitio: una pieza oculta por `cuando` NO se saca de la lista, asi que el sitio de
+          // las demas no se mueve.
+          key={clavePara(pieza, i)}
+          pieza={pieza}
           indice={i}
-          alCambiar={(campo, valor) => {
-            cambiar(i, campo, valor);
-          }}
+          datos={datos}
           traducir={traducir}
           textos={palabras}
-          tonoDeLaInsignia={tonoDeLaInsignia}
+          piezas={piezas}
+          dibujarBloque={({ enLugarDelCuerpo, encimaDelCuerpo }) =>
+            esBloque(pieza) ? (
+              <BloqueDeLaPantalla
+                bloque={pieza}
+                valores={valoresDe(i, pieza.campos.length)}
+                filas={datos.filas?.get(i)}
+                conteo={datos.conteos?.get(i)}
+                ausencia={datos.ausencia}
+                ausenciaPorCampo={datos.ausenciaPorCampo}
+                indice={i}
+                alCambiar={(campo, valor) => {
+                  cambiar(i, campo, valor);
+                }}
+                traducir={traducir}
+                textos={palabras}
+                tonoDeLaInsignia={tonoDeLaInsignia}
+                nombrados={datos.nombrados}
+                enLugarDelCuerpo={enLugarDelCuerpo}
+                encimaDelCuerpo={encimaDelCuerpo}
+              />
+            ) : null
+          }
         />
       ))}
     </div>
   );
+}
+
+/**
+ * La clave de React de una pieza. El titulo de un bloque es unico dentro de cada pantalla, y con el
+ * indice reordenar los bloques dejaria a React reusando el estado del anterior (#27).
+ */
+function clavePara(pieza: Pieza, indice: number): string {
+  if (esBloque(pieza) && typeof pieza.titulo === 'string') {
+    return pieza.titulo;
+  }
+  return `${pieza.tipo ?? 'bloque'}|${String(indice)}`;
 }

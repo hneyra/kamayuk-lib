@@ -6,12 +6,12 @@ import { elRojo, loQueNoPasoPorElSaco, marca, marcarElSaco } from '../verificaci
 import { FechaDeCalculo } from './FechaDeCalculo.tsx';
 import { Importe } from './Importe.tsx';
 import { Pantalla } from './interprete/Pantalla.tsx';
-import type { DefinicionDePantalla } from './interprete/tipos.ts';
+import type { DefinicionDePantalla, PiezaDeLaPantalla } from './interprete/tipos.ts';
 import { Campo } from './shadcn/campo.tsx';
 import { Avisos } from './shadcn/avisos.tsx';
 import { Etiqueta } from './shadcn/etiqueta.tsx';
 import { Miga, PasoDeLaMiga } from './shadcn/miga.tsx';
-import { TEXTOS_DE_LA_UI, TEXTOS_DEL_INTERPRETE } from './textos.tsx';
+import { TEXTOS_DE_LA_UI, TEXTOS_DE_LAS_PIEZAS, TEXTOS_DEL_INTERPRETE } from './textos.tsx';
 
 /**
  * **Las palabras que `@kamayuk/ui` decía por su cuenta salen del saco** (#19, AC1).
@@ -60,6 +60,39 @@ const MARCADOS = marcarElSaco(TEXTOS_DE_LA_UI);
 
 /** El del interprete (#27), igual. */
 const MARCADOS_DEL_INTERPRETE = marcarElSaco(TEXTOS_DEL_INTERPRETE);
+
+/** Y el de sus piezas (#44). */
+const MARCADAS_LAS_PIEZAS = marcarElSaco(TEXTOS_DE_LAS_PIEZAS);
+
+/**
+ * Una pantalla con TODAS las piezas de #44 y los tres estados que dibujan algo propio: una lectura
+ * en espera sin frase —la del saco—, otra pidiendo, otra en fallo con reintento e incidencia, una
+ * pieza del consumidor sin registrar, un aviso, un bloque con pie y texto con dato, y el pie de
+ * operaciones.
+ *
+ * El peldano entra MARCADO por el propio sistema, porque no es del interprete: ya viene en el idioma
+ * de la sesion, del saco de `@kamayuk/sesion`. Lo que aqui se mide es que el interprete no le anade
+ * ninguna palabra suya sin sacarla de SU saco —«Reintentar», «Incidencia»—.
+ */
+const LAS_PIEZAS_DE_44: DefinicionDePantalla<PiezaDeLaPantalla> = {
+  instruccion: 'no la dibuja el interprete',
+  bloques: [
+    { titulo: 'en espera', nota: '', campos: [], lectura: { clave: 'espera' } },
+    { titulo: 'pidiendo', nota: '', campos: [], lectura: { clave: 'pidiendo' } },
+    { titulo: 'fallo', nota: '', campos: [], lectura: { clave: 'fallo' } },
+    { titulo: 'sin estado', nota: '', campos: [], lectura: { clave: 'nadie' } },
+    {
+      titulo: { plantilla: 'registro {id}' },
+      nota: { segun: 'vista', casos: { una: 'una vista' } },
+      campos: [],
+      pie: { plantilla: 'pie con {ausente}' },
+      fallosDe: ['fallo'],
+    },
+    { tipo: 'aviso', tono: 'atencion', titulo: 'aviso', texto: { desde: 'motivo' } },
+    { tipo: 'delConsumidor', clave: 'olvidada' },
+    { tipo: 'pie', lee: ['GET /uno'], escribe: ['POST /uno', 'PUT /uno'], falta: 'lo que falta' },
+  ],
+};
 
 /**
  * Una pantalla que usa los siete tipos, una tabla con filas y otra sin ellas, y una ausencia: todo
@@ -110,6 +143,12 @@ const DATOS_QUE_NO_SE_TRADUCEN = new Set([
   '06/09/2026',
   // La barra de la miga. Es adorno del artboard y lleva `aria-hidden`.
   '/',
+  // Las operaciones del pie de #44: son CODIGO —un verbo y una ruta— y no tienen traduccion.
+  'GET /uno',
+  'POST /uno',
+  'PUT /uno',
+  // Y su separador, que no es una palabra.
+  '·',
 ]);
 
 /** Cada pieza con texto propio, montada con el saco marcado. */
@@ -165,6 +204,45 @@ const PIEZAS: readonly (readonly [string, () => React.ReactElement])[] = [
       />
     ),
   ],
+  [
+    'Pantalla con las piezas de #44',
+    () => (
+      <Pantalla
+        definicion={LAS_PIEZAS_DE_44}
+        datos={{
+          ausencia: { enElCampo: 'hueco', explicacion: '', tono: 'info' },
+          lecturas: new Map([
+            ['espera', { estado: 'en-espera' }],
+            ['pidiendo', { estado: 'pidiendo' }],
+            [
+              'fallo',
+              {
+                estado: 'fallo',
+                peldano: {
+                  titulo: marca('peldano.titulo'),
+                  detalle: marca('peldano.detalle'),
+                  remedio: marca('peldano.remedio'),
+                  incidencia: 'INC-1',
+                },
+                detalles: [marca('detalle.del.servidor')],
+                loQueFalta: marca('lo.que.falta'),
+                reintentar: () => {},
+              },
+            ],
+          ]),
+          // Los datos con nombre son DATOS: entran marcados, como las celdas.
+          nombrados: new Map([
+            ['id', marca('dato.id')],
+            ['vista', 'una'],
+            ['motivo', marca('dato.motivo')],
+          ]),
+        }}
+        tonoDeLaInsignia={() => 'ok'}
+        traducir={marca}
+        textos={{ ...MARCADOS_DEL_INTERPRETE, ...MARCADAS_LAS_PIEZAS }}
+      />
+    ),
+  ],
 ];
 
 describe('EL CENTINELA: la lista tiene sujeto, y el arnes ve un literal cuando lo hay', () => {
@@ -172,6 +250,7 @@ describe('EL CENTINELA: la lista tiene sujeto, y el arnes ve un literal cuando l
     expect(PIEZAS.length).toBeGreaterThanOrEqual(6);
     expect(Object.keys(TEXTOS_DE_LA_UI).length).toBeGreaterThanOrEqual(6);
     expect(Object.keys(TEXTOS_DEL_INTERPRETE).length).toBeGreaterThanOrEqual(3);
+    expect(Object.keys(TEXTOS_DE_LAS_PIEZAS).length).toBeGreaterThanOrEqual(9);
   });
 
   it('una pieza que IGNORA el saco sale roja', () => {
