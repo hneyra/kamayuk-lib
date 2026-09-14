@@ -55,9 +55,28 @@ En el `package.json` del sistema que consume:
 Los paquetes son **sólo fuente** —`main: index.ts`, sin compilar— así que quien los consume los
 compila con su propio Vite, y React, Radix y Tailwind entran como `peerDependencies`.
 
-**Los cuatro frontends pasan a depender de un clon hermano.** Hoy no dependen de ninguno, y ADR-0038
-lo dice sin disimular: *«ésa es la propiedad que se pierde. A cambio, el marco deja de estar escrito
-cuatro veces»*.
+**Los cuatro frontends pasan a depender de un clon hermano**, y ADR-0038 lo dice sin disimular: *«ésa
+es la propiedad que se pierde. A cambio, el marco deja de estar escrito cuatro veces»*.
+
+## Quién la consume, y a quién mide la CI
+
+Con `link:` no hay versión que dé margen: cada `main` de aquí es el `main` de los sistemas. Por eso
+el trabajo `consumidores` de [`paquetes.yml`](.github/workflows/paquetes.yml) le corre la suite a
+cada consumidor **dos veces** —con la librería en `main` y con la rama del PR— y falla si la rama lo
+pone rojo (#10). A quién mide no está escrito en el workflow: lo lee de
+[`consumidores.json`](consumidores.json), y lo vigila `los-consumidores-se-miran.test.ts`.
+
+| Sistema | Enlaza `kamayuk-lib` | La CI lo mide |
+|---|---|---|
+| `rentas` | sí | **sí**, desde #10 |
+| `catastro` | sí, desde `catastro`#118 | **sí**, desde #45 |
+| `caja` | sí | todavía no |
+| `normativa` | no | no |
+
+La columna del medio se midió sobre el `main` de cada sistema el 2026-09-14, contando los
+`link:../../kamayuk-lib/paquetes/*` de `frontend/package.json`: seis en `rentas`, `catastro` y
+`caja`, cero en `normativa`. **Un sistema entra en la lista cuando ya enlaza, y no antes**: medirlo
+antes sería correr una suite que no lee nada de aquí.
 
 ## Comandos
 
