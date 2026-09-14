@@ -8,6 +8,10 @@
  * caso aparte que nadie recuerda. Por eso la excepcion de la prohibicion `fetch-fuera-del-cliente`
  * es este paquete y solo este.
  *
+ * La tercera operacion, `subir()`, no cabe por `fetch`: necesita decir cuanto lleva enviado, y eso
+ * solo lo da `XMLHttpRequest`. Vive en `subir.ts`, encerrada igual que esto, y el porque entero
+ * esta en su cabecera.
+ *
  * <h2>Lo que cambia al vivir en `kamayuk-lib` y no en un sistema</h2>
  *
  * Dos cosas, y las dos eran las unicas que lo ataban a uno:
@@ -30,99 +34,20 @@
  * se compone nada.
  */
 
-/**
- * Los miembros del `problem+json` que el backend publica, tal como los publica.
- *
- * Son los de `ManejadorDeErrores.cuerpoDe`: los cuatro de RFC 9457 —`type`, `title`, `status`,
- * `detail`— mas las dos extensiones del contrato, `codigo` y `mensaje`. **Y llegan de a pocos:**
- * medido contra la instalacion, el 401 de la cadena de identidad trae CUATRO —`status`, `title`,
- * `codigo`, `mensaje`— y ni `type` ni `detail`, mientras que el 404 de una ruta que no existe
- * trae los seis mas `instance`. Por eso todos son opcionales aqui: dar por hecho que viene
- * `detail` dejaria la explicacion de la pantalla en `undefined` justo en el peldano mas comun.
- */
-export interface CuerpoDeProblema {
-  readonly type?: string;
-  readonly title?: string;
-  readonly status?: number;
-  readonly detail?: string;
-  readonly instance?: string;
-  readonly codigo?: string;
-  readonly mensaje?: string;
-}
+import { ErrorDeLaApi, NoEsUnDocumento, type CuerpoDeProblema } from './errores.ts';
+import { subirElArchivo, type OpcionesDeSubida } from './subir.ts';
 
 /**
- * Lo que el backend contesta cuando algo va mal, en `problem+json` (RFC 9457).
+ * El catalogo de errores se reexporta desde aqui, que es de donde se ha importado siempre.
  *
- * <h2>Por que el `codigo` es un campo y no una linea de texto</h2>
- *
- * Antes esta clase guardaba **solo el estado y «VERBO /ruta»**, y tiraba `codigo` y `mensaje`,
- * que ya llegaban. Con eso, los tres primeros peldanos de la escalera de identidad —401
- * `NO_AUTENTICADO`, 403 `SIN_MUNICIPALIDAD`, 403 `SIN_PRIVILEGIO`— eran **indistinguibles**
- * entre si desde la pantalla, y ninguno se podia explicar a quien atiende. Y son tres
- * situaciones con tres remedios distintos: volver a identificarse, pedirle al administrador que
- * asigne la municipalidad, y pedir el permiso que falta.
- *
- * La interfaz reacciona al **codigo**, que es estable, y no al texto en castellano, que se
- * reescribe en cuanto alguien lo lee en voz alta.
- *
- * <h2>Es UNA clase para los cuatro sistemas, y ese es el punto</h2>
- *
- * Medido el 2026-09-12 sobre los cuatro clones: habia **tres clases de error incompatibles**
- * —`ErrorDeLaApi(estado, operacion, cuerpo)` en `rentas`, `ErrorDeLaApi(codigo, mensaje, estado,
- * extras)` en `normativa`, `ErrorDeApi` sin «La» en `catastro`— y los tres clientes compartian
- * 45 lineas de 135. Por eso este paquete **no se extrajo: se diseno**. La escalera de peldanos
- * lee cuatro campos de aqui, y con tres formas distintas no podia viajar a ningun sitio.
+ * Se mudo a `errores.ts` cuando llego la subida, y solo por eso: `subir.ts` tiene que lanzar una
+ * subclase de `ErrorDeLaApi` y este archivo tiene que importar `subir.ts`, que juntos son un ciclo
+ * entre modulos que revienta al cargar el paquete. El motivo entero, con su rojo exacto, esta en
+ * la cabecera de `errores.ts`.
  */
-export class ErrorDeLaApi extends Error {
-  readonly estado: number;
-  /** La extension `codigo` del contrato —`NO_AUTENTICADO`, `SIN_MUNICIPALIDAD`…—, o `null`. */
-  readonly codigo: string | null;
-  /** La extension `mensaje`: lo que el backend dice que paso, en castellano. */
-  readonly mensaje: string | null;
-  /** El `title` de RFC 9457. */
-  readonly titulo: string | null;
-  /** El `detail` de RFC 9457. Puede no venir: la cadena de identidad no lo manda. */
-  readonly detalle: string | null;
-  /** `VERBO /ruta`, lo que se pidio. Es lo que se ensena cuando el cuerpo no dice nada. */
-  readonly operacion: string;
-
-  constructor(estado: number, operacion: string, cuerpo: CuerpoDeProblema = {}) {
-    // El `message` de `Error` es lo que acaba en pantalla por el camino corto, asi que lleva lo
-    // mas util que haya llegado: lo que el backend dijo, y si no dijo nada, que se pidio.
-    super(cuerpo.mensaje ?? cuerpo.detail ?? cuerpo.title ?? operacion);
-    this.name = 'ErrorDeLaApi';
-    this.estado = estado;
-    this.codigo = cuerpo.codigo ?? null;
-    this.mensaje = cuerpo.mensaje ?? null;
-    this.titulo = cuerpo.title ?? null;
-    this.detalle = cuerpo.detail ?? null;
-    this.operacion = operacion;
-  }
-}
-
-/**
- * Un 200 que no trae un documento, sino datos.
- *
- * **Es un `ErrorDeLaApi`**, y a proposito: la pantalla que baja un documento atrapa UNA clase de
- * error, la misma que atrapa en una lectura, y `peldanoDe()` lo sigue clasificando sin saber que
- * existe. Va en su propia subclase —y no con un `codigo` inventado aqui— porque `codigo` es la
- * extension del contrato que escribe el backend: meter ahi una cadena del cliente mezclaria lo que
- * el servidor dijo con lo que el cliente dedujo.
- *
- * El `estado` es el que llego, o sea 200. Parece raro en un error y es la verdad de lo que paso: el
- * servidor contesto bien a una peticion que no pedia lo que la pantalla creia.
- */
-export class NoEsUnDocumento extends ErrorDeLaApi {
-  /** El `Content-Type` con el que llego la respuesta, tal cual. */
-  readonly tipoDeMedio: string;
-
-  constructor(estado: number, operacion: string, tipoDeMedio: string) {
-    super(estado, operacion);
-    this.name = 'NoEsUnDocumento';
-    this.tipoDeMedio = tipoDeMedio;
-    this.message = `${operacion} -> ${tipoDeMedio}`;
-  }
-}
+export { ArchivoRechazado, ErrorDeLaApi, NoEsUnDocumento } from './errores.ts';
+export type { CuerpoDeProblema, MotivoDelRechazo } from './errores.ts';
+export type { AvanceDeLaSubida, OpcionesDeSubida } from './subir.ts';
 
 export interface OpcionesDeSolicitud {
   readonly metodo?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -175,6 +100,7 @@ export interface ConfiguracionDelCliente {
 export interface Cliente {
   solicitar<T>(ruta: string, opciones?: OpcionesDeSolicitud): Promise<T>;
   descargar(ruta: string, opciones?: OpcionesDeDescarga): Promise<DocumentoDescargado>;
+  subir<T>(ruta: string, opciones: OpcionesDeSubida): Promise<T>;
 }
 
 /**
@@ -239,7 +165,10 @@ export function crearCliente(configuracion: ConfiguracionDelCliente): Cliente {
   const { prefijo, token } = configuracion;
 
   /**
-   * La cabecera del token, la misma para las dos operaciones. Se lee en cada llamada.
+   * La cabecera del token, la misma para las TRES operaciones. Se lee en cada llamada.
+   *
+   * `subir()` la recibe como funcion —y no como valor ya leido— justo por esto: si la sesion se
+   * refresca a mitad de una pantalla, la subida no puede ser el unico sitio que no se entera.
    *
    * Sin token no se manda la cabecera. Un «Bearer null» es un token invalido y el backend contesta
    * 401 igual, pero el 401 diria «el token no vale» donde la verdad es «no hay token»: dos peldanos
@@ -343,6 +272,35 @@ export function crearCliente(configuracion: ConfiguracionDelCliente): Cliente {
         tipoDeMedio,
         contenido: await respuesta.blob(),
       };
+    },
+
+    /**
+     * Manda un archivo por `multipart/form-data`, con avance y con cancelacion.
+     *
+     * ```ts
+     * const resultado = await cliente.subir<Resumen>('/cargas', {
+     *   archivo: elArchivoDelInput,
+     *   campos: { observacion: 'Carga del padron del ejercicio 2026' },
+     *   limiteDeBytes: 1024 * 1024,
+     *   admite: ['.xlsx'],
+     *   senal: controlador.signal,
+     *   alAvanzar: ({ fraccion }) => { setAvance(fraccion); },
+     * });
+     * ```
+     *
+     * Comparte con las otras dos el prefijo, el token —leido en CADA llamada, con la misma
+     * funcion— y `ErrorDeLaApi`. Lo que no comparte es el transporte: por dentro va con
+     * `XMLHttpRequest`, porque `fetch` no sabe decir cuanto lleva subido. El porque entero, y por
+     * que el `Content-Type` no se fija a mano, estan en la cabecera de `subir.ts`.
+     *
+     * @param ruta relativa al prefijo del sistema, empezando por `/`
+     * @throws ArchivoRechazado si el archivo no pasa el `limiteDeBytes` o el `admite` que se
+     *   declararon —y entonces NO sale nada al cable—, o si el servidor contesta 413 o 415
+     * @throws ErrorDeLaApi ante cualquier otro error del backend; un 422 llega con su `codigo` y
+     *   su `mensaje`, que es lo que `peldanoDe()` clasifica como «no valido»
+     */
+    async subir<T>(ruta: string, opciones: OpcionesDeSubida): Promise<T> {
+      return await subirElArchivo<T>(prefijo, autorizacion, ruta, opciones);
     },
   };
 }
