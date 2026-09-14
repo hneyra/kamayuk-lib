@@ -11,6 +11,13 @@ import type { DatosDeLaPantalla } from './datos.ts';
 import { coordenada } from './datos.ts';
 import { esBloque } from './componer.ts';
 import { PiezaDeLaPantalla, type PiezasDelConsumidor } from './PiezaDeLaPantalla.tsx';
+import { GrupoDeAcciones } from './GrupoDeAcciones.tsx';
+import type { ActoAbierto, InteraccionDeLaPantalla } from './interaccion.ts';
+import type {
+  ManejadoresDeLasAcciones,
+  ManejadoresDeLosActos,
+  NavegacionDeLaPantalla,
+} from './tipos-de-los-actos.ts';
 import type { DefinicionDePantalla, PiezaDeLaPantalla as Pieza, TonoDeInsignia } from './tipos.ts';
 
 /**
@@ -75,6 +82,22 @@ export interface PantallaProps {
   readonly piezas?: PiezasDelConsumidor;
   /** Se avisa la primera vez que se toca un campo: es lo que marca la hoja como sucia. */
   readonly alEnsuciar?: () => void;
+
+  // ── Lo que la hoja HACE (#66). Ver `tipos-de-los-actos.ts` ────────────────────────────────────
+  /** Quien envia cada `{ tipo: 'acto', clave }`. Un acto sin manejador sale impedido, con su motivo. */
+  readonly actos?: ManejadoresDeLosActos;
+  /** Las operaciones que una accion `hace`: «Volver a leer la lista». */
+  readonly alHacer?: ManejadoresDeLasAcciones;
+  /** Como ir a otra hoja: lo da el marco (`useNavegacion()` de `@kamayuk/shell`). Sin ella, `va` sale impedida. */
+  readonly navegacion?: NavegacionDeLaPantalla;
+  /**
+   * El acto abierto, si lo lleva la ruta (#67). **Sin esta `prop` la pantalla lo guarda en su estado**;
+   * con ella —`null` incluido— manda quien la pasa, y abrir o cerrar solo avisa `alAbrirActo`.
+   */
+  readonly actoAbierto?: ActoAbierto | null;
+  readonly alAbrirActo?: (clave: string | null, parametros?: Readonly<Record<string, string>>) => void;
+  /** Se avisa cuando el sistema acepta una escritura: lo que marca la hoja como guardada. */
+  readonly alQuedarGuardada?: () => void;
 }
 
 /** `bloque|campo` -> lo tecleado. Plano a proposito: una pantalla no anida mas. */
@@ -90,8 +113,30 @@ export function Pantalla({
   textos,
   piezas,
   alEnsuciar = () => {},
+  actos,
+  alHacer,
+  navegacion,
+  actoAbierto,
+  alAbrirActo,
+  alQuedarGuardada = () => {},
 }: PantallaProps) {
   const [tecleado, setTecleado] = useState<Tecleado>({});
+  const [abiertoAqui, setAbiertoAqui] = useState<ActoAbierto | null>(null);
+  const interaccion: InteraccionDeLaPantalla = {
+    actos,
+    alHacer,
+    navegacion,
+    // Controlado si el sistema lo pasa, aunque sea `null`: `undefined` es «no lo llevo yo».
+    abierto: actoAbierto === undefined ? abiertoAqui : actoAbierto,
+    abrirActo: (clave, parametros) => {
+      if (actoAbierto === undefined) {
+        setAbiertoAqui(clave === null ? null : { clave, ...(parametros === undefined ? {} : { parametros }) });
+      }
+      alAbrirActo?.(clave, parametros);
+    },
+    alEnsuciar,
+    alQuedarGuardada,
+  };
   const palabras: TextosDeLaPantalla = { ...TEXTOS_DEL_INTERPRETE, ...TEXTOS_DE_LAS_PIEZAS, ...textos };
 
   const cambiar = (bloque: number, campo: number, valor: string | boolean) => {
@@ -136,6 +181,7 @@ export function Pantalla({
           traducir={traducir}
           textos={palabras}
           piezas={piezas}
+          interaccion={interaccion}
           dibujarBloque={({ enLugarDelCuerpo, encimaDelCuerpo }) =>
             esBloque(pieza) ? (
               <BloqueDeLaPantalla
@@ -155,6 +201,17 @@ export function Pantalla({
                 nombrados={datos.nombrados}
                 enLugarDelCuerpo={enLugarDelCuerpo}
                 encimaDelCuerpo={encimaDelCuerpo}
+                acciones={
+                  pieza.acciones === undefined || pieza.acciones.length === 0 ? undefined : (
+                    <GrupoDeAcciones
+                      acciones={pieza.acciones}
+                      nombrados={datos.nombrados}
+                      traducir={traducir}
+                      textos={palabras}
+                      interaccion={interaccion}
+                    />
+                  )
+                }
               />
             ) : null
           }

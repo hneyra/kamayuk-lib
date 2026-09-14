@@ -46,6 +46,8 @@ export interface BloqueDeLaPantallaProps {
   readonly enLugarDelCuerpo?: ReactNode;
   /** El fallo de las lecturas vecinas, encima del cuerpo y sin taparlo (#44). */
   readonly encimaDelCuerpo?: ReactNode;
+  /** Los botones de la cabecera, ya montados (#66). Se quedan aunque el cuerpo sea un estado. */
+  readonly acciones?: ReactNode;
 }
 
 export function BloqueDeLaPantalla({
@@ -63,6 +65,7 @@ export function BloqueDeLaPantalla({
   nombrados,
   enLugarDelCuerpo,
   encimaDelCuerpo,
+  acciones,
 }: BloqueDeLaPantallaProps) {
   const texto = (t: Texto) => resolverTexto(t, nombrados, traducir, textos.datoAusente);
   // `''` no se dibuja, ni se traduce: es como la definicion dice «este bloque no tiene nota».
@@ -71,6 +74,11 @@ export function BloqueDeLaPantalla({
   return (
     <Tarjeta>
       <TarjetaCabecera>{texto(bloque.titulo)}</TarjetaCabecera>
+      {acciones === undefined ? null : (
+        <div data-slot="acciones-del-bloque" className="border-b border-linea-2 px-[15px] py-[10px]">
+          {acciones}
+        </div>
+      )}
       {nota === '' ? null : <TarjetaNota>{nota}</TarjetaNota>}
       {enLugarDelCuerpo}
       {enLugarDelCuerpo === undefined ? encimaDelCuerpo : null}

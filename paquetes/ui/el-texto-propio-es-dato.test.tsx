@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { elRojo, loQueNoPasoPorElSaco, marca, marcarElSaco } from '../verificaciones/marcas.ts';
@@ -312,5 +312,96 @@ describe('EL AC4: sin pasar nada, lo que se ve es lo de hoy', () => {
     expect(container.textContent).toContain('(opcional)');
     expect(container.textContent).toContain('1 registro');
     expect(container.textContent).not.toContain('1 registros');
+  });
+});
+
+/**
+ * **Y las piezas de #66, que hablan en cada paso de una escritura**: el motivo de lo impedido, el
+ * formulario del acto, la confirmacion y lo hecho.
+ *
+ * No caben en la lista de arriba porque la mitad de sus palabras solo sale **al hacer algo**: la
+ * confirmacion al pulsar el primario, «Escribiendo…» mientras viaja, lo hecho al aceptarse. Asi que
+ * se recorre la escritura entera con los sacos marcados y se mira despues de cada paso.
+ */
+describe('EL AC1 en las piezas de #66: cada paso de una escritura saca sus palabras del saco', () => {
+  const HOJA: DefinicionDePantalla<PiezaDeLaPantalla> = {
+    instruccion: 'no la dibuja el interprete',
+    bloques: [
+      {
+        titulo: 'bloque',
+        nota: '',
+        campos: [],
+        acciones: [
+          { rotulo: 'abrir', principal: true, abre: 'escribir' },
+          { rotulo: 'impedida', hace: 'hacer', impedida: [{ si: { dato: 'id', hay: true }, motivo: 'motivo declarado' }] },
+          { rotulo: 'sin quien', hace: 'nadie' },
+          { rotulo: 'no ofrecida', va: { hoja: 'otra' } },
+          { rotulo: 'sin dato', va: { hoja: 'ofrecida', sujeto: { desde: 'ausente' } } },
+        ],
+      },
+      {
+        tipo: 'acto',
+        clave: 'escribir',
+        titulo: 'escribir',
+        nota: 'nota del acto',
+        campos: [{ nombre: 'uno', etiqueta: 'uno', tipo: '' }],
+        observacion: { etiqueta: 'observacion', ayuda: 'ayuda', largo: { minimo: 3, maximo: 9 } },
+        advertencia: 'advertencia',
+      },
+    ],
+  };
+
+  it('del motivo a lo hecho, sin una palabra que no pasara por el saco', async () => {
+    let aceptar: () => void = () => {};
+    const aceptada = new Promise<void>((si) => {
+      aceptar = si;
+    });
+    const rojo = (paso: string) => {
+      const fuera = loQueNoPasoPorElSaco(document.body, DATOS_QUE_NO_SE_TRADUCEN);
+      expect(fuera, elRojo(fuera, `«Pantalla con los actos de #66», ${paso}`)).toEqual([]);
+    };
+    render(
+      <Pantalla
+        definicion={HOJA}
+        datos={{
+          ausencia: { enElCampo: 'hueco', explicacion: '', tono: 'info' },
+          nombrados: new Map([['id', marca('dato.id')]]),
+          lecturas: new Map([
+            ['escribir', { estado: 'fallo', peldano: { titulo: marca('peldano.titulo'), detalle: marca('peldano.detalle') } }],
+          ]),
+        }}
+        tonoDeLaInsignia={() => 'ok'}
+        traducir={marca}
+        textos={{ ...MARCADOS_DEL_INTERPRETE, ...MARCADAS_LAS_PIEZAS }}
+        actos={{ escribir: () => aceptada }}
+        alHacer={{ hacer: () => {} }}
+        navegacion={{ ofrece: (hoja) => hoja === 'ofrecida', ir: () => {} }}
+      />,
+    );
+    rojo('con las acciones impedidas');
+
+    fireEvent.click(screen.getByRole('button', { name: marca('abrir') }));
+    const primario = () => within(document.querySelector('[data-acto]') as HTMLElement).getByRole('button', { name: marca('escribir') });
+    fireEvent.click(primario());
+    rojo('con el acto abierto, su fallo y lo que falta tras el primer intento');
+
+    // Lo tecleado es DATO, y entra marcado como las celdas. `⟦ok⟧` tiene cuatro caracteres: cabe.
+    fireEvent.change(screen.getByLabelText(marca('uno')), { target: { value: marca('tecleado') } });
+    fireEvent.change(screen.getByLabelText(marca('observacion')), { target: { value: marca('observacion.larga') } });
+    rojo('con la observacion fuera de su largo');
+
+    fireEvent.change(screen.getByLabelText(marca('observacion')), { target: { value: marca('ok') } });
+    fireEvent.click(primario());
+    rojo('con la confirmacion abierta');
+
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: MARCADAS_LAS_PIEZAS.siConfirmar }));
+    rojo('mientras la escritura viaja');
+
+    await act(async () => {
+      aceptar();
+      await aceptada;
+    });
+    expect(document.querySelector('[data-fase-del-acto="hecho"]')).not.toBeNull();
+    rojo('con el acto hecho');
   });
 });
