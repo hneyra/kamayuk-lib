@@ -72,7 +72,11 @@
   --color-mal-tinta: #a94442;
   --color-info-fondo: #f0f6fb;
   --color-info-tinta: #0d5fa8;
-  --color-mal-borde: #ebccd1;
+  /* `--mal-borde` NO es el `#EBCCD1` de la tabla de #56, y lo corrigio la revision: en esta
+     libreria el token es el borde del campo con `aria-invalid` (`shadcn/control.ts`) y el fondo de
+     la insignia de avisos de la barra, y el artboard dibuja el campo con error en `#A94442`.
+     `#EBCCD1` es solo el filo de la alerta, que `Alerta` ya saca de `border-mal-borde/40`. */
+  --color-mal-borde: #a94442;
   --color-mal-campo: #fff9f9;
 
   /* El esqueleto: NO LO DIBUJA EL ARTBOARD. Se hace como el del `@theme`, que es `--linea-2` y
