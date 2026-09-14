@@ -40,7 +40,7 @@ export function BarraGlobal({
   carrilAbierto,
   alAbrirLaPaleta,
 }: BarraGlobalProps) {
-  const { titulo, entidad, escudo, cuenta, opcionesDeSesion, avisosSinLeer = 0, alVerAvisos } =
+  const { titulo, entidad, escudo, cuenta, opcionesDeSesion, avisosSinLeer = 0, alVerAvisos, enLaBarra } =
     useArmazon();
   const textos = useTextos();
 
@@ -67,6 +67,13 @@ export function BarraGlobal({
           <span className="block truncate text-[11.5px] text-sobre-barra-2">{entidad}</span>
         </span>
       </span>
+
+      {/* Lo del sistema (#67): el control del parametro del marco, antes del buscador. */}
+      {enLaBarra === undefined ? null : (
+        <span data-slot="en-la-barra" className="flex shrink-0 items-center px-[10px]">
+          {enLaBarra}
+        </span>
+      )}
 
       <button
         type="button"

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 
 import { Alerta } from '../shadcn/alerta.tsx';
 import {
@@ -10,6 +10,8 @@ import { BloqueDeLaPantalla } from './BloqueDeLaPantalla.tsx';
 import type { DatosDeLaPantalla } from './datos.ts';
 import { coordenada } from './datos.ts';
 import { esBloque } from './componer.ts';
+import { hijasDe, indicesDeLasPiezas, nombradosConLaHoja } from './composicion.ts';
+import type { HojaDelMarco } from './hoja.ts';
 import { PiezaDeLaPantalla, type PiezasDelConsumidor } from './PiezaDeLaPantalla.tsx';
 import { GrupoDeAcciones } from './GrupoDeAcciones.tsx';
 import type { ActoAbierto, InteraccionDeLaPantalla } from './interaccion.ts';
@@ -98,6 +100,13 @@ export interface PantallaProps {
   readonly alAbrirActo?: (clave: string | null, parametros?: Readonly<Record<string, string>>) => void;
   /** Se avisa cuando el sistema acepta una escritura: lo que marca la hoja como guardada. */
   readonly alQuedarGuardada?: () => void;
+  /**
+   * **La ruta y el marco de la hoja** (#67). `useHoja()` de `@kamayuk/shell` ya tiene esta forma:
+   * `<Pantalla hoja={useHoja()} … />`. Con ella, lo que se elige en un maestro o en unas pestanas
+   * se escribe en la ruta y se restituye de ella, y `nombrados` gana `ruta.*` y `marco.*`. Sin
+   * ella, las dos piezas guardan la eleccion en su estado.
+   */
+  readonly hoja?: HojaDelMarco;
 }
 
 /** `bloque|campo` -> lo tecleado. Plano a proposito: una pantalla no anida mas. */
@@ -119,6 +128,7 @@ export function Pantalla({
   actoAbierto,
   alAbrirActo,
   alQuedarGuardada = () => {},
+  hoja,
 }: PantallaProps) {
   const [tecleado, setTecleado] = useState<Tecleado>({});
   const [abiertoAqui, setAbiertoAqui] = useState<ActoAbierto | null>(null);
@@ -163,6 +173,76 @@ export function Pantalla({
     return salida;
   };
 
+  // Los de la hoja van DEBAJO de los del sistema (#67). Sin hoja, `datos` es el mismo objeto.
+  const conLaHoja: DatosDeLaPantalla =
+    hoja === undefined ? datos : { ...datos, nombrados: nombradosConLaHoja(hoja, datos.nombrados) };
+  const indices = indicesDeLasPiezas(definicion);
+
+  /**
+   * Una pieza en su sitio. Recursiva desde #67: las pestanas y el detalle de un maestro dibujan sus
+   * hijas por aqui, con el indice que les da `indicesDeLasPiezas` —en anchura, asi que los de
+   * primer nivel son los de siempre—.
+   */
+  const dibujar = (pieza: Pieza, sitio: string): ReactNode => {
+    const i = indices.get(sitio) ?? -1;
+    return (
+      <PiezaDeLaPantalla
+        // Un bloque conserva la clave de #27, su titulo, por lo que dice abajo. Lo demas, su tipo
+        // y su sitio: una pieza oculta por `cuando` NO se saca de la lista, asi que el sitio de
+        // las demas no se mueve.
+        key={clavePara(pieza, i)}
+        pieza={pieza}
+        indice={i}
+        datos={conLaHoja}
+        traducir={traducir}
+        textos={palabras}
+        piezas={piezas}
+        interaccion={interaccion}
+        hoja={hoja}
+        tonoDeLaInsignia={tonoDeLaInsignia}
+        dibujarHija={(j) => {
+          const hija = hijasDe(pieza)[j];
+          return hija === undefined ? null : dibujar(hija, `${sitio}.${String(j)}`);
+        }}
+        dibujarBloque={({ enLugarDelCuerpo, encimaDelCuerpo }) =>
+          esBloque(pieza) ? (
+            <BloqueDeLaPantalla
+              bloque={pieza}
+              valores={valoresDe(i, pieza.campos.length)}
+              filas={datos.filas?.get(i)}
+              conteo={datos.conteos?.get(i)}
+              datosDeLasTablas={datos.tablas}
+              interaccion={interaccion}
+              ausencia={datos.ausencia}
+              ausenciaPorCampo={datos.ausenciaPorCampo}
+              indice={i}
+              alCambiar={(campo, valor) => {
+                cambiar(i, campo, valor);
+              }}
+              traducir={traducir}
+              textos={palabras}
+              tonoDeLaInsignia={tonoDeLaInsignia}
+              nombrados={conLaHoja.nombrados}
+              enLugarDelCuerpo={enLugarDelCuerpo}
+              encimaDelCuerpo={encimaDelCuerpo}
+              acciones={
+                pieza.acciones === undefined || pieza.acciones.length === 0 ? undefined : (
+                  <GrupoDeAcciones
+                    acciones={pieza.acciones}
+                    nombrados={conLaHoja.nombrados}
+                    traducir={traducir}
+                    textos={palabras}
+                    interaccion={interaccion}
+                  />
+                )
+              }
+            />
+          ) : null
+        }
+      />
+    );
+  };
+
   return (
     // Con una tabla de cabecera fija, la pantalla cede el alto que le den hasta el marco de esa tabla
     // (#65). Sin ella, la de siempre.
@@ -171,56 +251,7 @@ export function Pantalla({
       {datos.ausencia.explicacion === '' ? null : (
         <Alerta tono={datos.ausencia.tono}>{traducir(datos.ausencia.explicacion)}</Alerta>
       )}
-      {definicion.bloques.map((pieza, i) => (
-        <PiezaDeLaPantalla
-          // Un bloque conserva la clave de #27, su titulo, por lo que dice abajo. Lo demas, su tipo
-          // y su sitio: una pieza oculta por `cuando` NO se saca de la lista, asi que el sitio de
-          // las demas no se mueve.
-          key={clavePara(pieza, i)}
-          pieza={pieza}
-          indice={i}
-          datos={datos}
-          traducir={traducir}
-          textos={palabras}
-          piezas={piezas}
-          interaccion={interaccion}
-          dibujarBloque={({ enLugarDelCuerpo, encimaDelCuerpo }) =>
-            esBloque(pieza) ? (
-              <BloqueDeLaPantalla
-                bloque={pieza}
-                valores={valoresDe(i, pieza.campos.length)}
-                filas={datos.filas?.get(i)}
-                conteo={datos.conteos?.get(i)}
-                datosDeLasTablas={datos.tablas}
-                interaccion={interaccion}
-                ausencia={datos.ausencia}
-                ausenciaPorCampo={datos.ausenciaPorCampo}
-                indice={i}
-                alCambiar={(campo, valor) => {
-                  cambiar(i, campo, valor);
-                }}
-                traducir={traducir}
-                textos={palabras}
-                tonoDeLaInsignia={tonoDeLaInsignia}
-                nombrados={datos.nombrados}
-                enLugarDelCuerpo={enLugarDelCuerpo}
-                encimaDelCuerpo={encimaDelCuerpo}
-                acciones={
-                  pieza.acciones === undefined || pieza.acciones.length === 0 ? undefined : (
-                    <GrupoDeAcciones
-                      acciones={pieza.acciones}
-                      nombrados={datos.nombrados}
-                      traducir={traducir}
-                      textos={palabras}
-                      interaccion={interaccion}
-                    />
-                  )
-                }
-              />
-            ) : null
-          }
-        />
-      ))}
+      {definicion.bloques.map((pieza, i) => dibujar(pieza, String(i)))}
     </div>
   );
 }

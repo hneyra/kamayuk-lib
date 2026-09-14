@@ -71,6 +71,12 @@ export interface DatosDeLaPantalla {
    * su `vacio`.
    */
   readonly tablas?: ReadonlyMap<string, DatosDeUnaTabla>;
+  /**
+   * Las filas de cada maestro, por la clave con que la definicion las nombra (#67,
+   * `maestro-detalle`). Por nombre y no por indice, como `lecturas`: un maestro puede ir dentro de
+   * otra pieza, y un nombre no se mueve cuando la definicion crece.
+   */
+  readonly listas?: ReadonlyMap<string, readonly FilaDeUnaLista[]>;
 }
 
 /**
@@ -95,6 +101,15 @@ export interface DatosDeUnaTabla {
   readonly filas: readonly FilaDeLaTabla[];
   /** El conteo de su barra, si quien pide lo sabe. Sin el, se cuentan las filas **cuando hay**. */
   readonly conteo?: string;
+}
+
+/**
+ * Una fila de un maestro (#67). `clave` es lo que viaja a la ruta al elegirla; `campos`, lo que
+ * nombran las plantillas de la fila. Sin `number`, por lo mismo que `DatoConNombre`.
+ */
+export interface FilaDeUnaLista {
+  readonly clave: string;
+  readonly campos: Readonly<Record<string, DatoConNombre>>;
 }
 
 /** La coordenada de un campo. */

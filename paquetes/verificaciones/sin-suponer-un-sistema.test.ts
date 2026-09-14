@@ -139,6 +139,24 @@ describe('ninguna libreria comun supone un sistema', () => {
     }
   });
 
+  it('EL CENTINELA: y las de #67, las que guardan en la ruta lo que se elige en la hoja', () => {
+    // El maestro-detalle sale de la lista de predios de la V6, y la ruta de su `shell/ruta.ts`: son
+    // las dos que mas facil nombrarian lo que transcriben. Una a una, por lo mismo que las de #44.
+    for (const archivo of [
+      join('ui', 'interprete', 'MaestroDetalle.tsx'),
+      join('ui', 'interprete', 'PestanasDeLaPantalla.tsx'),
+      join('ui', 'interprete', 'composicion.ts'),
+      join('ui', 'interprete', 'hoja.ts'),
+      join('ui', 'interprete', 'muestras-de-la-composicion.ts'),
+      join('shell', 'ruta.ts'),
+    ]) {
+      expect(
+        PRODUCCION.some((a) => a.endsWith(archivo)),
+        `no se leyo «${archivo}»`,
+      ).toBe(true);
+    }
+  });
+
   it.each(SUPOSICIONES.map((s) => [s.clave, s] as const))('no se supone: %s', (_clave, suposicion) => {
     const hallazgos = hallazgosDe(suposicion, PRODUCCION);
     const detalle = hallazgos

@@ -9,6 +9,7 @@ import { Armazon } from './Armazon.tsx';
 import type { Catalogo } from './catalogo.ts';
 import { useHoja } from './contexto.tsx';
 import { ubicacionDe, useNavegacion, type ResultadoDeIr } from './navegacion.tsx';
+import { leerLaRuta } from './ruta.ts';
 import { TEXTOS_DEL_ARMAZON } from './textos.ts';
 
 /**
@@ -58,7 +59,14 @@ const CATALOGO: Catalogo = [
     icono: 'capas',
     destinos: [
       { clave: 'dep-lista', rotulo: 'Lista', seEscribe: true },
-      { clave: 'dep-detalle', rotulo: 'Detalle', seEscribe: false, slug: 'detalle' },
+      // Declara lo que guarda en la ruta (#67): sin eso, el sujeto y `estado` se ignorarian con aviso.
+      {
+        clave: 'dep-detalle',
+        rotulo: 'Detalle',
+        seEscribe: false,
+        slug: 'detalle',
+        enLaRuta: { sujeto: true, parametros: ['estado'] },
+      },
     ],
   },
 ];
@@ -68,12 +76,15 @@ let ultimo: ResultadoDeIr | undefined;
 
 /** La pantalla del sistema: se ensucia, y pide ir a donde se le diga. */
 function PantallaQueNavega({ clave }: { readonly clave: string }) {
-  const { marcarSucia } = useHoja();
+  const { marcarSucia, ruta } = useHoja();
   const { ir, ofrece } = useNavegacion();
   const [dicho, setDicho] = useState('');
   return (
     <div>
       <p>Contenido de {clave}</p>
+      <p>
+        ruta de {clave}: {JSON.stringify(ruta)}
+      </p>
       <button type="button" onClick={marcarSucia}>
         Escribir algo
       </button>
@@ -123,10 +134,20 @@ describe('`ubicacionDe`: el unico sitio que escribe la direccion', () => {
     expect(ubicacionDe('entradas', { sujeto: '', parametros: {} })).toBe('/entradas');
   });
 
-  it('el sujeto y los parametros van en la busqueda, codificados, y un parametro no pisa el sujeto', () => {
+  it('el sujeto va en el camino y los parametros en la busqueda (#67), codificados, y un parametro no pisa el sujeto', () => {
     expect(ubicacionDe('detalle', { sujeto: 'A/1 b', parametros: { estado: 'BAJA', sujeto: 'otro' } })).toBe(
-      '/detalle?sujeto=A%2F1+b&estado=BAJA',
+      '/detalle/A%2F1%20b?estado=BAJA',
     );
+  });
+
+  it('y lo que escribe es lo que la ruta LEE: `ir` y `useHoja().ruta` dicen lo mismo (#67)', () => {
+    const escrita = ubicacionDe('detalle', { sujeto: 'A/1 b', parametros: { estado: 'BAJA' } });
+    const [camino = '', busqueda = ''] = escrita.split('?');
+    expect(leerLaRuta(camino, `?${busqueda}`)).toEqual({
+      slug: 'detalle',
+      sujeto: 'A/1 b',
+      parametros: { estado: 'BAJA' },
+    });
   });
 });
 
@@ -138,8 +159,10 @@ describe('EL AC-5: ir a otra hoja pasa por el marco', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Ir al detalle' }));
 
     expect(ultimo).toBe('abierta');
-    expect(window.location.hash).toBe('#/detalle?sujeto=42&estado=BAJA');
+    expect(window.location.hash).toBe('#/detalle/42?estado=BAJA');
     expect(screen.getByText('Contenido de dep-detalle')).toBeTruthy();
+    // Y la hoja de destino LEE lo que `ir` escribio: la misma ruta, por el mismo sitio (#67).
+    expect(screen.getByText('ruta de dep-detalle: {"sujeto":"42","parametros":{"estado":"BAJA"}}')).toBeTruthy();
   });
 
   it('un destino que el catalogo NO ofrece no se abre, y con la hoja sucia NI PREGUNTA', () => {
@@ -172,7 +195,7 @@ describe('EL AC-5: ir a otra hoja pasa por el marco', () => {
       within(screen.getByRole('alertdialog')).getByRole('button', { name: TEXTOS_DEL_ARMAZON.salirYPerderLosCambios }),
     );
     expect(window.location.hash, 'el destino perdio su sujeto al esperar la respuesta').toBe(
-      '#/detalle?sujeto=42&estado=BAJA',
+      '#/detalle/42?estado=BAJA',
     );
   });
 
@@ -228,7 +251,7 @@ describe('el interprete dentro del marco: `navegacion={useNavegacion()}` cabe ta
 
     screen.getByRole('button', { name: 'Ver el detalle' }).focus();
     await teclado.keyboard('{Enter}');
-    expect(window.location.hash).toBe('#/detalle?sujeto=7');
+    expect(window.location.hash).toBe('#/detalle/7');
     expect(screen.getByText('Contenido de dep-detalle')).toBeTruthy();
   });
 });

@@ -63,6 +63,38 @@ export interface Destino {
    * que encierra nada es peor que ningún filo.
    */
   readonly instruccion?: string;
+  /**
+   * **Lo que esta hoja guarda en la ruta** (#67, `estado-en-la-ruta`): un sujeto
+   * —`#/<slug>/<sujeto>`— y los parametros que nombra —`?ver=historial`—.
+   *
+   * Sin declarar, nada: la direccion es `#/<slug>`, la de hoy. Lo que llegue sin estar declarado se
+   * ignora con aviso, y la hoja se abre igual. Un parametro no puede llamarse `sujeto`. Ver
+   * `ruta.ts`.
+   */
+  readonly enLaRuta?: {
+    readonly sujeto?: boolean;
+    readonly parametros?: readonly string[];
+  };
+  /**
+   * **El acceso que protege esta hoja** (#67, `acceso-por-hoja`): el de su lectura principal.
+   *
+   * **El marco no lo usa para nada**, y es a proposito: no filtra, no consulta y no importa
+   * `@kamayuk/sesion`. Viaja con la hoja para que el SISTEMA —que tiene la sesion y la matriz de
+   * permisos— filtre el catalogo antes de pasarlo (ver `Catalogo`) o diga por que falta una parte.
+   * Que significa una hoja sin acceso lo decide el sistema: el marco no inventa un centinela.
+   */
+  readonly acceso?: string;
+  /** Los accesos de las OTRAS lecturas de la hoja: sin ellos se abre, pero le falta una parte. */
+  readonly tambien?: readonly string[];
+  /**
+   * **La hoja ocupa el alto entero, sin el margen del marco** (#67, `hoja-a-sangre`).
+   *
+   * Para las que llevan su propio desplazamiento —un maestro-detalle, una tabla de cabecera fija—:
+   * con el margen y el desplazamiento del marco alrededor, sus columnas se desplazarian por separado
+   * dentro de un tercer desplazamiento. Quien pone el margen es el marco, asi que es una propiedad
+   * de la hoja en el catalogo y no algo que la pantalla pueda quitarse desde dentro.
+   */
+  readonly aSangre?: boolean;
 }
 
 /** Un módulo del árbol, con sus hojas. */
@@ -138,6 +170,15 @@ export function destinoDeSlug(catalogo: Catalogo, slug: string): string | null {
 /** Las claves que el catálogo ofrece. Es contra esto que se valida cualquier destino. */
 export function destinosOfrecidos(catalogo: Catalogo): ReadonlySet<string> {
   return new Set(catalogo.flatMap((modulo) => modulo.destinos.map((destino) => destino.clave)));
+}
+
+/**
+ * Los accesos que una hoja declara: el que la protege primero y después los demás, sin repetir
+ * (#67). Es lo que un sistema cruza con sus permisos para filtrar; el marco no lo cruza con nada.
+ */
+export function accesosDe(destino: Destino): readonly string[] {
+  const todos = destino.acceso === undefined ? [...(destino.tambien ?? [])] : [destino.acceso, ...(destino.tambien ?? [])];
+  return todos.filter((acceso, i) => todos.indexOf(acceso) === i);
 }
 
 /** Cuántas hojas tiene el catálogo. Lo dice el pie de la paleta. */
