@@ -7,8 +7,11 @@ import type { DatosDeLaPantalla } from './datos.ts';
 import { EstadoDeLaLectura, FalloDeUnaLectura } from './EstadoDeLaLectura.tsx';
 import { ActoDeLaPantalla } from './ActoDeLaPantalla.tsx';
 import type { InteraccionDeLaPantalla } from './interaccion.ts';
+import type { HojaDelMarco } from './hoja.ts';
+import { MaestroDetalle } from './MaestroDetalle.tsx';
+import { PestanasDeLaPantalla } from './PestanasDeLaPantalla.tsx';
 import { PieDeOperaciones } from './PieDeOperaciones.tsx';
-import type { ComunDeUnaPieza, PiezaDeLaPantalla, Texto } from './tipos.ts';
+import type { ComunDeUnaPieza, PiezaDeLaPantalla, Texto, TonoDeInsignia } from './tipos.ts';
 
 /**
  * **Una pieza de la definicion, con sus tres modificadores aplicados** (#44).
@@ -55,6 +58,12 @@ export interface PiezaDeLaPantallaProps {
    * dice que va en el sitio del cuerpo y que va encima.
    */
   readonly dibujarBloque: (sustituto: { enLugarDelCuerpo?: ReactNode; encimaDelCuerpo?: ReactNode }) => ReactNode;
+  /** La ruta y el marco de la hoja, si la pantalla va dentro de uno (#67). */
+  readonly hoja?: HojaDelMarco;
+  /** El tono de una insignia deducido de su texto: lo usa la fila del maestro (#67). */
+  readonly tonoDeLaInsignia: (texto: string) => TonoDeInsignia;
+  /** Dibuja la hija `j` de `hijasDe(pieza)`, con su indice: lo pone `Pantalla` (#67). */
+  readonly dibujarHija: (j: number) => ReactNode;
 }
 
 export function PiezaDeLaPantalla({
@@ -66,6 +75,9 @@ export function PiezaDeLaPantalla({
   piezas,
   interaccion,
   dibujarBloque,
+  hoja,
+  tonoDeLaInsignia,
+  dibujarHija,
 }: PiezaDeLaPantallaProps) {
   const texto = (t: Texto) => resolverTexto(t, datos.nombrados, traducir, textos.datoAusente);
 
@@ -97,7 +109,33 @@ export function PiezaDeLaPantalla({
   if (estadoPropio !== undefined) return estadoPropio;
 
   let cuerpo: ReactNode;
-  if (pieza.tipo === 'aviso') {
+  if (pieza.tipo === 'pestanas') {
+    // Las dos piezas que componen la hoja (#67): dibujan sus hijas por `dibujarHija`, con el mismo
+    // despachador, asi que una pestana hereda `cuando`, `lectura` y `fallosDe` sin hacer nada.
+    cuerpo = (
+      <PestanasDeLaPantalla
+        pieza={pieza}
+        nombrados={datos.nombrados}
+        traducir={traducir}
+        textos={textos}
+        hoja={hoja}
+        dibujarHija={dibujarHija}
+      />
+    );
+  } else if (pieza.tipo === 'maestroDetalle') {
+    cuerpo = (
+      <MaestroDetalle
+        pieza={pieza}
+        datos={datos}
+        nombrados={datos.nombrados}
+        traducir={traducir}
+        textos={textos}
+        tonoDeLaInsignia={tonoDeLaInsignia}
+        hoja={hoja}
+        dibujarHija={dibujarHija}
+      />
+    );
+  } else if (pieza.tipo === 'aviso') {
     const parrafo = pieza.texto === undefined ? '' : texto(pieza.texto);
     cuerpo = (
       <Alerta tono={pieza.tono} titulo={texto(pieza.titulo)}>

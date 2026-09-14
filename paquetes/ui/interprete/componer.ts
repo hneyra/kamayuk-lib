@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react';
 
+import { recorrerLasPiezas } from './composicion.ts';
 import type { DatoConNombre } from './datos.ts';
 import type {
   Condicion,
@@ -91,7 +92,8 @@ export function piezasSinRegistrar(
   piezas: Readonly<Record<string, ComponentType<never>>> | undefined,
 ): readonly string[] {
   const faltan: string[] = [];
-  for (const pieza of definicion.bloques) {
+  // Con las anidadas (#67): una pieza del consumidor dentro de una pestana cerrada tambien falta.
+  for (const { pieza } of recorrerLasPiezas(definicion)) {
     if (pieza.tipo !== 'delConsumidor') continue;
     if (piezas !== undefined && Object.hasOwn(piezas, pieza.clave)) continue;
     if (!faltan.includes(pieza.clave)) faltan.push(pieza.clave);

@@ -1,5 +1,7 @@
 import { createContext, useContext, type ReactNode } from 'react';
 
+import type { CambioDeLaRuta, RutaDeLaHoja } from '../ui/index.ts';
+
 import type { Catalogo, HojaDelCatalogo } from './catalogo.ts';
 import type { ActoDelPie } from './acciones.ts';
 import { TEXTOS_DEL_ARMAZON, type TextosDelArmazon } from './textos.ts';
@@ -62,6 +64,32 @@ export interface ConfiguracionDelArmazon {
    * cambiar el saco aquí le rompa el suyo mañana. Ver `textos.ts`.
    */
   readonly textos?: Partial<TextosDelArmazon>;
+  /**
+   * **Los parametros globales del marco** (#67, `parametro-del-marco`): el ejercicio de la barra,
+   * por ejemplo — `{ ejercicio: '2026' }`.
+   *
+   * Los pone el sistema y **no viajan en la ruta**: son de la sesion, no de la hoja, igual que en la
+   * V6 de `catastro`. Cambiarlos vuelve a pintar la hoja abierta con los nuevos en `useHoja().marco`,
+   * y la pantalla vuelve a pedir si su lectura los lleva.
+   */
+  readonly marco?: Readonly<Record<string, string>>;
+  /**
+   * Lo que el sistema pone en la barra global, antes del buscador: el control que cambia `marco`.
+   * El marco no sabe dibujarlo —no sabe qué ejercicios hay, ni si hay ejercicio—, y por eso no
+   * escribe ninguna palabra suya aquí.
+   */
+  readonly enLaBarra?: ReactNode;
+  /**
+   * Se avisa cuando la dirección trae algo que la hoja no declara (#67). Por omisión,
+   * `console.warn`. Existe para que un sistema lo recoja donde recoge lo demás.
+   */
+  readonly alIgnorarDeLaRuta?: (aviso: AvisoDeLaRuta) => void;
+}
+
+/** Lo que se ignoró de una dirección: de qué hoja, y cada trozo como se veía (`/42`, `?ver`). */
+export interface AvisoDeLaRuta {
+  readonly destino: string;
+  readonly ignorados: readonly string[];
 }
 
 const DeLaConfiguracion = createContext<ConfiguracionDelArmazon | null>(null);
@@ -95,6 +123,20 @@ export interface HojaAbierta {
   readonly marcarSucia: () => void;
   /** Ya no los hay. La llama la pantalla cuando guarda por su cuenta. */
   readonly marcarGuardada: () => void;
+  /**
+   * **Lo que la ruta guarda de esta hoja** (#67): su sujeto y sus parámetros, **solo los
+   * declarados** en `Destino.enLaRuta`. Recargar o compartir el enlace da lo mismo.
+   */
+  readonly ruta: RutaDeLaHoja;
+  /**
+   * Cambia la ruta de ESTA hoja: lo que no se nombra se queda, `null` lo quita. Con `replace`, como
+   * todo el enrutado del marco (#13), y sin preguntar por cambios sin guardar: no se sale de la hoja.
+   */
+  readonly moverLaRuta: (cambio: CambioDeLaRuta) => void;
+  /** Los parámetros globales del marco (`ConfiguracionDelArmazon.marco`). Sin ellos, `{}`. */
+  readonly marco: Readonly<Record<string, string>>;
+  // Ir a OTRA hoja con su sujeto y sus parámetros no está aquí: es `useNavegacion().ir` (#66), que
+  // pasa por el mismo `irA` y escribe la misma forma de ruta que esto lee (`ruta.ts`).
 }
 
 /**

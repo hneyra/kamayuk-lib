@@ -66,3 +66,9 @@ export { accionesDelPie, avisoDelPie } from './acciones.ts';
 export type { AccionDelPie, ActoDelPie } from './acciones.ts';
 export { TEXTOS_DEL_ARMAZON } from './textos.ts';
 export type { TextosDelArmazon } from './textos.ts';
+// El estado de una hoja en la ruta (#67): `#/<slug>/<sujeto>?<parametro>=<valor>`. Las funciones son
+// puras y se publican para que un sistema escriba un enlace a una hoja sin montar el marco.
+export { accesosDe } from './catalogo.ts';
+export type { AvisoDeLaRuta } from './contexto.tsx';
+export { RUTA_VACIA, aplicarElCambio, escribirLaRuta, leerLaRuta, rutaDeLaHoja } from './ruta.ts';
+export type { Ignorados, RutaLeida } from './ruta.ts';

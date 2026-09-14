@@ -1,6 +1,8 @@
 import { createContext, useContext } from 'react';
 
-import type { NavegacionDeLaPantalla, PeticionDeNavegacion } from '../ui/index.ts';
+import { EL_SUJETO, type NavegacionDeLaPantalla, type PeticionDeNavegacion } from '../ui/index.ts';
+
+import { escribirLaRuta } from './ruta.ts';
 
 /**
  * **Ir a otra hoja desde una pantalla, por el mismo sitio que el arbol** (#66, `navegar-a-otra-hoja`).
@@ -18,11 +20,11 @@ import type { NavegacionDeLaPantalla, PeticionDeNavegacion } from '../ui/index.t
  *   · **Con la hoja sucia, pregunta.** Pasa por `irA`, asi que salta `AvisoDeCambios` y el destino
  *     —con su sujeto y sus parametros— espera en `pendiente` hasta que se conteste.
  *
- * <h2>Donde viajan el sujeto y los parametros lo decide #67, y se escribe en UN sitio</h2>
+ * <h2>Donde viajan el sujeto y los parametros lo decidio #67</h2>
  *
- * `ubicacionDe` es la unica funcion que lo escribe. Hasta que #67 decida la ruta, van en la busqueda
- * —`#/<slug>?sujeto=42&estado=BAJA`— y no en el camino, porque `#/entradas/` tiene que seguir sin
- * abrir nada (`armazon.test.tsx`, #20) y el camino lo lee `useHojaDeLaRuta` entero como slug.
+ * `#/<slug>/<sujeto>?<parametro>=<valor>`, y **solo lo que el destino declara** en `enLaRuta`: lo
+ * demas se ignora con aviso, igual que si llegara escrito en la barra. `#/entradas/` sigue sin abrir
+ * nada (#20): una barra sin sujeto no es ninguna de las formas. Ver `ruta.ts`.
  */
 
 /** Lo que pasa al pedir ir a otra hoja. */
@@ -44,20 +46,27 @@ export interface NavegacionDelArmazon extends NavegacionDeLaPantalla {
 export type ExtraDeLaPeticion = Pick<PeticionDeNavegacion, 'sujeto' | 'parametros'>;
 
 /**
- * **La direccion de un destino con su sujeto y sus parametros.** El unico sitio que la escribe.
+ * **La direccion de un destino con su sujeto y sus parametros**, en la forma de #67:
+ * `/<slug>/<sujeto>?<parametro>=<valor>`.
+ *
+ * #66 la escribio provisional —el sujeto en la busqueda, `?sujeto=42`— a la espera de que #67
+ * decidiera la ruta; ahora la escribe `escribirLaRuta`, la MISMA que usa `useHoja().moverLaRuta`, y
+ * la lee `leerLaRuta`. Asi `ir` y la lectura de la ruta no pueden decir cosas distintas: lo vigila
+ * `navegacion.test.tsx` leyendo lo que esto escribe.
  *
  * Sin sujeto ni parametros, `/<slug>` tal cual: la forma canonica de #13 no cambia, y `rentas` —que
- * no pasa ninguno— no cambia de URL. El sujeto va primero, y un parametro que se llame `sujeto` no lo
- * pisa.
+ * no pasa ninguno— no cambia de URL. Un parametro que se llame `sujeto` no lo pisa: se descarta,
+ * porque ese nombre es el del tramo del camino.
+ *
+ * **No filtra por lo que el destino declara**: eso lo hace el marco al navegar, que es quien tiene
+ * el catalogo (`rutaDeLaHoja`). Esto solo escribe.
  */
 export function ubicacionDe(slug: string, extra: ExtraDeLaPeticion = {}): string {
-  const busqueda = new URLSearchParams();
-  if (extra.sujeto !== undefined && extra.sujeto !== '') busqueda.set('sujeto', extra.sujeto);
-  for (const [clave, valor] of Object.entries(extra.parametros ?? {})) {
-    if (!busqueda.has(clave)) busqueda.set(clave, valor);
-  }
-  const cadena = busqueda.toString();
-  return cadena === '' ? `/${slug}` : `/${slug}?${cadena}`;
+  const parametros = Object.fromEntries(
+    Object.entries(extra.parametros ?? {}).filter(([clave]) => clave !== EL_SUJETO),
+  );
+  const sujeto = extra.sujeto === undefined || extra.sujeto === '' ? null : extra.sujeto;
+  return escribirLaRuta(slug, { sujeto, parametros });
 }
 
 const DeLaNavegacion = createContext<NavegacionDelArmazon | null>(null);

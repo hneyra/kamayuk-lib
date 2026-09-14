@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { Outlet, RouterProvider, createHashRouter, useLocation, useNavigate } from 'react-router-dom';
 
-import { Avisos } from '../ui/index.ts';
+import { Avisos, type CambioDeLaRuta } from '../ui/index.ts';
 
 import { AccionesAlPie } from './AccionesAlPie.tsx';
 import { AvisoDeCambios } from './AvisoDeCambios.tsx';
@@ -17,12 +17,14 @@ import {
   useArmazon,
   useHoja,
   useTextos,
+  type AvisoDeLaRuta,
   type ConfiguracionDelArmazon,
+  type HojaAbierta,
 } from './contexto.tsx';
+import { RUTA_VACIA, aplicarElCambio, escribirLaRuta, leerLaRuta, rutaDeLaHoja } from './ruta.ts';
 import { TEXTOS_DEL_ARMAZON, type TextosDelArmazon } from './textos.ts';
 import {
   ProveedorDeLaNavegacion,
-  ubicacionDe,
   type ExtraDeLaPeticion,
   type NavegacionDelArmazon,
 } from './navegacion.tsx';
@@ -82,6 +84,9 @@ import {
  * Ni un módulo, ni un rótulo, ni una ruta de API, ni un slug. Todo lo que se dibuja entra por la
  * configuración. Lo vigila `sin-suponer-un-sistema`, que barre este paquete entero.
  */
+
+/** Los parámetros del marco cuando el sistema no pasa ninguno. Uno solo, para no cambiar en cada pintada. */
+const SIN_MARCO: Readonly<Record<string, string>> = {};
 
 /** El ancho por debajo del cual el carril se va a un cajón. Es el mismo del artboard. */
 const ANCHO_ESTRECHO = 1040;
@@ -146,29 +151,51 @@ function DestinoNoOfrecido() {
   );
 }
 
-/** La pantalla del destino, que la dibuja el sistema y no el armazón. */
+/**
+ * La pantalla del destino, que la dibuja el sistema y no el armazón.
+ *
+ * **Con `key` por destino** (#67, y lo que #61 llama H10): sin ella, dos destinos cuya pantalla es
+ * el mismo componente en el mismo sitio comparten la instancia, y lo tecleado en uno aparece en el
+ * siguiente —medido con `rentas`, cuyas cuarenta pantallas son el mismo `CuerpoDeLaPantalla`—. La
+ * `key` es el DESTINO y no la ruta entera: cambiar de sujeto o de pestaña no desmonta la pantalla, que
+ * es lo que deja a un maestro-detalle conservar su lista mientras cambia el detalle.
+ */
 function Pantalla() {
   const { pantalla } = useArmazon();
   const { hoja } = useHoja();
-  return <>{pantalla(hoja)}</>;
+  return <Fragment key={hoja.destino.clave}>{pantalla(hoja)}</Fragment>;
 }
 
-/** La hoja que pide la ruta actual, o `null` si la ruta no nombra ninguna. */
+/**
+ * La hoja que pide la ruta actual, o `null` si la ruta no nombra ninguna.
+ *
+ * Desde #67 mira solo el PRIMER tramo: lo de detrás es el sujeto, y la hoja no deja de ser la misma
+ * por tenerlo. Ver `ruta.ts`.
+ */
 function useHojaDeLaRuta(catalogo: Catalogo): HojaDelCatalogo | null {
   const { pathname } = useLocation();
   return useMemo(() => {
-    const slug = pathname.replace(/^\//, '');
-    const clave = destinoDeSlug(catalogo, slug);
+    const leida = leerLaRuta(pathname, '');
+    const clave = leida === null ? null : destinoDeSlug(catalogo, leida.slug);
     return clave === null ? null : (indiceDelCatalogo(catalogo).get(clave) ?? null);
   }, [catalogo, pathname]);
+}
+
+/** El aviso por omisión de lo que la dirección trae y la hoja no declara. No es texto de pantalla. */
+function avisarEnLaConsola({ destino, ignorados }: AvisoDeLaRuta): void {
+  console.warn(
+    `[@kamayuk/shell] La direccion trae ${ignorados.join(', ')} y la hoja «${destino}» no lo declara ` +
+      'en `enLaRuta`: se ignora y la hoja se abre sin ello.',
+  );
 }
 
 /** Lo que rodea a la pantalla: la barra, el carril, la paleta, la cabecera y el pie. */
 function Cascara() {
   const configuracion = useArmazon();
   const textos = useTextos();
-  const { catalogo, acciones = {}, pieDelCarril } = configuracion;
+  const { catalogo, acciones = {}, pieDelCarril, marco, alIgnorarDeLaRuta = avisarEnLaConsola } = configuracion;
   const navegar = useNavigate();
+  const { pathname, search } = useLocation();
   const hoja = useHojaDeLaRuta(catalogo);
   const estrecho = useEsEstrecho();
 
@@ -203,7 +230,12 @@ function Cascara() {
     });
   }, []);
 
-  /** Lleva a un destino SIN preguntar nada. Es la mitad que no mira si hay cambios. */
+  /**
+   * Lleva a un destino SIN preguntar nada. Es la mitad que no mira si hay cambios.
+   *
+   * Desde #67 puede llevar la ruta de la hoja a la que va; lo que esa hoja no declara se ignora con
+   * aviso, igual que si llegara escrito en la barra. Sin ruta, `#/<slug>`: lo de siempre.
+   */
   const saltarA = useCallback(
     (clave: string | null, extra?: ExtraDeLaPeticion) => {
       setPaletaAbierta(false);
@@ -215,9 +247,14 @@ function Cascara() {
       if (destino === undefined) {
         return;
       }
-      navegar(ubicacionDe(slugDe(destino.destino), extra), { replace: true });
+      const { ruta: declarada, ignorados } = rutaDeLaHoja(destino.destino, {
+        sujeto: extra?.sujeto === undefined || extra.sujeto === '' ? null : extra.sujeto,
+        parametros: extra?.parametros ?? {},
+      });
+      if (ignorados.length > 0) alIgnorarDeLaRuta({ destino: clave, ignorados });
+      navegar(escribirLaRuta(slugDe(destino.destino), declarada), { replace: true });
     },
-    [indice, navegar],
+    [indice, navegar, alIgnorarDeLaRuta],
   );
 
   /**
@@ -261,6 +298,29 @@ function Cascara() {
   );
 
   /**
+   * **La ruta de la hoja abierta**, ya filtrada por lo que declara (#67).
+   *
+   * Sale de la dirección en cada pintada y no se guarda en ningún estado: la barra del navegador es
+   * la fuente, y lo que no se copia no se puede desincronizar de ella.
+   */
+  const deLaRuta = useMemo(() => {
+    if (hoja === null) return { ruta: RUTA_VACIA, ignorados: [] as readonly string[] };
+    const leida = leerLaRuta(pathname, search);
+    return leida === null ? { ruta: RUTA_VACIA, ignorados: [] } : rutaDeLaHoja(hoja.destino, leida);
+  }, [hoja, pathname, search]);
+
+  // El aviso de lo ignorado, UNA vez por dirección y no en cada pintada.
+  const ignoradosDeEstaDireccion = deLaRuta.ignorados.join('|');
+  const claveDelIgnorado = hoja?.destino.clave ?? null;
+  useEffect(() => {
+    if (claveDelIgnorado === null || ignoradosDeEstaDireccion === '') return;
+    alIgnorarDeLaRuta({ destino: claveDelIgnorado, ignorados: ignoradosDeEstaDireccion.split('|') });
+    // `alIgnorarDeLaRuta` fuera de las dependencias a proposito: una funcion en linea del sistema
+    // cambia en cada pintada, y avisaria otra vez de la misma direccion.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [claveDelIgnorado, ignoradosDeEstaDireccion, pathname, search]);
+
+  /**
    * El arbol despliega el modulo del DESTINO, y no el que se abrio la ultima vez.
    *
    * Va en un efecto sobre el destino y no dentro de la funcion que navega, y la diferencia se ve al
@@ -294,7 +354,7 @@ function Cascara() {
   }, []);
 
   const deLaHoja = useMemo(
-    () =>
+    (): HojaAbierta | null =>
       hoja === null
         ? null
         : {
@@ -308,9 +368,18 @@ function Cascara() {
             marcarGuardada: () => {
               limpiar(hoja.destino.clave);
             },
+            ruta: deLaRuta.ruta,
+            moverLaRuta: (cambio: CambioDeLaRuta) => {
+              const { ruta, ignorados } = aplicarElCambio(hoja.destino, deLaRuta.ruta, cambio);
+              if (ignorados.length > 0) alIgnorarDeLaRuta({ destino: hoja.destino.clave, ignorados });
+              navegar(escribirLaRuta(slugDe(hoja.destino), ruta), { replace: true });
+            },
+            marco: marco ?? SIN_MARCO,
           },
-    [hoja, sucias, limpiar],
+    [hoja, sucias, limpiar, deLaRuta, marco, navegar, alIgnorarDeLaRuta],
   );
+
+  const aSangre = hoja?.destino.aSangre === true;
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-fondo">
@@ -379,9 +448,24 @@ function Cascara() {
         />
 
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <div className="flex flex-1 flex-col overflow-auto">
+          {/*
+            A sangre (#67): el desplazamiento y el margen dejan de ser del marco. La cabecera y el pie
+            se quedan fijos arriba y abajo, y la pantalla ocupa el alto que queda con el suyo propio.
+          */}
+          <div
+            data-slot="cuerpo-del-marco"
+            data-a-sangre={aSangre ? '' : undefined}
+            className={aSangre ? 'flex min-h-0 flex-1 flex-col overflow-hidden' : 'flex flex-1 flex-col overflow-auto'}
+          >
             {hoja === null ? null : <CabeceraDePantalla hoja={hoja} instruccion={hoja.destino.instruccion} />}
-            <div className="flex max-w-[1180px] flex-1 flex-col gap-[14px] px-[18px] pb-0 pt-4">
+            <div
+              data-slot="hoja-del-marco"
+              className={
+                aSangre
+                  ? 'flex min-h-0 flex-1 flex-col overflow-hidden'
+                  : 'flex max-w-[1180px] flex-1 flex-col gap-[14px] px-[18px] pb-0 pt-4'
+              }
+            >
               <ProveedorDeLaNavegacion value={navegacion}>
                 {deLaHoja === null ? (
                   <Outlet />
@@ -393,7 +477,7 @@ function Cascara() {
               </ProveedorDeLaNavegacion>
             </div>
             {hoja === null ? null : (
-              <div className="max-w-[1180px]">
+              <div className={aSangre ? 'shrink-0 border-t border-linea pt-3' : 'max-w-[1180px]'}>
                 <AccionesAlPie
                   destino={hoja.destino}
                   alVolver={() => {

@@ -95,6 +95,45 @@ const LAS_PIEZAS_DE_44: DefinicionDePantalla<PiezaDeLaPantalla> = {
 };
 
 /**
+ * Las dos piezas de #67 que componen la hoja, con TODAS sus ramas que dicen algo: un maestro con
+ * filas —una elegida que no esta en la lista, con cabecera y subtitulo—, otro vacio, otro sin
+ * eleccion, y unas pestanas con rotulo y la abierta con un bloque. Ninguna palabra es de la pieza:
+ * todas son de la definicion (por `traducir`) o datos de la fila.
+ */
+const LAS_PIEZAS_DE_67: DefinicionDePantalla<PiezaDeLaPantalla> = {
+  instruccion: 'no la dibuja el interprete',
+  bloques: [
+    {
+      tipo: 'maestroDetalle',
+      enLaRuta: 'sujeto',
+      maestro: { rotulo: 'lista', filas: 'filas', fila: { titulo: '{a}', linea: '{b} y {c}', insignia: '{d}' }, vacio: 'vacia' },
+      detalle: {
+        sinEleccion: 'sin eleccion',
+        noEstaEnLaLista: 'no esta',
+        cabecera: { titulo: 'cabecera', subtitulo: 'subtitulo' },
+        bloques: [
+          {
+            tipo: 'pestanas',
+            enLaRuta: 'ver',
+            rotulo: 'tira',
+            pestanas: [
+              { clave: 'uno', rotulo: 'una', bloques: [{ titulo: 'dentro', nota: '', campos: [] }] },
+              { clave: 'dos', rotulo: 'otra', bloques: [] },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      tipo: 'maestroDetalle',
+      enLaRuta: 'otro',
+      maestro: { rotulo: 'lista vacia', filas: 'ninguna', fila: { titulo: '{a}' }, vacio: 'vacia' },
+      detalle: { sinEleccion: 'sin eleccion', noEstaEnLaLista: 'no esta', bloques: [] },
+    },
+  ],
+};
+
+/**
  * Una pantalla que usa los siete tipos, una tabla con filas y otra sin ellas, y una ausencia: todo
  * lo que el interprete sabe dibujar. Sus palabras son de quien la escribe y entran marcadas por
  * `traducir`; lo que el interprete dice por su cuenta, por el saco.
@@ -240,6 +279,23 @@ const PIEZAS: readonly (readonly [string, () => React.ReactElement])[] = [
         tonoDeLaInsignia={() => 'ok'}
         traducir={marca}
         textos={{ ...MARCADOS_DEL_INTERPRETE, ...MARCADAS_LAS_PIEZAS }}
+      />
+    ),
+  ],
+  [
+    'Pantalla con las piezas de #67',
+    () => (
+      <Pantalla
+        definicion={LAS_PIEZAS_DE_67}
+        datos={{
+          ausencia: { enElCampo: 'hueco', explicacion: '', tono: 'info' },
+          // Los campos de una fila son DATOS: entran marcados, como las celdas.
+          listas: new Map([['filas', [{ clave: '1', campos: { a: marca('fila.a'), b: marca('fila.b'), c: marca('fila.c'), d: marca('fila.d') } }]]]),
+        }}
+        tonoDeLaInsignia={() => 'ok'}
+        traducir={marca}
+        textos={{ ...MARCADOS_DEL_INTERPRETE, ...MARCADAS_LAS_PIEZAS }}
+        hoja={{ ruta: { sujeto: 'otro', parametros: {} }, moverLaRuta: () => {} }}
       />
     ),
   ],

@@ -219,3 +219,22 @@ export type { ActoAbierto } from './interprete/interaccion.ts';
 export { motivoDeLaAccion, motivoDelActo } from './interprete/acciones.ts';
 export { BotonConMotivo } from './shadcn/boton-con-motivo.tsx';
 export type { BotonConMotivoProps } from './shadcn/boton-con-motivo.tsx';
+// La composicion de la hoja (#67): el maestro-detalle y las pestanas son piezas de `bloques`, y
+// sus tipos van con los demas de la definicion. Lo que el interprete necesita del marco para leer y
+// escribir la ruta es una FORMA —`HojaDelMarco`—, que `useHoja()` de `@kamayuk/shell` ya cumple.
+export type {
+  DefinicionDeMaestroDetalle,
+  DefinicionDePestanas,
+  PestanaDeLaPantalla,
+} from './interprete/tipos.ts';
+export type { FilaDeUnaLista } from './interprete/datos.ts';
+export type { CambioDeLaRuta, EnLaRuta, HojaDelMarco, RutaDeLaHoja } from './interprete/hoja.ts';
+export { EL_SUJETO, cambioEn, valorEnLaRuta } from './interprete/hoja.ts';
+export type { PiezaEnSuSitio } from './interprete/composicion.ts';
+export {
+  hijasDe,
+  indicesDeLasPiezas,
+  nombradosConLaHoja,
+  pestanaAbierta,
+  recorrerLasPiezas,
+} from './interprete/composicion.ts';

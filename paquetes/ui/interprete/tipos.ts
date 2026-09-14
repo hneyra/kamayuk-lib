@@ -3,6 +3,7 @@ import type { ComponentProps } from 'react';
 import type { Insignia } from '../Insignia.tsx';
 import type { TipoDeCampo } from '../shadcn/campos.ts';
 import type { DefinicionDeAccion, DefinicionDeActo } from './tipos-de-los-actos.ts';
+import type { EnLaRuta } from './hoja.ts';
 
 /**
  * Los tipos de **una pantalla como dato**: lo que el interprete lee (#27).
@@ -276,13 +277,75 @@ export interface DefinicionDelPie {
   readonly falta?: Texto;
 }
 
-/** Lo que `bloques` puede llevar desde #44: el bloque de #27 y las tres piezas nuevas; y desde #66, el acto. */
+/**
+ * **Lista a la izquierda, detalle a la derecha** (#67, `maestro-detalle`).
+ *
+ * Lo elegido vive en la ruta (`enLaRuta`) y no en la pieza: recargar o compartir el enlace deja
+ * elegido lo mismo. El detalle es una lista de piezas como la de la pantalla —pestanas incluidas—,
+ * y la pieza no sabe que lectura lo llena: el sistema lee `ruta.sujeto` y pide.
+ */
+export interface DefinicionDeMaestroDetalle extends ComunDeUnaPieza {
+  readonly tipo: 'maestroDetalle';
+  /** `'sujeto'` o el nombre de un parametro. Ver `hoja.ts`. */
+  readonly enLaRuta: EnLaRuta;
+  readonly maestro: {
+    /** El nombre accesible de la lista. No se dibuja, y por eso es obligatorio. */
+    readonly rotulo: Texto;
+    /** La clave de sus filas en `DatosDeLaPantalla.listas`. */
+    readonly filas: string;
+    /**
+     * Lo que dice cada fila. Los huecos nombran **campos de la fila**, y no datos de la pantalla:
+     * cada fila es otro registro. Por eso aqui **una cadena es una plantilla** —`'{tipo} · {codigo}'`—
+     * y no hace falta escribir `{ plantilla }`.
+     */
+    readonly fila: { readonly titulo: Texto; readonly linea?: Texto; readonly insignia?: Texto };
+    /** Lo que se dice con la lista vacia. Nunca una lista en blanco. */
+    readonly vacio: Texto;
+    /** El ancho de la lista, en pixeles. Por omision, el del artboard. */
+    readonly ancho?: number;
+    /** La lectura de la lista: su espera, sus barras o su fallo van en la columna de la lista. */
+    readonly lectura?: LecturaDeUnaPieza;
+  };
+  readonly detalle: {
+    /** Lo que ocupa el detalle sin nada elegido. */
+    readonly sinEleccion: Texto;
+    /** Lo elegido no vino en la lista (otra pagina, otro filtro): se dice, y el detalle sigue. */
+    readonly noEstaEnLaLista: Texto;
+    readonly cabecera?: { readonly titulo: Texto; readonly subtitulo?: Texto };
+    readonly bloques: readonly PiezaDeLaPantalla[];
+  };
+}
+
+/** Una pestana: su clave —lo que viaja a la ruta—, su rotulo y lo que dibuja abierta. */
+export interface PestanaDeLaPantalla {
+  readonly clave: string;
+  readonly rotulo: Texto;
+  readonly bloques: readonly PiezaDeLaPantalla[];
+}
+
+/**
+ * **Pestanas dentro de la hoja** (#67, `pestanas`).
+ *
+ * La abierta vive en la ruta, y **solo se dibujan los bloques de la abierta**: la que no se pinta
+ * no pide. Un valor en la ruta que no es ninguna pestana abre la primera.
+ */
+export interface DefinicionDePestanas extends ComunDeUnaPieza {
+  readonly tipo: 'pestanas';
+  readonly enLaRuta: EnLaRuta;
+  /** El nombre accesible de la tira. No se dibuja. */
+  readonly rotulo: Texto;
+  readonly pestanas: readonly PestanaDeLaPantalla[];
+}
+
+/** Lo que `bloques` puede llevar: el bloque de #27, las tres piezas de #44, el acto de #66 y las dos de #67. */
 export type PiezaDeLaPantalla =
   | DefinicionDeBloque<Texto>
   | DefinicionDeAviso
   | DefinicionDePiezaDelConsumidor
   | DefinicionDelPie
-  | DefinicionDeActo;
+  | DefinicionDeActo
+  | DefinicionDeMaestroDetalle
+  | DefinicionDePestanas;
 
 /**
  * Una pantalla.
