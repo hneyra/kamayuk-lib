@@ -70,12 +70,13 @@ pone rojo (#10). A quién mide no está escrito en el workflow: lo lee de
 |---|---|---|
 | `rentas` | sí | **sí**, desde #10 |
 | `catastro` | sí, desde `catastro`#118 | **sí**, desde #45 |
-| `caja` | sí | todavía no |
+| `caja` | sí, desde `caja`#83 | **sí**, desde #75 |
+| `ciudadano` | sí | **sí**, desde #56 |
 | `normativa` | no | no |
 
-La columna del medio se midió sobre el `main` de cada sistema el 2026-09-14, contando los
+La columna del medio se midió sobre el `main` de cada sistema el 2026-09-16, contando los
 `link:../../kamayuk-lib/paquetes/*` de `frontend/package.json`: seis en `rentas`, `catastro` y
-`caja`, cero en `normativa`. **Un sistema entra en la lista cuando ya enlaza, y no antes**: medirlo
+`caja`, tres en `ciudadano` y cero en `normativa`. **Un sistema entra en la lista cuando ya enlaza, y no antes**: medirlo
 antes sería correr una suite que no lee nada de aquí.
 
 ## Comandos
