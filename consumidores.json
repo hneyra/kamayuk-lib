@@ -2,7 +2,8 @@
   "_comentario": [
     "Los sistemas que consumen `@kamayuk/*` por `link:`, y a los que esta CI les corre la suite",
     "antes de mezclar nada. La lista es DATO y no cableado: anadir `catastro` cuando se reconstruya",
-    "es una linea aqui, no un `job` copiado. Y lo fue: `catastro` entro con kamayuk-lib#45.",
+    "es una linea aqui, no un `job` copiado. Y lo fue: `catastro` entro con kamayuk-lib#45,",
+    "`ciudadano` con #56 y `caja` con #75.",
     "",
     "`directorio` es donde se clona: el `link:` del consumidor sube dos niveles desde `ruta` y tiene",
     "que caer JUNTO a `kamayuk-lib`, asi que el nombre del medio no es libre.",
@@ -34,6 +35,12 @@
       "directorio": "catastro",
       "ruta": "frontend",
       "orden": "git fetch --no-tags --depth=1 origin 22e6d2ea350daec307248fb8b528d12752af754f && yarn verificar"
+    },
+    {
+      "repositorio": "hneyra/caja",
+      "directorio": "caja",
+      "ruta": "frontend",
+      "orden": "yarn verificar"
     }
   ]
 }
