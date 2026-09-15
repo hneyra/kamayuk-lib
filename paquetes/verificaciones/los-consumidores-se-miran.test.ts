@@ -65,9 +65,26 @@ describe('la CI mira a sus consumidores', () => {
   });
 
   it('el `directorio` es el que el `link:` del consumidor espera', () => {
-    // `link:../../kamayuk-lib/paquetes/ui` desde `<directorio>/<ruta>` sube dos niveles. Si el
-    // directorio no es el ultimo trozo del repositorio, el clon cae en otro sitio y la CI mide
-    // otra cosa — o no mide nada, porque el enlace resuelve al clon equivocado.
+    // NO es que el clon caiga «en otro sitio», que es lo que dijo este comentario hasta #77: el
+    // `mv consumidor '<directorio>'` del workflow usa ESTE mismo campo, asi que el clon cae
+    // exactamente donde el campo diga, y lo que viene despues —`cache-dependency-path` y los
+    // `working-directory`— lo sigue. La fila de #45 ya lo habia medido y el comentario se quedo.
+    //
+    // Lo que se rompe es el `link:` del consumidor, y ese `link:` mira la PROFUNDIDAD, no el
+    // nombre: `link:../../kamayuk-lib/paquetes/ui` sube dos niveles desde `<directorio>/<ruta>`
+    // hasta la raiz del espacio de trabajo, que es donde `actions/checkout` dejo la libreria con
+    // `path: kamayuk-lib`. Medido con yarn 1 —el de los cuatro consumidores, que no declaran
+    // `packageManager`— sobre esta misma disposicion: con `caja-web/frontend` en vez de
+    // `caja/frontend` el enlace resuelve IGUAL; con un `directorio` de dos tramos, `yarn install`
+    // ni se queja —RC=0, y deja el symlink COLGANDO—, y el rojo no llega hasta que alguien importa:
+    // `Cannot find module '@kamayuk/formato'` · `MODULE_NOT_FOUND`, dentro de la suite del
+    // consumidor y sin una palabra sobre `consumidores.json`.
+    //
+    // Asi que esta comprobacion es un PROXY, y conviene saberlo: pedir que el directorio sea el
+    // ultimo trozo del repositorio garantiza UN solo tramo y descarta el nombre `kamayuk-lib`, que
+    // son las dos formas de tumbar la resolucion, y de paso mantiene la convencion de que la
+    // carpeta se llame como el repositorio. Pero es mas estricta que la resolucion: un nombre
+    // distinto a la misma profundidad sale rojo sin que nada estuviera roto.
     const torcidos = declarado.consumidores
       .filter((c) => c.directorio !== c.repositorio.split('/').pop())
       .map((c) => `  ${c.repositorio} se clona en «${c.directorio}»`);
