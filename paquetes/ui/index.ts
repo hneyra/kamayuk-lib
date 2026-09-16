@@ -96,6 +96,19 @@ export type { FormularioProps, CampoDelFormularioProps } from './shadcn/formular
 export { PIEZA_POR_TIPO, TIPOS_DE_CAMPO, seEscribe, anchoCompleto, tipoDe } from './shadcn/campos.ts';
 export type { TipoDeCampo } from './shadcn/campos.ts';
 export { CONTROL } from './shadcn/control.ts';
+// La pila de capas. Sale del paquete porque el armazon dibuja la barra global, que es parte de
+// ella: si su numero viviera en `shell`, la pila volveria a estar en dos sitios. Ver `capas.ts`.
+export {
+  CAPA_CABECERA_FIJA,
+  CAPA_BARRA_GLOBAL,
+  CAPA_VELO_DE_LA_PALETA,
+  CAPA_PANEL_DE_LA_PALETA,
+  CAPA_VELO_DEL_CAJON,
+  CAPA_PANEL_DEL_CAJON,
+  CAPA_VELO_DE_CONFIRMACION,
+  CAPA_PANEL_DE_CONFIRMACION,
+  CAPA_FLOTANTE,
+} from './shadcn/capas.ts';
 export { cn } from './utilidades.ts';
 export { ProveedorDeTema, useTema, IDENTIDADES, MODOS } from './temas/ProveedorDeTema.tsx';
 export type { ConfiguracionDeTema, Modo } from './temas/ProveedorDeTema.tsx';

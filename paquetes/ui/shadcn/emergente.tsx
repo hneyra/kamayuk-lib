@@ -2,6 +2,7 @@ import { Popover } from 'radix-ui';
 import type { ComponentProps } from 'react';
 
 import { cn } from '../utilidades.ts';
+import { CAPA_FLOTANTE } from './capas.ts';
 
 /**
  * La capa que sale anclada a lo que la abre.
@@ -25,7 +26,7 @@ export function Capa({ className, sideOffset = 4, align = 'start', ...resto }: C
         sideOffset={sideOffset}
         align={align}
         className={cn(
-          'z-50 rounded-sm border border-linea bg-superficie p-3 shadow-sombra-2 outline-none',
+          `${CAPA_FLOTANTE} rounded-sm border border-linea bg-superficie p-3 shadow-sombra-2 outline-none`,
           className,
         )}
         {...resto}

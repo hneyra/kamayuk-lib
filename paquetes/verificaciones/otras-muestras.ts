@@ -9,4 +9,5 @@
 export const OTRAS_MUESTRAS: Readonly<Record<string, string>> = {
   'supone-un-sistema': 'sin-suponer-un-sistema',
   'nombre-publico-entre-paquetes': 'sin-nombre-publico-entre-paquetes',
+  'capa-flotante-por-debajo-del-velo': 'las-capas-se-apilan',
 };

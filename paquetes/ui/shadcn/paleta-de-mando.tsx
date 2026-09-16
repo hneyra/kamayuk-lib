@@ -3,6 +3,7 @@ import type { ComponentProps } from 'react';
 
 import { TEXTOS_DE_LA_UI } from '../textos.tsx';
 import { cn } from '../utilidades.ts';
+import { CAPA_PANEL_DE_LA_PALETA, CAPA_VELO_DE_LA_PALETA } from './capas.ts';
 
 /**
  * La paleta de mando: `Ctrl/Cmd+K`, se escribe, se elige y se va.
@@ -47,9 +48,9 @@ export function PaletaDeMando({ className, label, children, ...resto }: PaletaDe
       label={label}
       shouldFilter={false}
       data-slot="paleta-de-mando"
-      overlayClassName="fixed inset-0 z-[84] bg-velo-paleta"
+      overlayClassName={`fixed inset-0 ${CAPA_VELO_DE_LA_PALETA} bg-velo-paleta`}
       contentClassName={cn(
-        'fixed left-1/2 top-[11vh] z-[85] w-[min(620px,92vw)] -translate-x-1/2',
+        `fixed left-1/2 top-[11vh] ${CAPA_PANEL_DE_LA_PALETA} w-[min(620px,92vw)] -translate-x-1/2`,
         'overflow-hidden rounded-sm border border-linea bg-superficie shadow-sombra-2 outline-none',
         className,
       )}

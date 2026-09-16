@@ -2,6 +2,7 @@ import { DropdownMenu } from 'radix-ui';
 import type { ComponentProps } from 'react';
 
 import { cn } from '../utilidades.ts';
+import { CAPA_FLOTANTE } from './capas.ts';
 
 /**
  * El menú que cuelga de un disparador. En V8 es el de la sesión, arriba a la derecha.
@@ -43,7 +44,7 @@ export function ListaDelMenu({ className, sideOffset = 0, align = 'end', ...rest
         sideOffset={sideOffset}
         align={align}
         className={cn(
-          'z-50 min-w-[min(262px,calc(100vw-24px))] overflow-hidden border border-linea bg-superficie',
+          `${CAPA_FLOTANTE} min-w-[min(262px,calc(100vw-24px))] overflow-hidden border border-linea bg-superficie`,
           'rounded-b-sm shadow-sombra-2 outline-none',
           className,
         )}

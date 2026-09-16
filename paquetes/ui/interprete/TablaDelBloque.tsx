@@ -2,6 +2,7 @@ import { Fragment, useId } from 'react';
 
 import { Insignia } from '../Insignia.tsx';
 import { Alerta } from '../shadcn/alerta.tsx';
+import { CAPA_CABECERA_FIJA } from '../shadcn/capas.ts';
 import { Boton } from '../shadcn/boton.tsx';
 import {
   Tabla,
@@ -132,13 +133,13 @@ export function TablaDelBloque({
               <TablaRotulo
                 key={c.rotulo}
                 cifra={c.alineadoDerecha}
-                className={tabla.cabeceraFija === true ? 'sticky top-0 z-[1]' : undefined}
+                className={tabla.cabeceraFija === true ? `sticky top-0 ${CAPA_CABECERA_FIJA}` : undefined}
               >
                 {traducir(c.rotulo)}
               </TablaRotulo>
             ))}
             {acciones === undefined ? null : (
-              <TablaRotulo className={tabla.cabeceraFija === true ? 'sticky top-0 z-[1]' : undefined}>
+              <TablaRotulo className={tabla.cabeceraFija === true ? `sticky top-0 ${CAPA_CABECERA_FIJA}` : undefined}>
                 {traducir(acciones.columna)}
               </TablaRotulo>
             )}
