@@ -27,9 +27,9 @@ muestra que la viola.
 | [`@kamayuk/formato`](paquetes/formato) | fechas, importes y documento de identidad | **Existe.** 67 pruebas |
 | [`@kamayuk/api`](paquetes/api) | `solicitar()`, `solicitarRespuesta()`, `descargar()`, `subir()`, la clave de idempotencia y el catálogo de errores | **Existe.** 118 pruebas |
 | [`@kamayuk/sesion`](paquetes/sesion) | OIDC con PKCE S256, la sonda del emisor, la consola de la cuenta y la escalera de peldaños | **Existe.** 45 pruebas |
-| [`@kamayuk/ui`](paquetes/ui) | tokens, tres temas por dos modos, shadcn | Vacío |
-| [`@kamayuk/shell`](paquetes/shell) | barra, árbol, paleta, enrutado, fallo | Vacío |
-| [`@kamayuk/verificaciones`](paquetes/verificaciones) | las barreras y sus muestras | **Existe.** 13 pruebas |
+| [`@kamayuk/ui`](paquetes/ui) | los 42 tokens, cuatro identidades por dos modos, las piezas de shadcn y el intérprete de pantallas | **Existe.** 364 pruebas, más las 3 de capa |
+| [`@kamayuk/shell`](paquetes/shell) | barra, árbol de módulos, paleta de mando, enrutado por hash, miga, acciones y el aviso de cambios sin guardar | **Existe.** 113 pruebas |
+| [`@kamayuk/verificaciones`](paquetes/verificaciones) | las barreras y sus muestras | **Existe.** 144 pruebas |
 
 ## Cómo se consume
 
@@ -73,13 +73,18 @@ pone rojo (#10). A quién mide no está escrito en el workflow: lo lee de
 | `caja` | sí, desde `caja`#83 | **sí**, desde #75 |
 | `ciudadano` | sí | **sí**, desde #56 |
 | `pcf` | sí, desde su T1 | **sí**, desde #82 |
-| `normativa` | no | no |
+| `normativa` | sí, desde `normativa`#55 | **sí**, desde #60 |
 
 La columna del medio se midió sobre el `main` de cada sistema el 2026-09-16, contando los
 `link:../../kamayuk-lib/paquetes/*` de `frontend/package.json`: seis en `rentas`, `catastro` y
 `caja`, **cuatro en `pcf`** —`ui`, `shell`, `api` y `formato`; no enlaza `sesion`, porque su login es
-el JWT propio del sistema que porta, ni `verificaciones`—, tres en `ciudadano` y cero en `normativa`. **Un sistema entra en la lista cuando ya enlaza, y no antes**: medirlo
-antes sería correr una suite que no lee nada de aquí.
+el JWT propio del sistema que porta, ni `verificaciones`—, tres en `ciudadano` y **cinco en
+`normativa`** —`api`, `formato`, `sesion`, `shell` y `ui`, todos en `dependencies`; tampoco enlaza
+`verificaciones`, porque sus diez prohibiciones de ESLint son suyas y una de ellas,
+`cifra-tributaria-literal`, aquí es opcional (#58)—. **Un sistema entra en la lista cuando ya
+enlaza, y no antes**: medirlo antes sería correr una suite que no lee nada de aquí.
+
+Con `normativa` la lista queda **completa**: los cuatro sistemas de Kamayuk, `ciudadano` y `pcf`.
 
 ## Comandos
 

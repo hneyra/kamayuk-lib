@@ -3,7 +3,7 @@
     "Los sistemas que consumen `@kamayuk/*` por `link:`, y a los que esta CI les corre la suite",
     "antes de mezclar nada. La lista es DATO y no cableado: anadir `catastro` cuando se reconstruya",
     "es una linea aqui, no un `job` copiado. Y lo fue: `catastro` entro con kamayuk-lib#45,",
-    "`ciudadano` con #56 y `caja` con #75.",
+    "`ciudadano` con #56, `caja` con #75, `pcf` con #82 y `normativa` con #60.",
     "",
     "`directorio` es donde se clona: el `link:` del consumidor sube dos niveles desde `ruta` y tiene",
     "que caer JUNTO a `kamayuk-lib`, asi que el nombre del medio no es libre.",
@@ -15,6 +15,16 @@
     "de aqui no rompa al consumidor, y para eso una suite de jsdom vale mas que una de navegador de",
     "dos minutos. Entro con la pila de capas de #81, que `pcf` destapo dos veces y parcheo en su",
     "propia hoja de estilos hasta que el arreglo subio aqui.",
+    "",
+    "`normativa` es el quinto sistema del producto, y el ultimo de los cuatro de Kamayuk en entrar.",
+    "Su `yarn verificar` encadena lint, tipos y 183 pruebas en 20 archivos (~22 s). Entro con",
+    "normativa#55, que descarto su interfaz V6 y monto el Armazon de `@kamayuk/shell` sobre cinco",
+    "`link:` —`api`, `formato`, `sesion`, `shell` y `ui`—. Su suite NO lee nada fuera de su propio",
+    "clon: el job no trae ningun hermano mas que esta libreria, y hasta esa reconstruccion tres de",
+    "sus pruebas leian `../../../backend` y `../../../docs`, que siguen dentro del repositorio que",
+    "el job clona entero. NO enlaza `@kamayuk/verificaciones`: sus diez prohibiciones de ESLint son",
+    "suyas, y la decima —`cifra-tributaria-literal`, la que aqui es OPCIONAL desde #58— la enciende",
+    "porque es el sistema que PUBLICA las cifras.",
     "",
     "`catastro` baja ademas UN commit antes de verificar: su guarda `el-inventario-es-la-v6` compara",
     "`frontend/diseno/catastro-v6.json` con la V6 congelada en `22e6d2e`, y este job clona sin historia.",
@@ -52,6 +62,12 @@
     {
       "repositorio": "hneyra/pcf",
       "directorio": "pcf",
+      "ruta": "frontend",
+      "orden": "yarn verificar"
+    },
+    {
+      "repositorio": "hneyra/normativa",
+      "directorio": "normativa",
       "ruta": "frontend",
       "orden": "yarn verificar"
     }
