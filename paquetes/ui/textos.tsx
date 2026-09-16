@@ -163,6 +163,42 @@ export interface TextosDeLasPiezas {
   readonly tablaSinMotivo: string;
   /** El nombre del grupo de botones de una fila, con su primera celda, si la definicion no da otro (#65). */
   readonly accionesDeLaFila: (fila: string) => string;
+
+  // ── Los mandos de una tabla (#61) ─────────────────────────────────────────────────────────────
+  //
+  // Van al saco y NO a la definicion, a proposito: «Anterior» y «Siguiente» se dicen igual en las
+  // cuatro interfaces, y escribirlos en cada definicion seria la misma palabra copiada tantas veces
+  // como tablas haya, divergiendo a la tercera. Lo que SI es de la definicion es la mecanica: donde
+  // viaja la pagina, que tamanos se ofrecen y que campos admite el servidor.
+
+  /** El mando que va a la pagina anterior. */
+  readonly paginaAnterior: string;
+  /** Y el que va a la siguiente. */
+  readonly paginaSiguiente: string;
+  /** «Pagina N», cuando no se sabe cuantas hay. La cifra va donde el idioma la ponga. */
+  readonly pagina: (pagina: number) => string;
+  /** «Pagina N de M», cuando se sabe. */
+  readonly paginaDe: (pagina: number, paginas: number) => string;
+  /** Por que «Anterior» no lleva a ningun sitio. Nunca un `disabled` mudo (#66). */
+  readonly yaEsLaPrimeraPagina: string;
+  /** Y por que «Siguiente» tampoco: en servidor lo dijo el servidor; en cliente, las filas que quedan. */
+  readonly noHayMasPaginas: string;
+  /** El nombre accesible del selector de cuantas filas por pagina. No se dibuja. */
+  readonly filasPorPagina: string;
+  /** El nombre accesible del selector de orden. No se dibuja. */
+  readonly ordenarLaLista: string;
+  /** El mando del sentido dice lo que HARA al pulsarlo, no el sentido que ya hay puesto. */
+  readonly pasarAAscendente: string;
+  readonly pasarADescendente: string;
+  /** La flecha del sentido puesto. Es un signo, y entra por el saco igual: hay escrituras que lo giran. */
+  readonly flechaAscendente: string;
+  readonly flechaDescendente: string;
+  /** El nombre accesible de la barra de mandos de una tabla, con el nombre de la tabla dentro. */
+  readonly mandosDeLaTabla: (tabla: string) => string;
+  /** Lo que ocupa una celda que llego sin dato, cuando su tabla no dice su propia palabra (#61). */
+  readonly celdaSinDato: string;
+  /** Y por que esta vacia, anunciado en la celda. Nunca una celda en blanco y sin motivo. */
+  readonly porQueLaCeldaNoTieneDato: string;
 }
 
 /** Lo que se ve si nadie pasa nada. */
@@ -202,6 +238,23 @@ export const TEXTOS_DE_LAS_PIEZAS: TextosDeLasPiezas = {
   // #65
   tablaSinMotivo: 'Esta lista no tiene filas, y la definicion de la pantalla no dice por que.',
   accionesDeLaFila: (fila) => `Acciones de «${fila}»`,
+
+  // #61
+  paginaAnterior: 'Anterior',
+  paginaSiguiente: 'Siguiente',
+  pagina: (pagina) => `Pagina ${String(pagina)}`,
+  paginaDe: (pagina, paginas) => `Pagina ${String(pagina)} de ${String(paginas)}`,
+  yaEsLaPrimeraPagina: 'Esta es la primera pagina: no hay ninguna antes.',
+  noHayMasPaginas: 'No hay ninguna pagina despues de esta.',
+  filasPorPagina: 'Cuantas filas por pagina',
+  ordenarLaLista: 'Ordenar la lista',
+  pasarAAscendente: 'Ordenar de menor a mayor',
+  pasarADescendente: 'Ordenar de mayor a menor',
+  flechaAscendente: '↑',
+  flechaDescendente: '↓',
+  mandosDeLaTabla: (tabla) => `Mandos de «${tabla}»`,
+  celdaSinDato: '—',
+  porQueLaCeldaNoTieneDato: 'Aqui no hay dato, y no es un cero.',
 };
 
 /** Los dos sacos que `Pantalla` recibe juntos, y lo que una pieza del consumidor recibe ya fundido. */

@@ -3,7 +3,7 @@ import { type Nombrados, resolverTexto } from './componer.ts';
 import type { DatoConNombre, FilaDeLaTabla } from './datos.ts';
 import { GrupoDeAcciones } from './GrupoDeAcciones.tsx';
 import type { InteraccionDeLaPantalla } from './interaccion.ts';
-import { accionesQueOfrece } from './reglas-de-las-tablas.ts';
+import { accionesQueOfrece, textoDeLaCelda } from './reglas-de-las-tablas.ts';
 import type { AccionesPorFila, Texto } from './tipos.ts';
 
 /**
@@ -65,7 +65,11 @@ export function AccionesDeLaFila({
   const deLaFila = datosDeLaFila(nombrados, fila);
   const nombre =
     definicion.nombreDelGrupo === undefined
-      ? textos.accionesDeLaFila(fila.celdas[0] ?? textos.datoAusente)
+      ? // La primera celda identifica la fila, y desde #61 puede llegar sin dato: entonces el nombre
+        // del grupo lo dice la palabra del saco, y no un hueco.
+        textos.accionesDeLaFila(
+          (fila.celdas[0] === undefined ? null : textoDeLaCelda(fila.celdas[0])) ?? textos.datoAusente,
+        )
       : resolverTexto(definicion.nombreDelGrupo, deLaFila, traducir, textos.datoAusente);
 
   return (

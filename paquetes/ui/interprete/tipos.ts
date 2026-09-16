@@ -59,6 +59,8 @@ export type TipoDeCampoConAncho = ConAnchoCompleto<TipoDeCampo>;
  */
 export interface CampoDeLista<O extends OpcionDelCampo = string> {
   readonly etiqueta: string;
+  /** El nombre del campo del contrato, junto a la etiqueta (#61, `cabecera-con-campo-y-dominio`). */
+  readonly campo?: string;
   readonly tipo: ConAnchoCompleto<'s'>;
   /** Las opciones, en su orden. La primera es la que el interprete deja seleccionada. */
   readonly opciones: readonly O[];
@@ -76,6 +78,8 @@ export interface CampoDeLista<O extends OpcionDelCampo = string> {
  */
 export interface CampoDeSoloLectura {
   readonly etiqueta: string;
+  /** El nombre del campo del contrato, junto a la etiqueta (#61, `cabecera-con-campo-y-dominio`). */
+  readonly campo?: string;
   readonly tipo: ConAnchoCompleto<'r'>;
   /**
    * Se pinta como insignia, con el tono que dice la regla (#65, `dato-con-insignia`). La regla lee
@@ -87,6 +91,8 @@ export interface CampoDeSoloLectura {
 /** Una casilla. Su texto no es ayuda: es lo que se lee AL LADO de la marca. */
 export interface CampoDeCasilla {
   readonly etiqueta: string;
+  /** El nombre del campo del contrato, junto a la etiqueta (#61, `cabecera-con-campo-y-dominio`). */
+  readonly campo?: string;
   readonly tipo: ConAnchoCompleto<'c'>;
   /** La etiqueta de la marca. */
   readonly casilla: string;
@@ -98,6 +104,8 @@ export type TipoDeEntrada = ConAnchoCompleto<'' | 'd' | 'a' | 't'>;
 /** Un campo que se escribe, con su ayuda opcional debajo. */
 export interface CampoDeEntrada {
   readonly etiqueta: string;
+  /** El nombre del campo del contrato, junto a la etiqueta (#61, `cabecera-con-campo-y-dominio`). */
+  readonly campo?: string;
   readonly tipo: TipoDeEntrada;
   /** La linea de ayuda. La mayoria no la lleva. Si dice «opcional», el campo se marca como tal. */
   readonly ayuda?: string;
@@ -118,6 +126,16 @@ export type DefinicionDeCampo<O extends OpcionDelCampo = string> =
 /** Una columna de la tabla de un bloque. */
 export interface ColumnaDeTabla {
   readonly rotulo: string;
+  /**
+   * **El nombre del campo del contrato, bajo el rotulo** (#61, `cabecera-con-campo-y-dominio`).
+   *
+   * No se traduce: es codigo, como las operaciones del pie de #44. Y es ademas **lo que ata una
+   * columna a un campo de `orden`**: la columna cuyo `campo` es el que se esta ordenando lleva
+   * `aria-sort`, sin una segunda lista que se quede vieja.
+   */
+  readonly campo?: string;
+  /** Lo que la base admite en ese campo, cuando lo acota: `A · B · C`. Tampoco se traduce. */
+  readonly dominio?: string;
   /**
    * Si la columna va pegada a la derecha.
    *
@@ -158,8 +176,11 @@ export interface DefinicionDeTabla<T extends Texto = string> {
    * **Por que no tiene filas**, cuando la lectura contesto una lista vacia (#65, `tabla-con-vacio`):
    * «este registro no tiene ninguna evidencia». Es una respuesta, no la ausencia de #27. Sin ella,
    * una tabla vacia lo dice con un aviso del saco: nunca una tabla muda.
+   *
+   * Desde #61 (`vacio-con-su-salida`) puede ser ademas **un vacio con su salida dentro**: el titulo,
+   * la frase y el boton que saca de ahi.
    */
-  readonly vacio?: T;
+  readonly vacio?: T | VacioDeLaTabla<T>;
   /**
    * La cabecera queda fija y el cuerpo se desplaza dentro de su propio marco
    * (#65, `tabla-de-cabecera-fija`). La altura la pone quien la contiene.
@@ -169,6 +190,117 @@ export interface DefinicionDeTabla<T extends Texto = string> {
   readonly detalleDeFila?: DetalleDeFila<T>;
   /** Los botones de cada fila, segun un dato suyo (#65, `acciones-por-fila`). */
   readonly accionesPorFila?: AccionesPorFila<T>;
+  /**
+   * **De donde sale la pagina que se ve** (#61, `paginacion-y-orden-en-el-servidor` y
+   * `tablas-grandes`). Sin ella, se dibujan todas las filas que lleguen, como hasta #65.
+   */
+  readonly paginacion?: PaginacionDeLaTabla;
+  /** **Por que campo se ordena, de la lista blanca que el servidor admite** (#61). */
+  readonly orden?: OrdenDeLaTabla<T>;
+  /**
+   * Lo que se pinta donde una celda llega `null`, y por que (#61, `celda-nula-con-palabra-y-nota`).
+   * Sin el, la raya y la frase del saco: **nunca una celda en blanco**.
+   */
+  readonly sinDato?: { readonly texto: T; readonly nota?: T };
+  /**
+   * **Las filas que son el TEXTO de la pantalla** (#61, `filas-de-contenido-que-viajan`).
+   *
+   * No son filas de ejemplo —que desde `rentas`#97 no viajan, y por eso una tabla no las lleva—:
+   * son lo que la pantalla dice. Sin ellas no dice nada, y no hay ninguna operacion que las
+   * conteste. Cada celda es un `Texto`, asi que pasan por `traducir` como cualquier frase.
+   *
+   * Con ellas, la tabla **no mira los datos**: ni la ausencia, ni el vacio, ni `filas`.
+   */
+  readonly filasDeContenido?: readonly (readonly T[])[];
+}
+
+/**
+ * **El vacio con su salida dentro** (#61, `vacio-con-su-salida`).
+ *
+ * `tabla-con-vacio` de #65 pone la frase; esto pone ademas **que hacer**, que es lo que convierte
+ * una lista vacia en un sitio del que se puede salir sin adivinar a donde ir. Las acciones son las
+ * de #66 —abren un acto, van a otra hoja o hacen una operacion— y se impiden con su motivo igual.
+ */
+export interface VacioDeLaTabla<T extends Texto = string> {
+  readonly titulo: T;
+  /** La segunda linea: lo que toca hacer. */
+  readonly texto?: T;
+  /** La salida, DENTRO del vacio. Vacio o ausente, el vacio es solo su frase. */
+  readonly acciones?: readonly DefinicionDeAccion[];
+}
+
+/**
+ * **De donde sale la pagina que se ve** (#61, `paginacion-y-orden-en-el-servidor`, `tablas-grandes`).
+ *
+ * <h2>Las dos no son la misma cosa con un interruptor</h2>
+ *
+ * <table>
+ *   <tr><td>`servidor`</td><td>las filas que llegan **ya son una pagina**. El interprete no pide:
+ *     escribe la pagina en la ruta y quien lee la ruta pide. Quien dice si hay una siguiente es
+ *     **el servidor** (`hayMas`), y no una cuenta de la pantalla: con el tope alcanzado, contar las
+ *     filas recibidas diria que no hay mas justo cuando las hay</td></tr>
+ *   <tr><td>`cliente`</td><td>llegan **todas** —decenas de miles— y aqui se monta una sola pagina.
+ *     Entonces si se cuenta, porque estan todas delante</td></tr>
+ * </table>
+ *
+ * La pagina empieza **en cero**, que es como la piden los backends del producto; la que se lee
+ * empieza en uno, y esa suma es de un indice y no de un importe (regla 1).
+ */
+export type PaginacionDeLaTabla =
+  | {
+      readonly en: 'servidor';
+      /** Donde vive la pagina abierta. Sin `hoja`, la tabla la guarda en su estado. */
+      readonly enLaRuta: EnLaRuta;
+      /** Cuantas filas se piden. Es dato de la definicion: el tope lo fija el backend. */
+      readonly tamano: number;
+      /** Los tamanos que se ofrecen, en su orden. Sin `tamanoEnLaRuta`, no se ofrece elegir. */
+      readonly tamanos?: readonly number[];
+      readonly tamanoEnLaRuta?: EnLaRuta;
+      /** El nombre del dato BOOLEANO con lo que el servidor dijo de si hay mas. */
+      readonly hayMas: string;
+      /** El nombre del dato con cuantas paginas dijo que hay. Sin el se lee «Pagina N», sin total. */
+      readonly paginas?: string;
+    }
+  | {
+      readonly en: 'cliente';
+      readonly enLaRuta: EnLaRuta;
+      /** Cuantas filas se montan. Las demas no llegan al DOM. */
+      readonly tamano: number;
+      readonly tamanos?: readonly number[];
+      readonly tamanoEnLaRuta?: EnLaRuta;
+      /** No: las filas estan todas delante, y contarlas es la respuesta. */
+      readonly hayMas?: never;
+      readonly paginas?: never;
+    };
+
+/** Un campo por el que el servidor admite ordenar. `valor` viaja; `rotulo` se lee. */
+export interface CampoDeOrden<T extends Texto = string> {
+  /** Lo que viaja. **Nunca pasa por `traducir`**: cambiar de idioma no puede cambiar lo que se pide. */
+  readonly valor: string;
+  readonly rotulo: T;
+}
+
+/**
+ * **Por que campo se ordena, y en que sentido** (#61, `paginacion-y-orden-en-el-servidor`).
+ *
+ * <h2>Lista blanca, y por eso la tabla no ordena: avisa</h2>
+ *
+ * El orden lo hace el servidor y va por lista cerrada —uno que no esta es un 422—, asi que lo que
+ * se ofrece son **exactamente** los campos que la definicion escribe. Ninguna columna se hace
+ * ordenable por tener rotulo: se ordena por lo que `campos` nombra, y la columna que lleva ese
+ * `campo` es la que se anuncia con `aria-sort`.
+ *
+ * Los dos valores del sentido son del backend —`ASCENDENTE` en uno, `asc` en otro—, y por eso son
+ * dato y no una constante de la libreria.
+ */
+export interface OrdenDeLaTabla<T extends Texto = string> {
+  readonly campos: readonly CampoDeOrden<T>[];
+  /** Donde vive el campo elegido. Sin valor, el primero de `campos`. */
+  readonly enLaRuta: EnLaRuta;
+  /** Donde vive el sentido. Sin valor, `ascendente`. */
+  readonly sentidoEnLaRuta: EnLaRuta;
+  readonly ascendente: string;
+  readonly descendente: string;
 }
 
 /**

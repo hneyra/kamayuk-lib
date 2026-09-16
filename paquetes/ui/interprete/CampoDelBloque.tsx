@@ -94,7 +94,18 @@ export function CampoDelBloque({
   const opcional = ayuda !== undefined && /opcional/i.test(ayuda);
 
   const comun = {
-    rotulo: traducir(campo.etiqueta),
+    // El nombre del campo del contrato va JUNTO a la etiqueta y no dentro de ella (#61,
+    // `cabecera-con-campo-y-dominio`, N5 de normativa#52): «Registro `registroId`». No se traduce
+    // —es codigo, como las operaciones del pie de #44—, y por eso no puede ser parte de la cadena
+    // que se traduce.
+    rotulo:
+      campo.campo === undefined ? (
+        traducir(campo.etiqueta)
+      ) : (
+        <>
+          {traducir(campo.etiqueta)} <code data-slot="campo-del-contrato">{campo.campo}</code>
+        </>
+      ),
     ancho,
     ayuda: ayuda === undefined ? undefined : traducir(ayuda),
     opcional,

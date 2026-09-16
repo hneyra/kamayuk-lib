@@ -1,4 +1,4 @@
-import { Fragment, useId } from 'react';
+import { Fragment, useId, useState } from 'react';
 
 import { Insignia } from '../Insignia.tsx';
 import { Alerta } from '../shadcn/alerta.tsx';
@@ -17,9 +17,18 @@ import { TarjetaBarraDeTabla } from '../shadcn/tarjeta.tsx';
 import type { TextosDeLaPantalla } from '../textos.tsx';
 import { AccionesDeLaFila } from './AccionesDeLaFila.tsx';
 import { type Nombrados, resolverTexto, seCumple } from './componer.ts';
-import type { Ausencia, FilaDeLaTabla } from './datos.ts';
+import type { Ausencia, CeldaDeLaTabla, FilaDeLaTabla } from './datos.ts';
+import { GrupoDeAcciones } from './GrupoDeAcciones.tsx';
+import { cambiosEn, valorEnLaRuta, type EnLaRuta, type HojaDelMarco } from './hoja.ts';
 import type { InteraccionDeLaPantalla } from './interaccion.ts';
-import { resolverInsignia } from './reglas-de-las-tablas.ts';
+import { campoOrdenado, MandoDeOrden, MandoDePaginas, type SitioDeLaTabla } from './MandosDeLaTabla.tsx';
+import {
+  esVacioConSalida,
+  notaDeLaCelda,
+  paginaDeLaTabla,
+  resolverInsignia,
+  textoDeLaCelda,
+} from './reglas-de-las-tablas.ts';
 import type { DefinicionDeTabla, TonoDeInsignia, Texto } from './tipos.ts';
 
 /**
@@ -54,6 +63,24 @@ import type { DefinicionDeTabla, TonoDeInsignia, Texto } from './tipos.ts';
  * Una fila es `{ celdas, datos? }`: las celdas se leen, y los datos los leen las reglas —el tono
  * de la insignia de una columna, el detalle de la fila, las acciones que ofrece—. Las filas de #27
  * (`string[]`) llegan aqui ya envueltas en `{ celdas }` y se dibujan igual que antes.
+ *
+ * <h2>Y las cinco cosas que trae #61</h2>
+ *
+ * <table>
+ *   <tr><td>`paginacion`</td><td>que pagina se ve, servida o cortada aqui. Sin ella, todas las filas
+ *     que lleguen, como hasta #65</td></tr>
+ *   <tr><td>`orden`</td><td>por que campo, de la lista blanca que el servidor admite, con `aria-sort`
+ *     en la columna cuyo `campo` es ese</td></tr>
+ *   <tr><td>celda `{ texto, nota }`</td><td>`null` se dice con palabra, y nunca con `''` ni con un
+ *     `0` (`celda-nula-con-palabra-y-nota`)</td></tr>
+ *   <tr><td>`vacio` con salida</td><td>el vacio lleva su boton dentro (`vacio-con-su-salida`)</td></tr>
+ *   <tr><td>`filasDeContenido`</td><td>las filas que SON el texto de la pantalla y viajan en la
+ *     definicion (`filas-de-contenido-que-viajan`)</td></tr>
+ * </table>
+ *
+ * **La pagina y el orden viven en la ruta**, no aqui: con `hoja` se escriben ahi y de ahi se
+ * restituyen, como la pestana de #67. Sin `hoja` —la pantalla montada fuera del marco— la tabla los
+ * guarda en su estado, y entonces no sobreviven a recargar, que es lo unico que no puede dar.
  */
 
 export interface TablaDelBloqueProps {
@@ -66,10 +93,12 @@ export interface TablaDelBloqueProps {
   readonly traducir: (texto: string) => string;
   readonly textos: TextosDeLaPantalla;
   readonly tonoDeLaInsignia: (texto: string) => TonoDeInsignia;
-  /** Los datos con nombre de la pantalla, para el `vacio` que lleve uno (#65). */
+  /** Los datos con nombre de la pantalla, para el `vacio` que lleve uno (#65) y la paginacion (#61). */
   readonly nombrados?: Nombrados;
   /** Quien atiende las acciones de las filas: la misma interaccion que las del bloque (#66). */
   readonly interaccion: InteraccionDeLaPantalla;
+  /** La ruta de la hoja, donde viven la pagina y el orden (#61). Sin ella, los guarda la tabla. */
+  readonly hoja?: HojaDelMarco;
 }
 
 export function TablaDelBloque({
@@ -82,17 +111,71 @@ export function TablaDelBloque({
   tonoDeLaInsignia,
   nombrados,
   interaccion,
+  hoja,
 }: TablaDelBloqueProps) {
   const raiz = useId();
   const idDelTitulo = `${raiz}-titulo`;
   const nombreDeLaTabla = tabla.clave ?? tabla.titulo;
   const acciones = tabla.accionesPorFila;
+  const texto = (t: Texto) => resolverTexto(t, nombrados, traducir, textos.datoAusente);
+  // Sin `hoja`, la pagina y el orden viven aqui. No sobreviven a recargar, y es lo unico que no dan.
+  const [sinMarco, fijarSinMarco] = useState<Readonly<Record<string, string>>>({});
+  const sitio: SitioDeLaTabla = {
+    leer: (donde: EnLaRuta) => (hoja === undefined ? (sinMarco[donde] ?? null) : valorEnLaRuta(hoja.ruta, donde)),
+    fijar: (cambios) => {
+      if (hoja === undefined) {
+        fijarSinMarco((antes) => {
+          const despues = { ...antes };
+          for (const [donde, valor] of Object.entries(cambios)) {
+            if (valor === null) delete despues[donde];
+            else despues[donde] = valor;
+          }
+          return despues;
+        });
+        return;
+      }
+      // Un solo movimiento, aunque cambien dos sitios a la vez: ver `cambiosEn`.
+      hoja.moverLaRuta(cambiosEn(cambios));
+    },
+  };
 
-  // El conteo se cuenta solo cuando HAY filas: ver el docblock. El que da el sistema, se escribe.
+  // Las filas que VIAJAN en la definicion ganan a los datos y a la ausencia: son el texto de la
+  // pantalla, y no hay ninguna operacion que las conteste (#61, `filas-de-contenido-que-viajan`).
+  const deContenido = tabla.filasDeContenido;
+  const todas: readonly FilaDeLaTabla[] | undefined =
+    deContenido === undefined ? filas : deContenido.map((celdas) => ({ celdas: celdas.map(texto) }));
+
+  const paginacion = tabla.paginacion;
+  const pagina =
+    paginacion === undefined
+      ? undefined
+      : paginaDeLaTabla(
+          paginacion,
+          {
+            pagina: sitio.leer(paginacion.enLaRuta),
+            tamano: paginacion.tamanoEnLaRuta === undefined ? null : sitio.leer(paginacion.tamanoEnLaRuta),
+          },
+          {
+            hayMas: paginacion.hayMas === undefined ? undefined : nombrados?.get(paginacion.hayMas),
+            paginas: paginacion.paginas === undefined ? undefined : nombrados?.get(paginacion.paginas),
+          },
+          todas?.length ?? 0,
+        );
+  // Solo en cliente se corta: en servidor, las filas que llegaron YA son la pagina.
+  const dibujadas =
+    todas === undefined || pagina?.recorte === undefined
+      ? todas
+      : todas.slice(pagina.recorte.desde, pagina.recorte.hasta);
+
+  // El conteo se cuenta solo cuando HAY filas: ver el docblock. El que da el sistema, se escribe. Y
+  // se cuentan TODAS y no la pagina: una tabla de 54 129 filas no tiene 100.
   const rotuloDelConteo =
-    filas === undefined ? null : (conteo ?? (filas.length === 0 ? null : textos.registros(filas.length)));
-  const vacio = tabla.vacio === undefined || tabla.vacio === '' ? '' : resolverTexto(tabla.vacio, nombrados, traducir, textos.datoAusente);
+    todas === undefined ? null : (conteo ?? (todas.length === 0 ? null : textos.registros(todas.length)));
+  const vacio = tabla.vacio;
+  const hayVacio = vacio !== undefined && vacio !== '' && (!esVacioConSalida(vacio) || vacio.titulo !== '');
   const columnasDibujadas = tabla.columnas.length + (acciones === undefined ? 0 : 1);
+  const ordenado = tabla.orden === undefined ? undefined : campoOrdenado(tabla.orden, sitio.leer(tabla.orden.enLaRuta));
+  const descendente = tabla.orden !== undefined && sitio.leer(tabla.orden.sentidoEnLaRuta) === tabla.orden.descendente;
 
   return (
     <div className={tabla.cabeceraFija === true ? 'flex min-h-0 flex-1 flex-col' : undefined}>
@@ -102,6 +185,16 @@ export function TablaDelBloque({
         </p>
         {rotuloDelConteo === null ? null : (
           <span className="text-[11.5px] text-tinta-3">{rotuloDelConteo}</span>
+        )}
+        {tabla.orden === undefined ? null : (
+          <MandoDeOrden
+            orden={tabla.orden}
+            paginacion={paginacion}
+            sitio={sitio}
+            nombrados={nombrados}
+            traducir={traducir}
+            textos={textos}
+          />
         )}
         {tabla.accion === undefined ? null : (
           <Boton type="button" tamano="menudo">
@@ -133,9 +226,29 @@ export function TablaDelBloque({
               <TablaRotulo
                 key={c.rotulo}
                 cifra={c.alineadoDerecha}
+                // La columna que se esta ordenando lo ANUNCIA, y se sabe cual por su `campo`: el
+                // mismo valor que viaja en la ruta. Una columna sin `campo` nunca lo lleva.
+                aria-sort={
+                  c.campo !== undefined && c.campo === ordenado ? (descendente ? 'descending' : 'ascending') : undefined
+                }
                 className={tabla.cabeceraFija === true ? `sticky top-0 ${CAPA_CABECERA_FIJA}` : undefined}
               >
                 {traducir(c.rotulo)}
+                {c.campo === undefined ? null : (
+                  // El nombre del campo y su dominio NO se traducen: son codigo, como las
+                  // operaciones del pie de #44.
+                  <span
+                    data-slot="campo-de-la-columna"
+                    className="block font-normal normal-case tracking-normal text-tinta-3"
+                  >
+                    <code>{c.campo}</code>
+                    {c.dominio === undefined ? null : (
+                      <span data-slot="dominio-de-la-columna" className="block">
+                        {c.dominio}
+                      </span>
+                    )}
+                  </span>
+                )}
               </TablaRotulo>
             ))}
             {acciones === undefined ? null : (
@@ -146,14 +259,15 @@ export function TablaDelBloque({
           </TablaFila>
         </TablaCabecera>
         <TablaCuerpo>
-          {(filas ?? []).map((fila, i) => {
+          {(dibujadas ?? []).map((fila, i) => {
             const detalle = detalleDe(tabla, fila, traducir, textos);
             const idDelDetalle = detalle === '' ? undefined : `${raiz}-detalle-${String(i)}`;
+            const bordes = idDelDetalle === undefined ? undefined : 'border-b-0';
             return (
               // La clave es la que da la fila o, sin ella, la fila entera, y no el indice: dos filas
               // no suelen ser iguales —llevan su identificador— y con el indice, reordenar deja a
               // React reusando la fila equivocada.
-              <Fragment key={fila.clave ?? fila.celdas.join('|')}>
+              <Fragment key={fila.clave ?? claveDeLasCeldas(fila.celdas)}>
                 <TablaFila
                   impar={i % 2 === 1}
                   data-realzada={fila.realzada === true ? '' : undefined}
@@ -163,32 +277,49 @@ export function TablaDelBloque({
                   {fila.celdas.map((celda, j) => {
                     const columna = tabla.columnas[j];
                     const clave = columna?.rotulo ?? j;
+                    const leido = textoDeLaCelda(celda);
+                    const nota = notaDeLaCelda(celda);
                     // Con regla, el tono lo dice la regla y `tonoDeLaInsignia` NO se llama (AC-2).
                     if (columna?.insignia !== undefined) {
-                      const insignia = resolverInsignia(columna.insignia, celda, fila.datos, traducir);
+                      const insignia = resolverInsignia(columna.insignia, leido ?? undefined, fila.datos, traducir);
                       return (
-                        <TablaCelda key={clave} className={idDelDetalle === undefined ? undefined : 'border-b-0'}>
-                          {insignia === undefined ? celda : <Insignia tono={insignia.tono}>{insignia.texto}</Insignia>}
+                        <TablaCelda key={clave} className={bordes} title={nota}>
+                          {insignia !== undefined ? (
+                            <Insignia tono={insignia.tono}>{insignia.texto}</Insignia>
+                          ) : leido === null ? (
+                            <SinDato tabla={tabla} texto={texto} textos={textos} nota={nota} />
+                          ) : (
+                            leido
+                          )}
+                        </TablaCelda>
+                      );
+                    }
+                    if (leido === null) {
+                      // Nunca una celda en blanco, y nunca un cero: un cero es una afirmacion (#61).
+                      return (
+                        <TablaCelda key={clave} cifra={columna?.alineadoDerecha === true} className={bordes}>
+                          <SinDato tabla={tabla} texto={texto} textos={textos} nota={nota} />
                         </TablaCelda>
                       );
                     }
                     return j === tabla.columnaDeInsignia ? (
-                      <TablaCelda key={clave} className={idDelDetalle === undefined ? undefined : 'border-b-0'}>
-                        <Insignia tono={tonoDeLaInsignia(celda)}>{celda}</Insignia>
+                      <TablaCelda key={clave} className={bordes} title={nota}>
+                        <Insignia tono={tonoDeLaInsignia(leido)}>{leido}</Insignia>
                       </TablaCelda>
                     ) : (
                       <TablaCelda
                         key={clave}
                         cifra={columna?.alineadoDerecha === true}
                         identifica={j === 0}
-                        className={idDelDetalle === undefined ? undefined : 'border-b-0'}
+                        className={bordes}
+                        title={nota}
                       >
-                        {celda}
+                        {leido}
                       </TablaCelda>
                     );
                   })}
                   {acciones === undefined ? null : (
-                    <TablaCelda className={idDelDetalle === undefined ? undefined : 'border-b-0'}>
+                    <TablaCelda className={bordes}>
                       <AccionesDeLaFila
                         definicion={acciones}
                         fila={fila}
@@ -220,7 +351,7 @@ export function TablaDelBloque({
         </TablaCuerpo>
       </Tabla>
 
-      {filas === undefined ? (
+      {todas === undefined ? (
         <p
           data-sin-dato=""
           className="m-0 px-[15px] py-[10px] bg-sup text-[12px] leading-[1.5] text-tinta-3 italic text-pretty"
@@ -229,13 +360,36 @@ export function TablaDelBloque({
         </p>
       ) : null}
 
-      {filas !== undefined && filas.length === 0 && vacio !== '' ? (
-        <p data-vacio="" className="m-0 px-[15px] py-[18px] text-center text-[13px] leading-[1.5] text-tinta-3 text-pretty">
-          {vacio}
-        </p>
+      {todas !== undefined && todas.length === 0 && hayVacio && vacio !== undefined ? (
+        esVacioConSalida(vacio) ? (
+          // El vacio con su salida DENTRO (#61): la frase sola deja a quien la lee sin saber a donde
+          // ir, y buscar en el arbol cual de las hojas crea el primero es adivinar.
+          <div data-vacio="" className="flex flex-col items-center gap-[10px] px-[15px] py-[18px] text-center">
+            <p className="m-0 text-[13px] font-bold text-tinta">{texto(vacio.titulo)}</p>
+            {vacio.texto === undefined || vacio.texto === '' ? null : (
+              <p className="m-0 text-[12.5px] leading-[1.5] text-tinta-3 text-pretty">{texto(vacio.texto)}</p>
+            )}
+            {vacio.acciones === undefined || vacio.acciones.length === 0 ? null : (
+              <GrupoDeAcciones
+                acciones={vacio.acciones}
+                nombrados={nombrados}
+                traducir={traducir}
+                textos={textos}
+                interaccion={interaccion}
+              />
+            )}
+          </div>
+        ) : (
+          <p
+            data-vacio=""
+            className="m-0 px-[15px] py-[18px] text-center text-[13px] leading-[1.5] text-tinta-3 text-pretty"
+          >
+            {texto(vacio)}
+          </p>
+        )
       ) : null}
 
-      {filas !== undefined && filas.length === 0 && vacio === '' ? (
+      {todas !== undefined && todas.length === 0 && !hayVacio ? (
         // Nunca una tabla muda (AC-3): una lista vacia sin motivo es un defecto de la definicion, y
         // se ve en la pantalla, como la pieza del consumidor sin registrar de #44.
         <div className="px-[15px] py-[10px]">
@@ -245,9 +399,54 @@ export function TablaDelBloque({
         </div>
       ) : null}
 
+      {/* Los mandos de la pagina van DEBAJO de la tabla, como en la V6. Sin filas no se dibujan:
+          paginar lo que no llego no lleva a ninguna parte, y el vacio ya dice que hacer. */}
+      {paginacion === undefined || pagina === undefined || todas === undefined || todas.length === 0 ? null : (
+        <MandoDePaginas
+          paginacion={paginacion}
+          pagina={pagina}
+          sitio={sitio}
+          textos={textos}
+          nombreDeLaTabla={traducir(tabla.titulo)}
+        />
+      )}
+
       {tabla.nota === undefined ? null : <TablaNota>{traducir(tabla.nota)}</TablaNota>}
     </div>
   );
+}
+
+/**
+ * Lo que ocupa una celda sin dato: la palabra de la tabla, o la del saco, y **nunca un blanco**
+ * (#61, `celda-nula-con-palabra-y-nota`).
+ *
+ * El motivo se anuncia con `title` —el de la celda si lo trae, y el de la tabla si no—, porque una
+ * raya sola no distingue «ninguna operacion publica este dato» de «esto esta roto».
+ */
+function SinDato({
+  tabla,
+  texto,
+  textos,
+  nota,
+}: {
+  readonly tabla: DefinicionDeTabla<Texto>;
+  readonly texto: (t: Texto) => string;
+  readonly textos: TextosDeLaPantalla;
+  readonly nota: string | undefined;
+}) {
+  const deLaTabla = tabla.sinDato;
+  const palabra = deLaTabla === undefined ? textos.celdaSinDato : texto(deLaTabla.texto);
+  const porQue = nota ?? (deLaTabla?.nota === undefined ? textos.porQueLaCeldaNoTieneDato : texto(deLaTabla.nota));
+  return (
+    <span data-celda-sin-dato="" className="text-tinta-3" title={porQue}>
+      {palabra}
+    </span>
+  );
+}
+
+/** La clave de React de una fila sin `clave`: lo que se lee en sus celdas, unido. */
+function claveDeLasCeldas(celdas: readonly CeldaDeLaTabla[]): string {
+  return celdas.map((celda) => textoDeLaCelda(celda) ?? '').join('|');
 }
 
 /** La segunda linea de una fila, o `''` si la fila no la lleva. Se resuelve con los datos DE LA FILA. */

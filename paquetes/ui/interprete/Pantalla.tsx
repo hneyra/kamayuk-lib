@@ -223,6 +223,7 @@ export function Pantalla({
               textos={palabras}
               tonoDeLaInsignia={tonoDeLaInsignia}
               nombrados={conLaHoja.nombrados}
+              hoja={hoja}
               enLugarDelCuerpo={enLugarDelCuerpo}
               encimaDelCuerpo={encimaDelCuerpo}
               acciones={
