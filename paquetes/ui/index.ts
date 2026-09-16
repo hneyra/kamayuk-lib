@@ -266,3 +266,16 @@ export {
   pestanaAbierta,
   recorrerLasPiezas,
 } from './interprete/composicion.ts';
+// Las tablas de #61: la pagina y el orden en la ruta, la celda que puede no traer dato, el vacio con
+// su salida y las filas que viajan en la definicion. Los mandos —`MandoDeOrden`, `MandoDePaginas`—
+// NO se exportan, por lo mismo que la tabla: nadie dibuja medio interprete. Las reglas puras si.
+export type {
+  CampoDeOrden,
+  OrdenDeLaTabla,
+  PaginacionDeLaTabla,
+  VacioDeLaTabla,
+} from './interprete/tipos.ts';
+export type { CeldaDeLaTabla } from './interprete/datos.ts';
+export type { PaginaDeUnaTabla } from './interprete/reglas-de-las-tablas.ts';
+export { notaDeLaCelda, paginaDeLaTabla, textoDeLaCelda } from './interprete/reglas-de-las-tablas.ts';
+export { cambiosEn } from './interprete/hoja.ts';
