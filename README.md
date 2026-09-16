@@ -64,7 +64,10 @@ Con `link:` no hay versión que dé margen: cada `main` de aquí es el `main` de
 el trabajo `consumidores` de [`paquetes.yml`](.github/workflows/paquetes.yml) le corre la suite a
 cada consumidor **dos veces** —con la librería en `main` y con la rama del PR— y falla si la rama lo
 pone rojo (#10). A quién mide no está escrito en el workflow: lo lee de
-[`consumidores.json`](consumidores.json), y lo vigila `los-consumidores-se-miran.test.ts`.
+[`consumidores.json`](consumidores.json), y lo vigila `los-consumidores-se-miran.test.ts`, que desde
+#79 comprueba **lo que decide que el `link:` del consumidor resuelva** —que `<directorio>/<ruta>`
+baje dos niveles y que `directorio` no choque con el clon de esta librería— y, **como convención**,
+que la carpeta se llame como el repositorio.
 
 | Sistema | Enlaza `kamayuk-lib` | La CI lo mide |
 |---|---|---|

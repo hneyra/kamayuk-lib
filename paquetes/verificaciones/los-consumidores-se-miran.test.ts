@@ -27,6 +27,15 @@ import { describe, expect, it } from 'vitest';
  * el workflow deja de leer, o una orden mal escrita dan un trabajo **en verde que no mira nada**.
  * Es la misma forma de fallo que este repositorio ya conoce —una guarda que no puede fallar— y
  * aqui se aplica al guardian.
+ *
+ * <h2>Y la disposicion en el disco, que hasta #79 se vigilaba por efecto secundario</h2>
+ *
+ * Los campos `directorio` y `ruta` deciden donde cae el clon del consumidor, y de eso depende que
+ * su `link:` resuelva. Hasta #79 lo unico que se comprobaba era el NOMBRE —que `directorio` fuera
+ * el ultimo trozo del repositorio—, que protege de rebote: es a la vez mas estricto que la
+ * resolucion y ciego a la mitad del camino, porque `ruta` no lo miraba nadie. Hoy hay **tres**
+ * renglones, y cada uno dice lo que es: la profundidad y el choque con esta libreria DECIDEN; el
+ * nombre es CONVENCION. Los tres, con su muestra.
  */
 
 const JSON_DE_CONSUMIDORES = 'consumidores.json';
@@ -43,6 +52,57 @@ const declarado = JSON.parse(readFileSync(JSON_DE_CONSUMIDORES, 'utf8')) as {
   consumidores: Consumidor[];
 };
 const workflow = readFileSync(WORKFLOW, 'utf8');
+
+/**
+ * Los niveles que sube el `link:` del consumidor, y por tanto los que tiene que bajar el consumidor
+ * desde la raiz del espacio de trabajo del corredor.
+ *
+ * NO se lee de ningun consumidor, porque aqui no hay ningun clon suyo que leer: es el `../../` que
+ * los cuatro llevan escrito (`link:../../kamayuk-lib/paquetes/*`, medido en los cuatro
+ * `frontend/package.json`). El dia que uno use otra profundidad, esta constante deja de valer para
+ * todos y hay que volver a decidir que se vigila.
+ */
+const NIVELES_QUE_SUBE_EL_LINK = 2;
+
+/** Donde `actions/checkout` deja ESTA libreria en el trabajo de consumidores (`path: kamayuk-lib`). */
+const CARPETA_DE_LA_LIBRERIA = 'kamayuk-lib';
+
+/** Lo que de una entrada decide la disposicion en el disco. `orden` no participa. */
+type Disposicion = Pick<Consumidor, 'repositorio' | 'directorio' | 'ruta'>;
+
+/**
+ * Un tramo vacio, `.` o `..` hace que contar tramos mienta —`a/./b` baja dos niveles, no tres, y
+ * `a/..` no baja ninguno—, asi que ninguno de los tres cuenta como nivel: la entrada sale roja.
+ */
+const esUnTramoCorriente = (tramo: string): boolean => tramo !== '' && tramo !== '.' && tramo !== '..';
+
+/** `null` = el camino no es una cadena de nombres corrientes, y su profundidad no se puede afirmar. */
+const nivelesQueBaja = ({ directorio, ruta }: Disposicion): number | null => {
+  const tramos = [...directorio.split('/'), ...ruta.split('/')];
+  return tramos.every(esUnTramoCorriente) ? tramos.length : null;
+};
+
+const losQueNoCaenDondeElLinkMira = (consumidores: readonly Disposicion[]): string[] =>
+  consumidores
+    .filter((c) => nivelesQueBaja(c) !== NIVELES_QUE_SUBE_EL_LINK)
+    .map((c) => {
+      const niveles = nivelesQueBaja(c);
+      const cuanto =
+        niveles === null
+          ? 'lleva un tramo que no es un nombre de carpeta («», «.» o «..»)'
+          : `baja ${niveles} niveles`;
+      return `  ${c.repositorio}: «${c.directorio}/${c.ruta}» ${cuanto}, y el «link:» sube ${NIVELES_QUE_SUBE_EL_LINK}`;
+    });
+
+const losQueChocanConLaLibreria = (consumidores: readonly Disposicion[]): string[] =>
+  consumidores
+    .filter((c) => c.directorio === CARPETA_DE_LA_LIBRERIA)
+    .map((c) => `  ${c.repositorio} pide clonarse en «${c.directorio}», que ya es el clon de esta libreria`);
+
+const losQueNoSiguenLaConvencion = (consumidores: readonly Disposicion[]): string[] =>
+  consumidores
+    .filter((c) => c.directorio !== c.repositorio.split('/').pop())
+    .map((c) => `  ${c.repositorio} se clona en «${c.directorio}»`);
 
 describe('la CI mira a sus consumidores', () => {
   it('EL CENTINELA: hay al menos un consumidor declarado', () => {
@@ -64,7 +124,9 @@ describe('la CI mira a sus consumidores', () => {
     ).toEqual([]);
   });
 
-  it('el `directorio` es el que el `link:` del consumidor espera', () => {
+  it('el consumidor cae a la PROFUNDIDAD que su `link:` mira', () => {
+    // LO QUE DE VERDAD DECIDE SI EL `link:` RESUELVE, y hasta #79 esta guarda no lo miraba.
+    //
     // NO es que el clon caiga «en otro sitio», que es lo que dijo este comentario hasta #77: el
     // `mv consumidor '<directorio>'` del workflow usa ESTE mismo campo, asi que el clon cae
     // exactamente donde el campo diga, y lo que viene despues —`cache-dependency-path` y los
@@ -72,23 +134,115 @@ describe('la CI mira a sus consumidores', () => {
     //
     // Lo que se rompe es el `link:` del consumidor, y ese `link:` mira la PROFUNDIDAD, no el
     // nombre: `link:../../kamayuk-lib/paquetes/ui` sube dos niveles desde `<directorio>/<ruta>`
-    // hasta la raiz del espacio de trabajo, que es donde `actions/checkout` dejo la libreria con
-    // `path: kamayuk-lib`. Medido con yarn 1 —el de los cuatro consumidores, que no declaran
-    // `packageManager`— sobre esta misma disposicion: con `caja-web/frontend` en vez de
-    // `caja/frontend` el enlace resuelve IGUAL; con un `directorio` de dos tramos, `yarn install`
-    // ni se queja —RC=0, y deja el symlink COLGANDO—, y el rojo no llega hasta que alguien importa:
-    // `Cannot find module '@kamayuk/formato'` · `MODULE_NOT_FOUND`, dentro de la suite del
-    // consumidor y sin una palabra sobre `consumidores.json`.
+    // hasta la raiz del espacio de trabajo, que es donde `actions/checkout` dejo la libreria.
     //
-    // Asi que esta comprobacion es un PROXY, y conviene saberlo: pedir que el directorio sea el
-    // ultimo trozo del repositorio garantiza UN solo tramo y descarta el nombre `kamayuk-lib`, que
-    // son las dos formas de tumbar la resolucion, y de paso mantiene la convencion de que la
-    // carpeta se llame como el repositorio. Pero es mas estricta que la resolucion: un nombre
-    // distinto a la misma profundidad sale rojo sin que nada estuviera roto.
-    const torcidos = declarado.consumidores
-      .filter((c) => c.directorio !== c.repositorio.split('/').pop())
-      .map((c) => `  ${c.repositorio} se clona en «${c.directorio}»`);
-    expect(torcidos, `El directorio no cuadra con el repositorio:\n${torcidos.join('\n')}`).toEqual([]);
+    // Y LA `ruta` CUENTA IGUAL QUE EL `directorio`, que es la mitad que #79 midio antes de
+    // escribirla: los dos campos forman el mismo camino, asi que `caja/apps/web` rompe exactamente
+    // como `a/b/frontend`. En un banco con la disposicion del job (`node:22` por Docker, yarn 1
+    // —el de los cuatro consumidores, que no declaran `packageManager`—):
+    //
+    //   | directorio        | ruta        | yarn install | require('@kamayuk/formato')            |
+    //   | caja              | frontend    | RC=0         | «la libreria»                          |
+    //   | a/b               | frontend    | RC=0         | Cannot find module · MODULE_NOT_FOUND  |
+    //   | caja-ruta-honda   | apps/web    | RC=0         | Cannot find module · MODULE_NOT_FOUND  |
+    //
+    // Los tres dejan el MISMO symlink —`../../../../kamayuk-lib/paquetes/formato`—, y en los dos
+    // ultimos queda COLGANDO sin que `yarn install` diga una palabra: el rojo no llega hasta que
+    // alguien importa, dentro de la suite del consumidor y sin nombrar `consumidores.json`. Por eso
+    // se vigila aqui, que es donde se arregla.
+    const fuera = losQueNoCaenDondeElLinkMira(declarado.consumidores);
+    expect(
+      fuera,
+      `En «${JSON_DE_CONSUMIDORES}» hay consumidores que no caen donde su «link:» los busca:\n${fuera.join('\n')}`,
+    ).toEqual([]);
+  });
+
+  it('ningun `directorio` choca con el clon de esta libreria', () => {
+    // La otra forma de tumbar el trabajo, y NO rompe por donde parece: medido, si el consumidor
+    // llegara a estar en `kamayuk-lib/frontend` su `link:` resolveria —yarn lo acorta a
+    // `../../../paquetes/formato` y `require` devuelve «la libreria»—. Lo que se rompe es el `mv`.
+    //
+    // `mv consumidor 'kamayuk-lib'` con `kamayuk-lib` ya existente sale **RC=0** y mete el clon
+    // DENTRO: queda `kamayuk-lib/consumidor` y `kamayuk-lib/frontend` no existe. El rojo lo da el
+    // `working-directory` del paso de instalar —`can't cd to kamayuk-lib/frontend`, RC=2—, otra vez
+    // lejos de `consumidores.json` y sin nombrarlo.
+    //
+    // El otro choque, `directorio: "consumidor"`, NO se vigila y esta medido por que: `mv consumidor
+    // consumidor` sale **RC=1** diciendo «cannot move 'consumidor' to a subdirectory of itself», o
+    // sea que falla en el acto, en el paso que lo causa y con el nombre del campo en la orden.
+    const chocan = losQueChocanConLaLibreria(declarado.consumidores);
+    expect(
+      chocan,
+      `En «${JSON_DE_CONSUMIDORES}» hay un «directorio» que choca con el clon de esta libreria:\n${chocan.join('\n')}`,
+    ).toEqual([]);
+  });
+
+  it('LA CONVENCION: el `directorio` se llama como el ultimo trozo del repositorio', () => {
+    // ESTO ES UNA CONVENCION, NO LA RESOLUCION, y se conserva a sabiendas (#79). Medido en #45 y
+    // otra vez en #78: `caja-web/frontend` resuelve IGUAL que `caja/frontend`, asi que este renglon
+    // sale rojo sin que nada este roto. Las dos comprobaciones de arriba son las que deciden.
+    //
+    // POR QUE SE QUEDA. Con ella, la disposicion del corredor es la MISMA que la del disco de quien
+    // desarrolla —`<x>/caja/frontend` junto a `<x>/kamayuk-lib`, que es lo que pide el `link:`—, y
+    // un rojo de CI se reproduce en local con las mismas rutas, copiadas tal cual del registro. Sin
+    // ella, `directorio` seria un nombre libre que hay que ir a leer para saber que carpeta mira
+    // cada `working-directory` del workflow.
+    //
+    // Y CUANTO CUESTA: hoy, nada. `directorio` es, en las cuatro entradas, el ultimo trozo de
+    // `repositorio`. El dia que un consumidor necesite otro nombre —y no hay ninguno a la vista—,
+    // lo que se borra es ESTE renglon con su muestra, y no las dos comprobaciones de arriba.
+    const torcidos = losQueNoSiguenLaConvencion(declarado.consumidores);
+    expect(
+      torcidos,
+      `En «${JSON_DE_CONSUMIDORES}» el «directorio» no se llama como el repositorio ` +
+        `(es la CONVENCION, no la resolucion):\n${torcidos.join('\n')}`,
+    ).toEqual([]);
+  });
+
+  it('LA MUESTRA: un camino que no baja dos niveles sale rojo, lo torciera el `directorio` o la `ruta`', () => {
+    // Una guarda que no puede fallar no protege nada, y estas tres se comprueban sobre DATO del
+    // disco: sin muestras, un `consumidores.json` sano las deja verdes para siempre sin ejercitar
+    // una sola linea de la regla.
+    const referencia = { repositorio: 'hneyra/caja', directorio: 'caja', ruta: 'frontend' };
+    expect(losQueNoCaenDondeElLinkMira([referencia]), 'la disposicion buena sale roja').toEqual([]);
+
+    for (const torcida of [
+      { ...referencia, directorio: 'a/b' },
+      { ...referencia, ruta: 'apps/web' },
+      { ...referencia, directorio: 'caja/' },
+      { ...referencia, ruta: './frontend' },
+      { ...referencia, directorio: '..' },
+    ]) {
+      expect(
+        losQueNoCaenDondeElLinkMira([torcida]),
+        `«${torcida.directorio}/${torcida.ruta}» paso en verde`,
+      ).toHaveLength(1);
+      expect(
+        losQueNoCaenDondeElLinkMira([torcida])[0],
+        'el rojo no dice donde se arregla',
+      ).toContain(torcida.repositorio);
+    }
+  });
+
+  it('LA MUESTRA: un `directorio` llamado `kamayuk-lib` sale rojo, y solo el', () => {
+    const referencia = { repositorio: 'hneyra/caja', directorio: 'caja', ruta: 'frontend' };
+    expect(losQueChocanConLaLibreria([referencia])).toEqual([]);
+    // Y no es la profundidad: `kamayuk-lib/frontend` baja dos niveles, asi que la otra regla lo deja
+    // pasar. Son dos formas de romper distintas y cada una tiene su renglon.
+    const choque = { repositorio: 'hneyra/kamayuk-lib-web', directorio: 'kamayuk-lib', ruta: 'frontend' };
+    expect(losQueNoCaenDondeElLinkMira([choque]), 'la profundidad ya lo cazaba: la muestra no prueba nada').toEqual([]);
+    expect(losQueChocanConLaLibreria([choque]), '«kamayuk-lib» como directorio paso en verde').toHaveLength(1);
+  });
+
+  it('LA MUESTRA: un nombre distinto a la misma profundidad rompe LA CONVENCION y nada mas', () => {
+    // El caso que #78 midio: `caja-web/frontend` resuelve igual. Aqui se decide explicitamente que
+    // pasa con el — sale rojo, pero SOLO por el renglon de la convencion, y los dos que miran la
+    // resolucion lo dejan pasar. Si algun dia se afloja, esto es lo que hay que borrar.
+    const otroNombre = { repositorio: 'hneyra/caja', directorio: 'caja-web', ruta: 'frontend' };
+    expect(losQueNoCaenDondeElLinkMira([otroNombre]), 'la resolucion no se rompe, y la guarda dice que si').toEqual([]);
+    expect(losQueChocanConLaLibreria([otroNombre])).toEqual([]);
+    expect(losQueNoSiguenLaConvencion([otroNombre]), 'la convencion dejo pasar «caja-web»').toHaveLength(1);
+    expect(losQueNoSiguenLaConvencion([{ ...otroNombre, directorio: 'caja' }])).toEqual([]);
   });
 
   it('el workflow LEE la lista, en vez de traerla escrita dentro', () => {
