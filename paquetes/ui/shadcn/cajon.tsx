@@ -3,6 +3,7 @@ import { Dialog } from 'radix-ui';
 import type { ComponentProps } from 'react';
 
 import { cn } from '../utilidades.ts';
+import { CAPA_PANEL_DEL_CAJON, CAPA_VELO_DEL_CAJON } from './capas.ts';
 
 /**
  * El cajón que entra por un lado de la pantalla. Es el `Sheet` de shadcn.
@@ -29,7 +30,7 @@ export const DisparadorDelCajon = Dialog.Trigger;
 export const CerrarElCajon = Dialog.Close;
 
 const panel = cva(
-  'fixed z-[86] flex flex-col bg-fondo shadow-sombra-2 outline-none',
+  `fixed ${CAPA_PANEL_DEL_CAJON} flex flex-col bg-fondo shadow-sombra-2 outline-none`,
   {
     variants: {
       lado: {
@@ -48,7 +49,10 @@ export interface PanelDelCajonProps
 export function PanelDelCajon({ className, lado, children, ...resto }: PanelDelCajonProps) {
   return (
     <Dialog.Portal>
-      <Dialog.Overlay data-slot="velo-del-cajon" className="fixed inset-0 z-[85] bg-velo" />
+      <Dialog.Overlay
+        data-slot="velo-del-cajon"
+        className={`fixed inset-0 ${CAPA_VELO_DEL_CAJON} bg-velo`}
+      />
       <Dialog.Content
         data-slot="panel-del-cajon"
         data-lado={lado ?? 'izquierda'}

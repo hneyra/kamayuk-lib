@@ -2,6 +2,7 @@ import { Select } from 'radix-ui';
 import type { ComponentProps, ReactNode } from 'react';
 
 import { cn } from '../utilidades.ts';
+import { CAPA_FLOTANTE } from './capas.ts';
 import { CONTROL } from './control.ts';
 
 /**
@@ -78,7 +79,7 @@ export function Desplegable({
           position="popper"
           sideOffset={4}
           className={cn(
-            'z-50 min-w-[var(--radix-select-trigger-width)] max-h-[min(320px,var(--radix-select-content-available-height))]',
+            `${CAPA_FLOTANTE} min-w-[var(--radix-select-trigger-width)] max-h-[min(320px,var(--radix-select-content-available-height))]`,
             'overflow-hidden rounded-sm border border-linea bg-superficie shadow-sombra-2',
           )}
         >

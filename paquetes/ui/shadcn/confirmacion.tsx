@@ -2,6 +2,7 @@ import { AlertDialog } from 'radix-ui';
 import type { ComponentProps } from 'react';
 
 import { cn } from '../utilidades.ts';
+import { CAPA_PANEL_DE_CONFIRMACION, CAPA_VELO_DE_CONFIRMACION } from './capas.ts';
 import { FOCO } from './foco.ts';
 
 /**
@@ -43,11 +44,14 @@ export type PanelDeConfirmacionProps = ComponentProps<typeof AlertDialog.Content
 export function PanelDeConfirmacion({ className, children, ...resto }: PanelDeConfirmacionProps) {
   return (
     <AlertDialog.Portal>
-      <AlertDialog.Overlay data-slot="velo-de-confirmacion" className="fixed inset-0 z-[88] bg-velo" />
+      <AlertDialog.Overlay
+        data-slot="velo-de-confirmacion"
+        className={`fixed inset-0 ${CAPA_VELO_DE_CONFIRMACION} bg-velo`}
+      />
       <AlertDialog.Content
         data-slot="panel-de-confirmacion"
         className={cn(
-          'fixed left-1/2 top-1/2 z-[89] w-[min(460px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2',
+          `fixed left-1/2 top-1/2 ${CAPA_PANEL_DE_CONFIRMACION} w-[min(460px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2`,
           'overflow-hidden rounded-sm bg-superficie shadow-sombra-2 outline-none',
           className,
         )}

@@ -1,4 +1,5 @@
 import {
+  CAPA_BARRA_GLOBAL,
   Boton,
   DisparadorDelMenu,
   FOCO_EN_LA_BARRA,
@@ -49,7 +50,7 @@ export function BarraGlobal({
   return (
     <div
       data-slot="barra-global"
-      className="relative z-[79] flex shrink-0 flex-wrap items-stretch bg-azul-oscuro text-sobre-barra"
+      className={`relative ${CAPA_BARRA_GLOBAL} flex shrink-0 flex-wrap items-stretch bg-azul-oscuro text-sobre-barra`}
     >
       <span className="flex min-w-0 flex-1 items-center gap-3 px-4 py-[9px]">
         <Boton
