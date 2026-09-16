@@ -9,6 +9,13 @@
     "que caer JUNTO a `kamayuk-lib`, asi que el nombre del medio no es libre.",
     "`orden` es la orden que se ejecuta en `ruta`, y no se supone: `rentas` encadena lint, tipos y",
     "pruebas en `yarn verificar`, y otro sistema podria llamarla de otra forma.",
+    "`pcf` es el port del Catastro Fiscal del MEF a Spring Boot y React. Su `yarn verificar` encadena",
+    "lint, tipos y 1 169 pruebas (~20 s). Su arnes de navegador —`yarn e2e`, 84 specs de Playwright—",
+    "queda FUERA a proposito, igual que en los otros cuatro: lo que esta lista mide es que un cambio",
+    "de aqui no rompa al consumidor, y para eso una suite de jsdom vale mas que una de navegador de",
+    "dos minutos. Entro con la pila de capas de #81, que `pcf` destapo dos veces y parcheo en su",
+    "propia hoja de estilos hasta que el arreglo subio aqui.",
+    "",
     "`catastro` baja ademas UN commit antes de verificar: su guarda `el-inventario-es-la-v6` compara",
     "`frontend/diseno/catastro-v6.json` con la V6 congelada en `22e6d2e`, y este job clona sin historia.",
     "Sin ese `git fetch` sus dos pasadas salen rojas y el veredicto se queda en aviso: medido en #68.",
@@ -39,6 +46,12 @@
     {
       "repositorio": "hneyra/caja",
       "directorio": "caja",
+      "ruta": "frontend",
+      "orden": "yarn verificar"
+    },
+    {
+      "repositorio": "hneyra/pcf",
+      "directorio": "pcf",
       "ruta": "frontend",
       "orden": "yarn verificar"
     }

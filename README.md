@@ -72,11 +72,13 @@ pone rojo (#10). A quién mide no está escrito en el workflow: lo lee de
 | `catastro` | sí, desde `catastro`#118 | **sí**, desde #45 |
 | `caja` | sí, desde `caja`#83 | **sí**, desde #75 |
 | `ciudadano` | sí | **sí**, desde #56 |
+| `pcf` | sí, desde su T1 | **sí**, desde #82 |
 | `normativa` | no | no |
 
 La columna del medio se midió sobre el `main` de cada sistema el 2026-09-16, contando los
 `link:../../kamayuk-lib/paquetes/*` de `frontend/package.json`: seis en `rentas`, `catastro` y
-`caja`, tres en `ciudadano` y cero en `normativa`. **Un sistema entra en la lista cuando ya enlaza, y no antes**: medirlo
+`caja`, **cuatro en `pcf`** —`ui`, `shell`, `api` y `formato`; no enlaza `sesion`, porque su login es
+el JWT propio del sistema que porta, ni `verificaciones`—, tres en `ciudadano` y cero en `normativa`. **Un sistema entra en la lista cuando ya enlaza, y no antes**: medirlo
 antes sería correr una suite que no lee nada de aquí.
 
 ## Comandos
