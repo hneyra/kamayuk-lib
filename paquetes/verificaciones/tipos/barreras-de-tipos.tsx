@@ -12,6 +12,7 @@ import type {
   PeldanoDeUnFallo,
   PiezaDeLaPantalla,
 } from '../../ui/index.ts';
+import type { Cliente, RespuestaTalCual } from '../../api/index.ts';
 import { formatearImporte } from '../../formato/index.ts';
 import { peldanoDe } from '../../sesion/index.ts';
 import type { NavegacionDelArmazon } from '../../shell/index.ts';
@@ -196,3 +197,40 @@ export const accionesImposibles: readonly DefinicionDeAccion[] = [
  * que `@kamayuk/ui` importe el marco. Sin `@ts-expect-error`: esto TIENE que compilar.
  */
 export const laNavegacionDelMarcoCabe = (delMarco: NavegacionDelArmazon): NavegacionDeLaPantalla => delMarco;
+
+/**
+ * Las barreras de #57: **`OpcionesDeSolicitud` no tiene ninguna cabecera libre**, y las cabeceras
+ * que llegaron no se cambian.
+ *
+ * Es la regla 2 (ADR-0005) llevada al tipo. Un `cabeceras` —o un `headers`— en las opciones seria
+ * el sitio por el que una pantalla mandaria el inquilino, o sobrescribiria el `Authorization` con
+ * otro token, **sin que ninguna prohibicion de ESLint lo viera**: el identificador prohibido no
+ * aparece, porque el valor lo pone una variable. Lo que haga falta mandar entra como opcion con
+ * nombre, como `claveDeIdempotencia`, que se ve en el tipo.
+ */
+export function sinCabecerasLibres(cliente: Cliente) {
+  return [
+    // @ts-expect-error `OpcionesDeSolicitud` no tiene `cabeceras`: por ahi se sobrescribiria el token
+    cliente.solicitar('/x', { cabeceras: { Authorization: 'Bearer el-de-otro' } }),
+    // @ts-expect-error ni `headers`, que es lo mismo escrito en ingles
+    cliente.solicitar('/x', { headers: { 'X-Municipalidad': '7' } }),
+    // @ts-expect-error y tampoco en `solicitarRespuesta`, que comparte las opciones
+    cliente.solicitarRespuesta('/x', { cabeceras: { 'X-Municipalidad': '7' } }),
+  ];
+}
+
+/**
+ * Y las cabeceras que llegaron son de SOLO LECTURA: `CabecerasDeLaRespuesta` es un `Headers` sin
+ * sus tres mutadores. Escribirlas cambiaria lo que la respuesta dice haber traido, que es justo lo
+ * que se estaba comprobando.
+ */
+export function lasCabecerasQueLlegaronNoSeCambian(respuesta: RespuestaTalCual) {
+  // @ts-expect-error `set` no esta: lo que llego no se reescribe
+  respuesta.cabeceras.set('ETag', '"otra-huella"');
+  // @ts-expect-error ni `delete`
+  respuesta.cabeceras.delete('Cache-Control');
+}
+
+/** Pero leerlas SI compila, que es para lo que estan. Sin `@ts-expect-error`. */
+export const laHuellaQueAnuncio = (respuesta: RespuestaTalCual): string | null =>
+  respuesta.cabeceras.get('ETag');
