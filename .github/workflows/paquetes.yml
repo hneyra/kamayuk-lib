@@ -43,7 +43,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "24"
           cache: yarn
 
       # `--frozen-lockfile`: si el `yarn.lock` no cuadra con los `package.json`, se para aqui en
@@ -142,11 +142,11 @@ jobs:
 
       # Node hace falta ANTES de clonar al consumidor, porque lo que decide contra que rama clonarlo
       # es un guion de esta libreria. La version no se deja a la que traiga la imagen del corredor:
-      # este repositorio declara `node >=22`. El `setup-node` de mas abajo se queda donde esta,
+      # este repositorio declara `node >=24`. El `setup-node` de mas abajo se queda donde esta,
       # porque el suyo cachea el `yarn.lock` DEL CONSUMIDOR y ese archivo todavia no existe aqui.
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "24"
 
       # CONTRA QUE RAMA DEL CONSUMIDOR SE MIDE ESTE PR (#26).
       #
@@ -189,7 +189,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "24"
           cache: yarn
           cache-dependency-path: ${{ format('{0}/{1}/yarn.lock', matrix.directorio, matrix.ruta) }}
 
