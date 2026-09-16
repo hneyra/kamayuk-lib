@@ -1,5 +1,10 @@
 /**
- * Las nueve prohibiciones del producto, como DATO.
+ * Las prohibiciones del producto, como DATO: **nueve obligatorias y una opcional**.
+ *
+ * Las nueve de `PROHIBICIONES` valen en los cinco sistemas y no se eligen. La de
+ * `PROHIBICIONES_OPCIONALES` la enciende el sistema que quiera, en su propio
+ * `eslint.prohibiciones.mjs`; por que no puede estar en la primera lista esta medido abajo, en su
+ * propio javadoc (#58).
  *
  * Vivieron en `rentas/frontend/eslint.prohibiciones.mjs` hasta que las mudo `kamayuk-lib`#4. El
  * motivo de mudarlas es un hueco medido: el codigo enlazado desde aqui **no lo lintaba nadie** —
@@ -53,6 +58,45 @@
  * Nombres de campo que llevan dinero. Sobre ellos no se hace aritmetica ni se declara un
  * `number`.
  *
+ * <h2>Son los del PRODUCTO, y es UNA lista (#58)</h2>
+ *
+ * Hasta #58 eran los de `rentas` y solo los de `rentas`: `monto`, `saldo`, `deuda`, `vuelto`,
+ * `recibido`… o sea el vocabulario de una ventanilla que cobra. Con eso, `uit`, `alicuota`,
+ * `arancel` y `valorUnitario` —que son NUMERIC en la base, `BigDecimal` en el backend y texto
+ * decimal en el cable exactamente igual que un monto— pasaban sin vigilar en los cinco sistemas.
+ * `normativa` lo habia resuelto en su V6 con **su propia lista** (`c01fe9a:frontend/eslint.
+ * prohibiciones.mjs:53-54`), que es el fork que `rentas`#137 acababa de cerrar un piso mas abajo.
+ *
+ * Asi que la lista es **una union**, no un parametro por sistema. El motivo es el defecto que
+ * cerro `rentas`#137: dos listas en verde midiendo cosas distintas. Un nombre de mas en un
+ * sistema que no lo usa no cuesta nada —no hay codigo que senalar—; un nombre de menos es un
+ * campo de dinero sin vigilar, y no hay rojo en ningun lado que lo diga.
+ *
+ * <h2>Lo que NO entra, y esta medido</h2>
+ *
+ * Una prohibicion que senala codigo correcto se desactiva, y una regla desactivada no protege
+ * nada. Estos nombres se probaron y se quedan fuera, cada uno con su falso positivo:
+ *
+ *   · **`valor` a secas** — es el nombre generico de cualquier campo de un formulario, y en este
+ *     mismo arbol `paquetes/ui/shadcn/avance.tsx:24` declara `readonly valor: number | null`: el
+ *     avance de 0 a 100 de una barra de progreso, que es `number` con toda la razon. Entra **con
+ *     apellido**: `valorUnitario`, `valorArancelario`, `valorReferencial`, `valorNumerico`,
+ *     `valorM2`.
+ *   · **`porcentaje` a secas** — `catastro:src/pantallas/piezas/avance-por-fila.tsx:37` declara
+ *     `readonly porcentaje: number` y lo que guarda es el **indice de una columna**, no un tanto
+ *     por ciento. Entra con apellido: `porcentajeDeActualizacion` esta en `CIFRAS_NORMATIVAS`.
+ *   · **`base` a secas** — `baseUrl`, `baseDeDatos`, `baseline`. Entra `baseImponible`.
+ *   · **`tim` y `tope`** — lo midio la V6 de `normativa` (`c01fe9a:…:81-83`): con coincidencia por
+ *     prefijo, `tim` caza `timeout` y `timer`, y `tope` caza cualquier limite de la interfaz.
+ *
+ * Los cuatro campos decimales del snapshot de `normativa` (`docs/50-api/formas-de-la-api.json`,
+ * `GET /conjuntos/{id}/snapshot`) se repartieron por ese mismo criterio: `valorNumerico` y
+ * `valorM2` entran; `porcentaje` de la fila de depreciacion y `valor` de la fila del valor
+ * referencial **no**, por lo de arriba. A los dos que quedan fuera no los deja sin barrera: los
+ * dos llegan como `"texto"` en las formas de la API, y quien lo comprueba campo a campo contra el
+ * `record` del backend es la guarda de formas de `normativa`, no ESLint. Renombrarlos para que
+ * cayeran en esta lista seria cambiar el JSON que publica el backend.
+ *
  * **`total` lleva una excepcion, y es de verdad la unica.** `totalElementos` y `totalPaginas`
  * son los dos contadores del envoltorio de paginacion del backend —`{ contenido, pagina,
  * tamano, totalElementos, totalPaginas, hayMas }`, que publican mas de sesenta de las 181
@@ -64,7 +108,24 @@
  * prueba de reglas lo comprueba por los dos lados.
  */
 const CAMPOS_DE_DINERO =
-  'monto|importe|saldo|deuda|total(?!Elementos|Paginas)|insoluto|interes|autovaluo|arbitrio|recargo|vuelto|recibido|pagado|abonado';
+  'monto|importe|saldo|deuda|total(?!Elementos|Paginas)|insoluto|interes|autovaluo|arbitrio|recargo|vuelto|recibido|pagado|abonado|' +
+  'uit|alicuota|arancel|valorUnitario|valorArancelario|valorReferencial|valorNumerico|valorM2|deduccion|depreciacion|reajuste|baseImponible';
+
+/**
+ * Colecciones que no se suman en el cliente: un `reduce` sobre ellas es un total calculado aqui.
+ *
+ * **Gana `parametros` en #58**, porque un conjunto sellado de `normativa` es una lista de
+ * parametros y sumarla en la pantalla seria componer una cifra que nadie sello.
+ *
+ * **`tramos` se probo y NO entra, y el falso positivo esta medido**: en
+ * `catastro:src/pantallas/piezas/codigo-por-tramos.tsx:87` la linea es
+ * `ajustes.tramos.reduce((suma, t) => suma + t.digitos, 0)` — la suma de los **digitos** de los
+ * ocho tramos del codigo catastral, que es una longitud y no un importe. Anadirlo pone rojo a un
+ * consumidor por codigo correcto, que es la familia de `tim` y `tope`. Lo peligroso de verdad
+ * —clavar el tramo del predial en el codigo— lo caza la prohibicion OPCIONAL, que lleva `tramo`
+ * en `CIFRAS_NORMATIVAS`.
+ */
+const COLECCIONES_QUE_NO_SE_SUMAN = 'cuotas|conceptos|valores|papeletas|parametros';
 
 /**
  * Tildes y enie: prohibidas en identificadores (idioma del repositorio).
@@ -137,7 +198,7 @@ export const PROHIBICIONES = [
     regla: 'sin aritmetica sobre importes',
     selector:
       `BinaryExpression[operator=/^[-+*/%]$/] > MemberExpression[property.name=/^(${CAMPOS_DE_DINERO})/i], ` +
-      `CallExpression[callee.property.name='reduce'][callee.object.property.name=/^(${CAMPOS_DE_DINERO}|cuotas|conceptos|valores|papeletas)/i]`,
+      `CallExpression[callee.property.name='reduce'][callee.object.property.name=/^(${CAMPOS_DE_DINERO}|${COLECCIONES_QUE_NO_SE_SUMAN})/i]`,
     message:
       'Aritmetica con un importe. El total lo calcula el backend y lo sostiene con su fecha: pidelo, no lo sumes (regla 1, regla 9).',
   },
@@ -197,3 +258,95 @@ export const REGLAS_EXIGIDAS = [
   'el token no toca localStorage ni sessionStorage',
   'alicuota, nunca tasa',
 ];
+
+// ---------------------------------------------------------------------------------------------
+// LAS OPCIONALES (#58)
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * Los nombres que nombran una cifra que fija una NORMA.
+ *
+ * No es la misma lista que `CAMPOS_DE_DINERO` aunque se solapen, y la diferencia importa: alli se
+ * prohibe el TIPO —un importe es texto—, aqui se prohibe el LITERAL —la cifra no se escribe, se
+ * pide—. `monto` esta en la primera y no en la segunda porque un monto lo calcula alguien; `uit`
+ * esta en las dos porque la UIT es texto decimal *y* la fija un decreto supremo.
+ *
+ * Sale verbatim de la V6 de `normativa` (`c01fe9a:frontend/eslint.prohibiciones.mjs:85-86`), que
+ * es donde se midio. **Ni `tim` ni `tope` estan, y se probo por que**: con coincidencia por
+ * prefijo, `tim` caza `timeout` y `timer`, y `tope` caza cualquier limite de la interfaz.
+ */
+const CIFRAS_NORMATIVAS =
+  'uit|alicuota|tramo|arancel|valorUnitario|valorArancelario|valorReferencial|depreciacion|deduccion|minimoImponible|factorDeActualizacion|porcentajeDeActualizacion';
+
+/**
+ * Un literal que es una cifra, la escriba quien la escriba como numero o como texto.
+ *
+ * Las dos formas, y hacen falta las dos: en estas interfaces **un importe es `string`** (regla 1),
+ * asi que quien clave la alicuota predial no escribira `0.006` sino `'0.006'` — y una prohibicion
+ * que solo mirase los numeros dejaria pasar precisamente la forma que las otras reglas obligan a
+ * usar.
+ */
+const LITERAL_DE_CIFRA =
+  ':matches(Literal[value=type(number)], Literal[value=/^-?[0-9]+([.][0-9]+)?$/])';
+
+/** Los sitios donde un literal queda ATADO a un nombre, que es lo que lo hace una cifra. */
+const ATADURAS_DE_CIFRA = [
+  `VariableDeclarator[id.name=/^(${CIFRAS_NORMATIVAS})/i]`,
+  `Property[key.name=/^(${CIFRAS_NORMATIVAS})/i]`,
+  `PropertyDefinition[key.name=/^(${CIFRAS_NORMATIVAS})/i]`,
+  `AssignmentPattern[left.name=/^(${CIFRAS_NORMATIVAS})/i]`,
+];
+
+/**
+ * Las prohibiciones que un sistema ENCIENDE si quiere, y que por omision no estan.
+ *
+ * <h2>Por que una lista aparte y no una decima en `PROHIBICIONES`</h2>
+ *
+ * **Porque `rentas` saldria en rojo sin tocar nada suyo, y esta medido por dos caminos distintos:**
+ *
+ *   1. `rentas` deriva **todas** las prohibiciones de esta libreria (`rentas#137`), y su
+ *      `verificaciones/reglas-de-eslint.test.ts` exige de cada clave **una muestra en SU propio
+ *      arbol**. Su `frontend/verificaciones/muestras/` tiene nueve. Una decima aqui lo deja rojo
+ *      con «La prohibicion «cifra-tributaria-literal» no tiene muestra que la viole».
+ *   2. La linea `export const alicuotaPredial = '0.006';` es, **a los dos lados**, el ejemplo de
+ *      codigo CORRECTO de la prueba «el codigo que las respeta pasa limpio»
+ *      (`reglas-de-eslint.test.ts` de esta libreria y el de `rentas`). Encendida por omision, ese
+ *      caso se pone rojo en los dos repositorios.
+ *
+ * Y no es que a `rentas` le falte una muestra: es que **la regla no es suya**. `rentas` consume la
+ * alicuota y puede tenerla a mano; `normativa` es el sistema cuyo trabajo entero es que esas
+ * cifras vivan en datos versionados, firmados a dos manos (ADR-0007) y sellados por ejercicio. La
+ * misma linea es correcta en un repositorio y roja en el otro, y esa es exactamente la diferencia
+ * entre consumir una cifra y publicarla.
+ *
+ * <h2>Como se enciende</h2>
+ *
+ * El sistema la anade a su lista en su `eslint.prohibiciones.mjs`, junto a las nueve derivadas.
+ * Esta libreria **no la enciende para si misma**: aqui no se publica ninguna cifra normativa, y su
+ * muestra vive en `muestras/`, que el `eslint.config.js` ignora.
+ *
+ * @type {readonly Prohibicion[]}
+ */
+export const PROHIBICIONES_OPCIONALES = [
+  {
+    clave: 'cifra-tributaria-literal',
+    regla: 'ninguna cifra tributaria literal en el codigo',
+    selector: ATADURAS_DE_CIFRA.map((atadura) => `${atadura} > ${LITERAL_DE_CIFRA}`).join(', '),
+    message:
+      'Ninguna cifra tributaria literal en el codigo: la UIT, los tramos, las alicuotas, los valores unitarios y los aranceles viven en el conjunto sellado del ejercicio y se PIDEN (regla 5, RNF-053). Escribirla aqui la publica sin las dos firmas de ADR-0007.',
+  },
+];
+
+/**
+ * Las reglas del producto que un sistema PUEDE expresar como verificacion, y que no se le exigen.
+ *
+ * Es la segunda lista escrita a mano, y existe por lo mismo que `REGLAS_EXIGIDAS`:
+ * `PROHIBICIONES_OPCIONALES` se deriva hacia la prueba, asi que borrar una prohibicion opcional se
+ * llevaria su prueba por delante, en silencio. Esta lista es lo que se pone rojo cuando eso pasa.
+ *
+ * Y va aparte de `REGLAS_EXIGIDAS` a proposito: mezclarlas diria que esta regla se le exige a los
+ * cinco sistemas, que es justo lo que la medicion de arriba dice que no.
+ *
+ * @type {readonly string[]}
+ */
+export const REGLAS_OPCIONALES = ['ninguna cifra tributaria literal en el codigo'];

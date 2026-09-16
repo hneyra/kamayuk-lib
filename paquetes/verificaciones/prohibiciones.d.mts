@@ -89,7 +89,25 @@ export declare const DONDE_SE_LLAMA_A_FETCH: readonly string[];
 export declare const PROHIBICIONES: readonly Prohibicion[];
 
 /**
- * Las reglas del producto que el frontend expresa como verificacion. Es la unica lista escrita a
- * mano, y la que se pone roja cuando borrar una prohibicion se lleva su prueba por delante.
+ * Las reglas del producto que el frontend expresa como verificacion. Es una de las dos listas
+ * escritas a mano, y la que se pone roja cuando borrar una prohibicion se lleva su prueba por
+ * delante.
  */
 export declare const REGLAS_EXIGIDAS: readonly string[];
+
+/**
+ * Las prohibiciones que un sistema ENCIENDE si quiere (#58). **Misma forma que las obligatorias**,
+ * y por eso no hay un segundo tipo: lo que cambia no es el dato sino quien decide aplicarlo.
+ *
+ * Van aparte de `PROHIBICIONES` porque anadirlas ahi pone rojo a `rentas` sin tocar nada suyo —su
+ * prueba exige una muestra por clave **en su propio arbol**, y su ejemplo de codigo correcto es
+ * justo lo que la opcional prohibe—. El motivo entero, medido, esta en `prohibiciones.mjs`.
+ */
+export declare const PROHIBICIONES_OPCIONALES: readonly Prohibicion[];
+
+/**
+ * Las reglas del producto que un sistema PUEDE expresar como verificacion, y que no se le exigen.
+ * La segunda lista escrita a mano, y la que se pone roja cuando borrar una prohibicion opcional se
+ * lleva su prueba por delante.
+ */
+export declare const REGLAS_OPCIONALES: readonly string[];
