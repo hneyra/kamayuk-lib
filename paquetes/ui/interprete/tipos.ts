@@ -177,10 +177,28 @@ export interface DefinicionDeTabla<T extends Texto = string> {
    * «este registro no tiene ninguna evidencia». Es una respuesta, no la ausencia de #27. Sin ella,
    * una tabla vacia lo dice con un aviso del saco: nunca una tabla muda.
    *
-   * Desde #61 (`vacio-con-su-salida`) puede ser ademas **un vacio con su salida dentro**: el titulo,
-   * la frase y el boton que saca de ahi.
    */
-  readonly vacio?: T | VacioDeLaTabla<T>;
+  readonly vacio?: T;
+  /**
+   * **El vacio con su salida dentro** (#61, `vacio-con-su-salida`): el titulo, la frase y el boton
+   * que saca de ahi. Gana a `vacio` si una definicion trae los dos.
+   *
+   * <h2>Por que es un campo aparte y no `vacio: T | VacioDeLaTabla<T>`</h2>
+   *
+   * **Medido, no supuesto**: con la union, `caja` deja de compilar. Recorre sus definiciones
+   * metiendo `tabla.vacio` en una lista de claves de traduccion
+   * (`src/i18n/catalogo-de-claves.ts:64`), y sobre una union esa lectura no vale:
+   *
+   * ```
+   * src/i18n/catalogo-de-claves.ts(64,50): error TS2345: Argument of type
+   *   'string | VacioDeLaTabla<string>' is not assignable to parameter of type 'string'.
+   * ```
+   *
+   * Es el mismo motivo por el que `DefinicionDeBloque` es generica en sus textos en vez de
+   * ensancharlos (#44): **lo nuevo tiene que ser aditivo**, porque estas definiciones las RECORREN
+   * cuatro sistemas, y ensanchar un campo que ya leen les rompe la compilacion sin que lo pidan.
+   */
+  readonly vacioConSalida?: VacioDeLaTabla<T>;
   /**
    * La cabecera queda fija y el cuerpo se desplaza dentro de su propio marco
    * (#65, `tabla-de-cabecera-fija`). La altura la pone quien la contiene.

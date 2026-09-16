@@ -23,7 +23,6 @@ import { cambiosEn, valorEnLaRuta, type EnLaRuta, type HojaDelMarco } from './ho
 import type { InteraccionDeLaPantalla } from './interaccion.ts';
 import { campoOrdenado, MandoDeOrden, MandoDePaginas, type SitioDeLaTabla } from './MandosDeLaTabla.tsx';
 import {
-  esVacioConSalida,
   notaDeLaCelda,
   paginaDeLaTabla,
   resolverInsignia,
@@ -73,7 +72,7 @@ import type { DefinicionDeTabla, TonoDeInsignia, Texto } from './tipos.ts';
  *     en la columna cuyo `campo` es ese</td></tr>
  *   <tr><td>celda `{ texto, nota }`</td><td>`null` se dice con palabra, y nunca con `''` ni con un
  *     `0` (`celda-nula-con-palabra-y-nota`)</td></tr>
- *   <tr><td>`vacio` con salida</td><td>el vacio lleva su boton dentro (`vacio-con-su-salida`)</td></tr>
+ *   <tr><td>`vacioConSalida`</td><td>el vacio lleva su boton dentro (`vacio-con-su-salida`)</td></tr>
  *   <tr><td>`filasDeContenido`</td><td>las filas que SON el texto de la pantalla y viajan en la
  *     definicion (`filas-de-contenido-que-viajan`)</td></tr>
  * </table>
@@ -171,8 +170,11 @@ export function TablaDelBloque({
   // se cuentan TODAS y no la pagina: una tabla de 54 129 filas no tiene 100.
   const rotuloDelConteo =
     todas === undefined ? null : (conteo ?? (todas.length === 0 ? null : textos.registros(todas.length)));
-  const vacio = tabla.vacio;
-  const hayVacio = vacio !== undefined && vacio !== '' && (!esVacioConSalida(vacio) || vacio.titulo !== '');
+  // `vacioConSalida` gana a `vacio` si la definicion trae los dos. Son dos campos y no una union
+  // porque la union rompe la compilacion de `caja`: ver el docblock de `DefinicionDeTabla`.
+  const conSalida = tabla.vacioConSalida !== undefined && tabla.vacioConSalida.titulo !== '' ? tabla.vacioConSalida : undefined;
+  const vacio = tabla.vacio === undefined || tabla.vacio === '' ? undefined : tabla.vacio;
+  const hayVacio = conSalida !== undefined || vacio !== undefined;
   const columnasDibujadas = tabla.columnas.length + (acciones === undefined ? 0 : 1);
   const ordenado = tabla.orden === undefined ? undefined : campoOrdenado(tabla.orden, sitio.leer(tabla.orden.enLaRuta));
   const descendente = tabla.orden !== undefined && sitio.leer(tabla.orden.sentidoEnLaRuta) === tabla.orden.descendente;
@@ -360,33 +362,33 @@ export function TablaDelBloque({
         </p>
       ) : null}
 
-      {todas !== undefined && todas.length === 0 && hayVacio && vacio !== undefined ? (
-        esVacioConSalida(vacio) ? (
-          // El vacio con su salida DENTRO (#61): la frase sola deja a quien la lee sin saber a donde
-          // ir, y buscar en el arbol cual de las hojas crea el primero es adivinar.
-          <div data-vacio="" className="flex flex-col items-center gap-[10px] px-[15px] py-[18px] text-center">
-            <p className="m-0 text-[13px] font-bold text-tinta">{texto(vacio.titulo)}</p>
-            {vacio.texto === undefined || vacio.texto === '' ? null : (
-              <p className="m-0 text-[12.5px] leading-[1.5] text-tinta-3 text-pretty">{texto(vacio.texto)}</p>
-            )}
-            {vacio.acciones === undefined || vacio.acciones.length === 0 ? null : (
-              <GrupoDeAcciones
-                acciones={vacio.acciones}
-                nombrados={nombrados}
-                traducir={traducir}
-                textos={textos}
-                interaccion={interaccion}
-              />
-            )}
-          </div>
-        ) : (
-          <p
-            data-vacio=""
-            className="m-0 px-[15px] py-[18px] text-center text-[13px] leading-[1.5] text-tinta-3 text-pretty"
-          >
-            {texto(vacio)}
-          </p>
-        )
+      {todas !== undefined && todas.length === 0 && conSalida !== undefined ? (
+        // El vacio con su salida DENTRO (#61): la frase sola deja a quien la lee sin saber a donde
+        // ir, y buscar en el arbol cual de las hojas crea el primero es adivinar.
+        <div data-vacio="" className="flex flex-col items-center gap-[10px] px-[15px] py-[18px] text-center">
+          <p className="m-0 text-[13px] font-bold text-tinta">{texto(conSalida.titulo)}</p>
+          {conSalida.texto === undefined || conSalida.texto === '' ? null : (
+            <p className="m-0 text-[12.5px] leading-[1.5] text-tinta-3 text-pretty">{texto(conSalida.texto)}</p>
+          )}
+          {conSalida.acciones === undefined || conSalida.acciones.length === 0 ? null : (
+            <GrupoDeAcciones
+              acciones={conSalida.acciones}
+              nombrados={nombrados}
+              traducir={traducir}
+              textos={textos}
+              interaccion={interaccion}
+            />
+          )}
+        </div>
+      ) : null}
+
+      {todas !== undefined && todas.length === 0 && conSalida === undefined && vacio !== undefined ? (
+        <p
+          data-vacio=""
+          className="m-0 px-[15px] py-[18px] text-center text-[13px] leading-[1.5] text-tinta-3 text-pretty"
+        >
+          {texto(vacio)}
+        </p>
       ) : null}
 
       {todas !== undefined && todas.length === 0 && !hayVacio ? (

@@ -212,8 +212,9 @@ export const MUESTRAS_DE_LAS_TABLAS = {
             titulo: 'Versiones',
             clave: 'versiones',
             columnas: [{ rotulo: 'Registro', alineadoDerecha: false }],
-            // El vacio lleva su salida DENTRO: la frase sola no dice a donde ir.
-            vacio: {
+            // El vacio lleva su salida DENTRO: la frase sola no dice a donde ir. Campo aparte de
+            // `vacio`, y no una union: la union rompe la compilacion de `caja` (ver `tipos.ts`).
+            vacioConSalida: {
               titulo: 'Ninguna version todavia',
               texto: 'Lo siguiente es abrir la primera.',
               acciones: [{ rotulo: 'Abrir la primera version', principal: true, abre: 'abrir' }],

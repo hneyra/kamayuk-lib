@@ -202,7 +202,7 @@ const LAS_TABLAS_DE_61: DefinicionDePantalla<PiezaDeLaPantalla> = {
           clave: 'con-salida',
           titulo: 'con salida',
           columnas: [{ rotulo: 'columna', alineadoDerecha: false }],
-          vacio: {
+          vacioConSalida: {
             titulo: 'ninguno todavia',
             texto: 'lo siguiente es crear el primero',
             acciones: [{ rotulo: 'crear el primero', hace: 'nadie-lo-atiende' }],

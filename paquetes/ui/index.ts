@@ -277,10 +277,5 @@ export type {
 } from './interprete/tipos.ts';
 export type { CeldaDeLaTabla } from './interprete/datos.ts';
 export type { PaginaDeUnaTabla } from './interprete/reglas-de-las-tablas.ts';
-export {
-  esVacioConSalida,
-  notaDeLaCelda,
-  paginaDeLaTabla,
-  textoDeLaCelda,
-} from './interprete/reglas-de-las-tablas.ts';
+export { notaDeLaCelda, paginaDeLaTabla, textoDeLaCelda } from './interprete/reglas-de-las-tablas.ts';
 export { cambiosEn } from './interprete/hoja.ts';

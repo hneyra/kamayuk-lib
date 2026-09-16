@@ -9,7 +9,6 @@ import { cambiosEn, type CambioDeLaRuta, type HojaDelMarco, type RutaDeLaHoja } 
 import { MUESTRAS_DE_LAS_TABLAS } from './muestras-de-las-tablas.ts';
 import { Pantalla, type PantallaProps } from './Pantalla.tsx';
 import {
-  esVacioConSalida,
   notaDeLaCelda,
   paginaDeLaTabla,
   tablasSinVacio,
@@ -476,12 +475,26 @@ describe('`vacio-con-su-salida` (H26): el vacio lleva su boton dentro', () => {
       titulo: 'Muda',
       clave: 'muda',
       columnas: [{ rotulo: 'A', alineadoDerecha: false }],
-      vacio: { titulo: '' },
+      vacioConSalida: { titulo: '' },
     });
     expect(tablasSinVacio(muda)).toEqual(['muda']);
-    expect(esVacioConSalida({ titulo: 'x' })).toBe(true);
-    expect(esVacioConSalida('x')).toBe(false);
-    expect(esVacioConSalida({ plantilla: 'x {y}' })).toBe(false);
+  });
+
+  it('es un campo APARTE de `vacio` porque la union rompe a `caja`, y con los dos gana la salida', () => {
+    // `caja` recorre sus definiciones metiendo `tabla.vacio` en una lista de cadenas
+    // (`src/i18n/catalogo-de-claves.ts:64`): con `vacio: T | VacioDeLaTabla<T>` deja de compilar.
+    // Aqui se fija que `vacio` sigue siendo un `Texto` a secas y que la salida es otro campo.
+    const losDos = conTabla({
+      titulo: 'T',
+      clave: 't',
+      columnas: [{ rotulo: 'A', alineadoDerecha: false }],
+      vacio: 'la frase sola',
+      vacioConSalida: { titulo: 'con su salida' },
+    });
+    const { container } = monta(losDos, { tablas: tablas('t', []) });
+    const vacios = container.querySelectorAll('[data-vacio]');
+    expect(vacios, 'se dibujaron los dos vacios a la vez').toHaveLength(1);
+    expect(vacios[0]?.textContent).toBe('con su salida');
   });
 });
 

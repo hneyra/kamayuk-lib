@@ -19,9 +19,9 @@ import type {
  * Puras, y aparte de las piezas por lo mismo que `componer.ts` (#44): se prueban sin montar, y una
  * pieza del consumidor que pinte su propia tabla usa estas y no una copia.
  *
- * **Desde #61 son seis**: ademas, que pagina se ve (`paginaDeLaTabla`), que dice una celda
- * (`textoDeLaCelda`, `notaDeLaCelda`) y si un vacio trae su salida (`esVacioConSalida`). La de la
- * pagina es la que mas gana con ser pura: se prueba con 54 129 filas sin montar ni una.
+ * **Desde #61 son cinco**: ademas, que pagina se ve (`paginaDeLaTabla`) y que dice una celda
+ * (`textoDeLaCelda`, `notaDeLaCelda`). La de la pagina es la que mas gana con ser pura: se prueba
+ * con 54 129 filas sin montar ni una.
  */
 
 /**
@@ -130,7 +130,7 @@ export function tablasSinVacio(definicion: DefinicionDePantalla<PiezaDeLaPantall
     for (const tabla of [...(pieza.tabla === undefined ? [] : [pieza.tabla]), ...(pieza.tablas ?? [])]) {
       // Una tabla cuyas filas VIAJAN en la definicion (#61) nunca puede llegar vacia: no lee datos.
       if ((tabla.filasDeContenido ?? []).length > 0) continue;
-      if (diceElVacio(tabla.vacio)) continue;
+      if (diceElVacio(tabla.vacio, tabla.vacioConSalida)) continue;
       const nombre = tabla.clave ?? tabla.titulo;
       if (!faltan.includes(nombre)) faltan.push(nombre);
     }
@@ -138,24 +138,10 @@ export function tablasSinVacio(definicion: DefinicionDePantalla<PiezaDeLaPantall
   return faltan;
 }
 
-/** Si un `vacio` dice algo. `''` no lo es —ni suelto ni como titulo—: es una tabla muda de otra forma. */
-function diceElVacio<T extends Texto>(vacio: T | VacioDeLaTabla<T> | undefined): boolean {
-  if (vacio === undefined || vacio === '') return false;
-  if (esVacioConSalida(vacio)) return vacio.titulo !== '';
-  return true;
-}
-
-/**
- * Si un `vacio` es **el vacio con su salida** (#61) y no un `Texto` a secas.
- *
- * Por `titulo`, que ninguna de las cuatro formas de `Texto` lleva: una cadena no es objeto, y
- * `plantilla`, `desde` y `segun` no se llaman asi. Comprobar la ausencia de las otras tres seria
- * una lista que se queda vieja el dia que `Texto` gane una cuarta forma.
- */
-export function esVacioConSalida<T extends Texto>(
-  vacio: T | VacioDeLaTabla<T>,
-): vacio is VacioDeLaTabla<T> {
-  return typeof vacio === 'object' && 'titulo' in vacio;
+/** Si una tabla dice por que estaria vacia. `''` no lo es —ni suelto ni como titulo—: es muda. */
+function diceElVacio<T extends Texto>(vacio: T | undefined, conSalida: VacioDeLaTabla<T> | undefined): boolean {
+  if (conSalida !== undefined && conSalida.titulo !== '') return true;
+  return vacio !== undefined && vacio !== '';
 }
 
 /**
