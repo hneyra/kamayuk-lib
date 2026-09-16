@@ -2,13 +2,18 @@
  * El unico sitio de una interfaz del producto donde se llama a `fetch`.
  *
  * No es una preferencia de estilo: es lo que sostiene todo lo que viene encima. El token
- * (ADR-0030 §3), la clave de idempotencia de las escrituras y el formato de error del
- * backend —`problem+json`— se enchufan en un sitio o en veinte. Un `fetch` suelto en una
- * pantalla no se salta una convencion: se salta las tres, y sobrevive a la integracion como un
- * caso aparte que nadie recuerda. Por eso la excepcion de la prohibicion `fetch-fuera-del-cliente`
- * es este paquete y solo este.
+ * (ADR-0030 §3), la clave de idempotencia de las escrituras —hoy `claveDeIdempotencia`, que sale
+ * como `Idempotency-Key`— y el formato de error del backend —`problem+json`— se enchufan en un
+ * sitio o en veinte. Un `fetch` suelto en una pantalla no se salta una convencion: se salta las
+ * tres, y sobrevive a la integracion como un caso aparte que nadie recuerda. Por eso la excepcion
+ * de la prohibicion `fetch-fuera-del-cliente` es este paquete y solo este.
  *
- * La tercera operacion, `subir()`, no cabe por `fetch`: necesita decir cuanto lleva enviado, y eso
+ * `solicitar()` y `solicitarRespuesta()` son **la misma peticion** —la compone `pedir()`, ahi
+ * abajo— y se diferencian solo en lo que hacen con la respuesta: la primera la interpreta, la
+ * segunda devuelve el estado, las cabeceras y los bytes tal cual, que es lo que necesita un cuerpo
+ * firmado con una huella.
+ *
+ * La cuarta operacion, `subir()`, no cabe por `fetch`: necesita decir cuanto lleva enviado, y eso
  * solo lo da `XMLHttpRequest`. Vive en `subir.ts`, encerrada igual que esto, y el porque entero
  * esta en su cabecera.
  *
@@ -27,11 +32,13 @@
  * <h2>El `municipalidadId` no se manda, y no se puede mandar (regla 2, ADR-0005)</h2>
  *
  * Esta funcion compone **la ruta que se le da y nada mas**: no anade parametros de consulta, no
- * anade cabeceras propias mas alla de las tres de abajo, y el cuerpo es el que le pasan. El
- * inquilino sale del token y lo fija el backend con `SET LOCAL`. Lo vigilan tres cosas a la vez:
- * la prohibicion `municipalidad-en-el-cliente` de ESLint, que ni siquiera deja escribir el
- * identificador; una prueba que espia lo que sale por el cable; y esta propiedad de que aqui no
- * se compone nada.
+ * anade cabeceras propias mas alla de las cuatro de abajo —y la cuarta, `Idempotency-Key`, solo
+ * si quien llama declaro su clave—, y el cuerpo es el que le pasan. El inquilino sale del token y
+ * lo fija el backend con `SET LOCAL`. Lo vigilan cuatro cosas a la vez: la prohibicion
+ * `municipalidad-en-el-cliente` de ESLint, que ni siquiera deja escribir el identificador; una
+ * prueba que espia lo que sale por el cable, para cada operacion; **`OpcionesDeSolicitud`, que no
+ * tiene ninguna cabecera libre** —con un `cabeceras` cualquiera colaria el inquilino, o borraria
+ * el `Authorization`—; y esta propiedad de que aqui no se compone nada.
  */
 
 import { ErrorDeLaApi, NoEsUnDocumento, type CuerpoDeProblema } from './errores.ts';
@@ -49,10 +56,61 @@ export { ArchivoRechazado, ErrorDeLaApi, NoEsUnDocumento } from './errores.ts';
 export type { CuerpoDeProblema, MotivoDelRechazo } from './errores.ts';
 export type { AvanceDeLaSubida, OpcionesDeSubida } from './subir.ts';
 
+/**
+ * Lo que se puede decir de una peticion. **No hay ninguna cabecera libre, y es a proposito.**
+ *
+ * Ni `cabeceras` ni `headers`: con una de las dos, cualquier pantalla podria sobrescribir
+ * `Authorization` —mandando otro token, o ninguno— o colar el inquilino por una cabecera propia,
+ * que es justo lo que la regla 2 (ADR-0005) impide en todas partes menos ahi. Lo que haga falta
+ * mandar entra como opcion con nombre, como `claveDeIdempotencia`, y entonces se ve en el tipo
+ * quien lo manda y cuando. Lo vigila una barrera de tipo en
+ * `paquetes/verificaciones/tipos/barreras-de-tipos.tsx`.
+ */
 export interface OpcionesDeSolicitud {
   readonly metodo?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   readonly cuerpo?: unknown;
   readonly senal?: AbortSignal;
+  /**
+   * La clave con la que el backend reconoce un reintento de ESTA escritura, tal cual va a la
+   * cabecera `Idempotency-Key`.
+   *
+   * Quien la genera y cuando se renueva lo decide la pantalla: aqui solo se manda. Sin ella la
+   * cabecera **no sale** —mandar una vacia es peor que no mandar ninguna, ver abajo—, y con ella
+   * sale igual en `solicitar` y en `solicitarRespuesta`.
+   *
+   * **En blanco lanza antes de llamar a `fetch`.** El backend trata una clave en blanco como si no
+   * hubiera clave —`EmitirCertificado.java:151` de `rentas`—, asi que una cadena vacia por un
+   * estado que todavia no cargo no da error en ningun sitio: da una segunda emision. El unico
+   * momento en que eso se puede decir es antes de que salga la peticion.
+   */
+  readonly claveDeIdempotencia?: string;
+}
+
+/**
+ * Las cabeceras que llegaron, **de solo lectura**: son un `Headers` sin `set`, `append` ni
+ * `delete`.
+ *
+ * Un `Headers` a secas se puede modificar, y una pantalla que le escribiera encima estaria
+ * cambiando lo que dice haber recibido. Aqui lo que importa es justo lo contrario: que lo que se
+ * lee es lo que el servidor mando.
+ */
+export type CabecerasDeLaRespuesta = Omit<Headers, 'append' | 'delete' | 'set'>;
+
+/**
+ * La respuesta **tal como llego**: su estado, sus cabeceras y su cuerpo sin interpretar.
+ *
+ * Es lo que `solicitar()` no puede dar, porque termina en `respuesta.json()` y ahi se pierden las
+ * tres cosas: el estado exacto, las cabeceras y —la que importa— **los bytes**. Un cuerpo que se
+ * firma con una huella se verifica sobre lo que llego, no sobre lo que salga de volver a
+ * serializar el objeto: `JSON.parse` y `JSON.stringify` no son inversas —`1.0` vuelve `1`, un
+ * escape `ó` vuelve la letra, los espacios se van— y el resultado *casi siempre* coincide,
+ * que es la peor de las propiedades.
+ */
+export interface RespuestaTalCual {
+  readonly estado: number;
+  readonly cabeceras: CabecerasDeLaRespuesta;
+  /** `await respuesta.text()` tal cual: sin `JSON.parse`, sin `JSON.stringify` y sin `trim`. */
+  readonly texto: string;
 }
 
 export interface OpcionesDeDescarga {
@@ -99,8 +157,30 @@ export interface ConfiguracionDelCliente {
 
 export interface Cliente {
   solicitar<T>(ruta: string, opciones?: OpcionesDeSolicitud): Promise<T>;
+  solicitarRespuesta(ruta: string, opciones?: OpcionesDeSolicitud): Promise<RespuestaTalCual>;
   descargar(ruta: string, opciones?: OpcionesDeDescarga): Promise<DocumentoDescargado>;
   subir<T>(ruta: string, opciones: OpcionesDeSubida): Promise<T>;
+}
+
+/**
+ * La cabecera de la clave de idempotencia, o ninguna.
+ *
+ * **Una clave en blanco lanza aqui**, y no se manda vacia ni se omite en silencio. Omitirla seria
+ * lo mismo que mandar una en blanco —el backend de `rentas` las trata igual,
+ * `EmitirCertificado.java:151`— y entonces el reintento de una escritura se cobraria dos veces sin
+ * que nada lo dijera: ni un error en la pantalla, ni una linea en el registro. Una excepcion aqui
+ * la ve quien escribe la pantalla, la primera vez que la prueba.
+ */
+function idempotencia(clave: string | undefined): Record<string, string> {
+  if (clave === undefined) return {};
+  if (clave.trim() === '') {
+    throw new Error(
+      'La clave de idempotencia esta en blanco. El backend trata una clave en blanco como si no ' +
+        'hubiera clave, asi que el reintento de esta escritura se aplicaria dos veces: o se manda ' +
+        'una clave con contenido, o no se declara la opcion.',
+    );
+  }
+  return { 'Idempotency-Key': clave };
 }
 
 /**
@@ -179,6 +259,43 @@ export function crearCliente(configuracion: ConfiguracionDelCliente): Cliente {
     return credencial === null ? {} : { Authorization: `Bearer ${credencial}` };
   };
 
+  /**
+   * La peticion que comparten `solicitar()` y `solicitarRespuesta()`, hasta el error incluido.
+   *
+   * Esta en un solo sitio para que compartirlo sea una propiedad del codigo y no una promesa de la
+   * documentacion: el prefijo, el token leido en esta llamada, el `Accept`, el `Content-Type` del
+   * cuerpo, la clave de idempotencia, la senal y el mismo `ErrorDeLaApi` por la misma `problemaDe`.
+   * Lo unico que las distingue es que hace cada una con la respuesta que sale de aqui.
+   *
+   * Las cabeceras se componen **antes** del `await fetch` a proposito: una clave de idempotencia en
+   * blanco tiene que lanzar sin que salga un byte, y no despues de que la escritura se haya hecho.
+   */
+  const pedir = async (ruta: string, opciones: OpcionesDeSolicitud): Promise<Response> => {
+    const metodo = opciones.metodo ?? 'GET';
+    const cabeceras = {
+      Accept: 'application/json',
+      ...autorizacion(),
+      ...(opciones.cuerpo === undefined ? {} : { 'Content-Type': 'application/json' }),
+      ...idempotencia(opciones.claveDeIdempotencia),
+    };
+
+    const respuesta = await fetch(`${prefijo}${ruta}`, {
+      method: metodo,
+      headers: cabeceras,
+      ...(opciones.cuerpo === undefined ? {} : { body: JSON.stringify(opciones.cuerpo) }),
+      ...(opciones.senal === undefined ? {} : { signal: opciones.senal }),
+    });
+
+    if (!respuesta.ok) {
+      // El estado y el codigo viajan en el error. Una interfaz que solo recibe «fallo» no
+      // puede distinguir «no tienes permiso» de «el otro sistema esta caido», y acaba
+      // ensenando la misma frase inutil para las dos.
+      throw new ErrorDeLaApi(respuesta.status, `${metodo} ${ruta}`, await problemaDe(respuesta));
+    }
+
+    return respuesta;
+  };
+
   return {
     /**
      * Pide `ruta` al backend y devuelve su cuerpo ya interpretado.
@@ -186,27 +303,50 @@ export function crearCliente(configuracion: ConfiguracionDelCliente): Cliente {
      * @param ruta relativa al prefijo del sistema, empezando por `/`
      */
     async solicitar<T>(ruta: string, opciones: OpcionesDeSolicitud = {}): Promise<T> {
-      const metodo = opciones.metodo ?? 'GET';
+      return (await (await pedir(ruta, opciones)).json()) as T;
+    },
 
-      const respuesta = await fetch(`${prefijo}${ruta}`, {
-        method: metodo,
-        headers: {
-          Accept: 'application/json',
-          ...autorizacion(),
-          ...(opciones.cuerpo === undefined ? {} : { 'Content-Type': 'application/json' }),
-        },
-        ...(opciones.cuerpo === undefined ? {} : { body: JSON.stringify(opciones.cuerpo) }),
-        ...(opciones.senal === undefined ? {} : { signal: opciones.senal }),
-      });
+    /**
+     * La misma peticion que `solicitar()`, pero devuelve **el estado, las cabeceras y el texto sin
+     * interpretar**.
+     *
+     * ```ts
+     * const { texto, cabeceras } = await cliente.solicitarRespuesta('/recursos/42');
+     * // `texto` son los bytes que llegaron; `cabeceras.get('ETag')`, lo que el servidor anuncio.
+     * ```
+     *
+     * Es para el cuerpo que viene firmado: el que trae una huella en una cabecera y hay que
+     * comprobar **sobre lo que llego**. `solicitar()` no sirve porque termina en
+     * `respuesta.json()`, y volver a serializar el objeto da otro texto —`1.0` vuelve `1`, un
+     * escape vuelve la letra— con otra huella; y las cabeceras, donde viaja la que hay que
+     * comparar, no salen de ahi.
+     *
+     * **Comprobar la huella NO es cosa de esta libreria**: aqui se entregan los bytes y las
+     * cabeceras, y quien sabe que algoritmo firmo su recurso, que forma de `ETag` acepta y que
+     * hacer si no cuadra es el sistema que lo pide.
+     *
+     * <h2>Lo que comparte con `solicitar()`, y lo que no</h2>
+     *
+     * Comparte todo lo que sale al cable y todo el trato de los errores: es la misma funcion. Lo
+     * que no comparte es la lectura — ni `JSON.parse`, ni `JSON.stringify`, ni `trim`.
+     *
+     * **Y no mira el `Content-Type`.** Es lo contrario que `descargar()`, que ante un 200 con JSON
+     * lanza `NoEsUnDocumento`: aqui un 200 con JSON es el caso normal, y lo dice una prueba.
+     *
+     * @param ruta relativa al prefijo del sistema, empezando por `/`, con su consulta si la lleva
+     * @throws ErrorDeLaApi si el backend contesta un error, igual que `solicitar()`
+     */
+    async solicitarRespuesta(
+      ruta: string,
+      opciones: OpcionesDeSolicitud = {},
+    ): Promise<RespuestaTalCual> {
+      const respuesta = await pedir(ruta, opciones);
 
-      if (!respuesta.ok) {
-        // El estado y el codigo viajan en el error. Una interfaz que solo recibe «fallo» no
-        // puede distinguir «no tienes permiso» de «el otro sistema esta caido», y acaba
-        // ensenando la misma frase inutil para las dos.
-        throw new ErrorDeLaApi(respuesta.status, `${metodo} ${ruta}`, await problemaDe(respuesta));
-      }
-
-      return (await respuesta.json()) as T;
+      return {
+        estado: respuesta.status,
+        cabeceras: respuesta.headers,
+        texto: await respuesta.text(),
+      };
     },
 
     /**

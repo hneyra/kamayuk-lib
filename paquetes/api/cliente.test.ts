@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ErrorDeLaApi, crearCliente, type Cliente } from './cliente.ts';
+import { ErrorDeLaApi, NoEsUnDocumento, crearCliente, type Cliente } from './cliente.ts';
 
 /**
  * El cliente HTTP de una interfaz del producto.
@@ -230,6 +230,214 @@ describe('ErrorDeLaApi conserva codigo y mensaje del problem+json', () => {
       mensaje: null,
       operacion: 'GET /seguridad/sesion',
     });
+  });
+});
+
+describe('«solicitarRespuesta» devuelve los bytes que llegaron, y no una reserializacion', () => {
+  /**
+   * Un cuerpo cuya reserializacion NO da lo mismo, con las cuatro diferencias a la vez:
+   * espacios, un `1.0` que vuelve `1`, un escape `ó` que vuelve la letra y una tilde
+   * literal. `JSON.stringify(JSON.parse(ESTE))` da `{"a":1,"b":"ó Resolución"}` — otro texto, y
+   * por tanto otra huella.
+   */
+  const FIRMADO = '{"a": 1.0, "b": "\\u00f3 Resolución"}';
+
+  /** La respuesta de un recurso firmado: su cuerpo, su huella en el `ETag` y su cache. */
+  function unRecursoFirmado(cabeceras: Record<string, string> = {}): Response {
+    return new Response(FIRMADO, {
+      status: 200,
+      headers: {
+        'content-type': 'application/json',
+        etag: '"3d5a7c1e"',
+        'cache-control': 'public, max-age=31536000, immutable',
+        ...cabeceras,
+      },
+    });
+  }
+
+  it('el texto es identico al que se sirvio, sin JSON.parse, sin JSON.stringify y sin trim', async () => {
+    fetchQueContesta(unRecursoFirmado());
+
+    const respuesta = await cliente.solicitarRespuesta('/recursos/42');
+
+    expect(respuesta.texto).toBe(FIRMADO);
+    // Y la propiedad de fondo, dicha al reves: pasar por el objeto cambia el texto. Si esta
+    // funcion interpretara y volviera a escribir, la huella del cuerpo dejaria de cuadrar con la
+    // que el servidor anuncio — y el consumidor concluiria que su copia esta corrupta.
+    expect(JSON.stringify(JSON.parse(respuesta.texto) as unknown)).not.toBe(FIRMADO);
+  });
+
+  it('el estado y las cabeceras llegan, que es lo que «solicitar» no puede dar', async () => {
+    fetchQueContesta(unRecursoFirmado());
+
+    const respuesta = await cliente.solicitarRespuesta('/recursos/42');
+
+    expect(respuesta.estado).toBe(200);
+    expect(respuesta.cabeceras.get('ETag')).toBe('"3d5a7c1e"');
+    expect(respuesta.cabeceras.get('Cache-Control')).toBe(
+      'public, max-age=31536000, immutable',
+    );
+  });
+
+  it('una cabecera que no vino se lee como null, no como cadena vacia', async () => {
+    fetchQueContesta(new Response('{}', { status: 200 }));
+
+    const respuesta = await cliente.solicitarRespuesta('/recursos/42');
+
+    expect(respuesta.cabeceras.get('ETag')).toBeNull();
+  });
+
+  it('un 200 con JSON es su caso NORMAL: lo contrario que «descargar»', async () => {
+    fetchQueContesta(unRecursoFirmado());
+
+    // `descargar()` ante esto lanza `NoEsUnDocumento`, y hace bien: un `.pdf` con JSON dentro es
+    // el peor desenlace. Aqui el `Content-Type` ni se mira, porque lo que se pide ES datos.
+    await expect(cliente.solicitarRespuesta('/recursos/42')).resolves.toMatchObject({
+      estado: 200,
+    });
+    await expect(cliente.descargar('/recursos/42')).rejects.toBeInstanceOf(NoEsUnDocumento);
+  });
+
+  it('un cuerpo vacio es cadena vacia, y no revienta como reventaria «solicitar»', async () => {
+    // `null` y no `''`: un 204 no admite cuerpo, y el constructor de `Response` lo rechaza
+    // —«Invalid response status code 204»—, que es un rojo del arnes y no de lo que se mide.
+    fetchQueContesta(new Response(null, { status: 204 }));
+
+    await expect(cliente.solicitarRespuesta('/recursos/42')).resolves.toMatchObject({
+      estado: 204,
+      texto: '',
+    });
+  });
+
+  it('comparte el prefijo y el token con «solicitar», porque es la misma peticion', async () => {
+    elToken = 'un-token-de-prueba';
+    const espia = fetchQueContesta(unRecursoFirmado());
+
+    await cliente.solicitarRespuesta('/recursos/42');
+
+    expect(espia.mock.calls[0]?.[0]).toBe('/rentas/api/v1/recursos/42');
+    const cabeceras = espia.mock.calls[0]?.[1]?.headers as Record<string, string>;
+    expect(cabeceras['Authorization']).toBe('Bearer un-token-de-prueba');
+    expect(cabeceras['Accept']).toBe('application/json');
+  });
+
+  it('un no-2xx lanza ErrorDeLaApi con su estado, su codigo y su mensaje', async () => {
+    fetchQueContesta(problema(403, 'SIN_PRIVILEGIO', 'No tiene el privilegio necesario'));
+
+    await expect(cliente.solicitarRespuesta('/recursos/42')).rejects.toMatchObject({
+      estado: 403,
+      codigo: 'SIN_PRIVILEGIO',
+      mensaje: 'No tiene el privilegio necesario',
+      operacion: 'GET /recursos/42',
+    });
+  });
+
+  it('pasa la senal de cancelacion', async () => {
+    const espia = fetchQueContesta(unRecursoFirmado());
+    const controlador = new AbortController();
+
+    await cliente.solicitarRespuesta('/recursos/42', { senal: controlador.signal });
+
+    expect(espia.mock.calls[0]?.[1]?.signal).toBe(controlador.signal);
+  });
+
+  it('no anade nada que nombre la municipalidad (regla 2, ADR-0005)', async () => {
+    elToken = 'un-token';
+    const espia = fetchQueContesta(unRecursoFirmado());
+
+    await cliente.solicitarRespuesta('/recursos/42?ejercicio=2026');
+
+    const [url, opciones] = espia.mock.calls[0] ?? [];
+    const todo = String(url) + JSON.stringify(opciones?.headers) + String(opciones?.body ?? '');
+    expect(todo.toLowerCase()).not.toContain('municipalidad');
+  });
+});
+
+describe('la clave de idempotencia se manda, y en blanco no sale nada al cable', () => {
+  /** Las cabeceras que le llegaron a `fetch` en la llamada `n`. */
+  const cabecerasDe = (espia: ReturnType<typeof fetchQueContesta>, n = 0) =>
+    espia.mock.calls[n]?.[1]?.headers as Record<string, string>;
+
+  it('con clave, «solicitar» manda Idempotency-Key tal cual', async () => {
+    const espia = fetchQueContesta(Response.json({ ok: true }));
+
+    await solicitar('/convenios', {
+      metodo: 'POST',
+      cuerpo: { cuotas: 12 },
+      claveDeIdempotencia: '0f8c2a11-4e3b-4b7e-9a2d-1c6f5e4d3b2a',
+    });
+
+    expect(cabecerasDe(espia)['Idempotency-Key']).toBe('0f8c2a11-4e3b-4b7e-9a2d-1c6f5e4d3b2a');
+  });
+
+  it('y «solicitarRespuesta» tambien: la opcion es de las dos', async () => {
+    const espia = fetchQueContesta(new Response('{}', { status: 200 }));
+
+    await cliente.solicitarRespuesta('/convenios', {
+      metodo: 'POST',
+      cuerpo: { cuotas: 12 },
+      claveDeIdempotencia: 'la-misma-clave',
+    });
+
+    expect(cabecerasDe(espia)['Idempotency-Key']).toBe('la-misma-clave');
+  });
+
+  it('sin clave, la cabecera NO sale', async () => {
+    const espia = fetchQueContesta(Response.json({ ok: true }));
+
+    await solicitar('/convenios', { metodo: 'POST', cuerpo: { cuotas: 12 } });
+
+    expect(cabecerasDe(espia)['Idempotency-Key']).toBeUndefined();
+  });
+
+  it.each(['', '   ', '\t\n'])(
+    'una clave en blanco (%j) lanza ANTES de llamar a fetch',
+    async (enBlanco) => {
+      const espia = fetchQueContesta(Response.json({ ok: true }));
+
+      // El backend trata una clave en blanco como si no hubiera clave
+      // (`EmitirCertificado.java:151` de `rentas`), asi que mandarla vacia no falla en ningun
+      // sitio: el reintento emite un segundo certificado. Por eso el error es AQUI, y por eso
+      // tiene que ser antes de que salga la peticion — una excepcion despues del POST llegaria
+      // tarde para lo unico que importa, que es que la escritura no se haya hecho ya.
+      await expect(
+        solicitar('/convenios', {
+          metodo: 'POST',
+          cuerpo: { cuotas: 12 },
+          claveDeIdempotencia: enBlanco,
+        }),
+      ).rejects.toThrow(/clave de idempotencia esta en blanco/i);
+
+      expect(espia).not.toHaveBeenCalled();
+    },
+  );
+
+  it('el conjunto de cabeceras es EXACTAMENTE {Accept, Authorization, Content-Type, Idempotency-Key}', async () => {
+    elToken = 'un-token';
+    const espia = fetchQueContesta(Response.json({ ok: true }));
+
+    await solicitar('/convenios', {
+      metodo: 'POST',
+      cuerpo: { cuotas: 12 },
+      claveDeIdempotencia: 'una-clave',
+    });
+
+    // No es «contiene»: es la lista entera. Una cabecera de mas aqui seria justo el sitio por
+    // donde se colaria el inquilino sin que ninguna prohibicion lo viera (regla 2, ADR-0005).
+    expect(Object.keys(cabecerasDe(espia)).sort()).toEqual([
+      'Accept',
+      'Authorization',
+      'Content-Type',
+      'Idempotency-Key',
+    ]);
+  });
+
+  it('y sin token, sin cuerpo y sin clave es EXACTAMENTE {Accept}', async () => {
+    const espia = fetchQueContesta(Response.json({ ok: true }));
+
+    await solicitar('/convenios');
+
+    expect(Object.keys(cabecerasDe(espia))).toEqual(['Accept']);
   });
 });
 
