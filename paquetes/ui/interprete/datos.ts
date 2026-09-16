@@ -88,13 +88,27 @@ export interface DatosDeLaPantalla {
  * una pantalla pequena.
  */
 export interface FilaDeLaTabla {
-  readonly celdas: readonly string[];
+  readonly celdas: readonly CeldaDeLaTabla[];
   readonly datos?: ReadonlyMap<string, DatoConNombre>;
   /** La clave de React. Sin ella, las celdas unidas: dos filas con las mismas celdas la necesitan. */
   readonly clave?: string;
   /** La fila sobre la que se esta actuando: se realza y se marca con `aria-current`. */
   readonly realzada?: boolean;
 }
+
+/**
+ * **Una celda** (#61, `celda-nula-con-palabra-y-nota`).
+ *
+ * Una cadena es lo de #65: lo que se lee. La forma larga dice dos cosas mas que una cadena no
+ * puede decir:
+ *
+ *   · **`texto: null` es «aqui no hay dato»**, y se pinta con la palabra de la tabla —o la del
+ *     saco—, nunca con `''` ni con un `0`. Una celda en blanco no distingue «no lo sabemos» de
+ *     «vale cero», y en una tabla de cifras esa diferencia es la unica que importa.
+ *   · **`nota`** es por que: llega en los datos, con la fila, asi que **no se traduce** —igual que
+ *     la celda—. Se anuncia con `title` y, cuando la celda esta vacia, es lo unico que la explica.
+ */
+export type CeldaDeLaTabla = string | { readonly texto: string | null; readonly nota?: string };
 
 /** Lo que se sabe de una tabla con nombre. */
 export interface DatosDeUnaTabla {

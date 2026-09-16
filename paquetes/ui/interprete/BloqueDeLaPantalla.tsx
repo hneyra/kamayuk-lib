@@ -7,6 +7,7 @@ import type { InteraccionDeLaPantalla } from './interaccion.ts';
 import { type Nombrados, resolverTexto } from './componer.ts';
 import type { Ausencia, Coordenada, DatosDeUnaTabla, FilaDeLaTabla } from './datos.ts';
 import { coordenada } from './datos.ts';
+import type { HojaDelMarco } from './hoja.ts';
 import { TablaDelBloque } from './TablaDelBloque.tsx';
 import type { DefinicionDeBloque, DefinicionDeTabla, TonoDeInsignia, Texto } from './tipos.ts';
 
@@ -58,6 +59,8 @@ export interface BloqueDeLaPantallaProps {
   readonly encimaDelCuerpo?: ReactNode;
   /** Los botones de la cabecera, ya montados (#66). Se quedan aunque el cuerpo sea un estado. */
   readonly acciones?: ReactNode;
+  /** La ruta de la hoja: donde viven la pagina y el orden de sus tablas (#61). */
+  readonly hoja?: HojaDelMarco;
 }
 
 export function BloqueDeLaPantalla({
@@ -78,6 +81,7 @@ export function BloqueDeLaPantalla({
   enLugarDelCuerpo,
   encimaDelCuerpo,
   acciones,
+  hoja,
 }: BloqueDeLaPantallaProps) {
   const texto = (t: Texto) => resolverTexto(t, nombrados, traducir, textos.datoAusente);
   // `''` no se dibuja, ni se traduce: es como la definicion dice «este bloque no tiene nota».
@@ -141,6 +145,7 @@ export function BloqueDeLaPantalla({
               tonoDeLaInsignia={tonoDeLaInsignia}
               nombrados={nombrados}
               interaccion={interaccion}
+              hoja={hoja}
             />
           ))}
       {enLugarDelCuerpo !== undefined || pie === '' ? null : <TarjetaPie>{pie}</TarjetaPie>}

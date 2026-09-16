@@ -146,6 +146,80 @@ const LOS_CAMPOS_Y_TABLAS_DE_65: DefinicionDePantalla<PiezaDeLaPantalla> = {
 };
 
 /**
+ * Y todo lo que dice algo de las tablas de #61: una tabla paginada por el servidor con su orden
+ * —los dos mandos, uno de ellos impedido—, una columna con el campo del contrato y su dominio, una
+ * celda que llego sin dato con la palabra de la tabla, otra con la del saco, un vacio con su salida
+ * y una tabla cuyas filas viajan en la definicion.
+ *
+ * Lo que aqui NO se traduce, y por eso entra en `DATOS_QUE_NO_SE_TRADUCEN`: el nombre de un campo
+ * del contrato, su dominio y los tamanos de pagina. Son codigo y cifras, como las operaciones del
+ * pie de #44.
+ */
+const LAS_TABLAS_DE_61: DefinicionDePantalla<PiezaDeLaPantalla> = {
+  instruccion: 'no la dibuja el interprete',
+  bloques: [
+    {
+      titulo: 'tablas de 61',
+      nota: '',
+      campos: [{ etiqueta: 'campo con contrato', campo: 'registroId', tipo: 'r' }],
+      tablas: [
+        {
+          clave: 'paginada',
+          titulo: 'paginada',
+          columnas: [
+            { rotulo: 'codigo', alineadoDerecha: false, campo: 'codigo', dominio: 'A · B' },
+            { rotulo: 'valor', alineadoDerecha: true, campo: 'valor' },
+          ],
+          vacio: 'vacio',
+          paginacion: {
+            en: 'servidor',
+            enLaRuta: 'pagina',
+            tamano: 20,
+            tamanos: [20, 50],
+            tamanoEnLaRuta: 'tamano',
+            hayMas: 'hayMas',
+            paginas: 'paginas',
+          },
+          orden: {
+            campos: [
+              { valor: 'codigo', rotulo: 'por codigo' },
+              { valor: 'valor', rotulo: 'por valor' },
+            ],
+            enLaRuta: 'ordenarPor',
+            sentidoEnLaRuta: 'direccion',
+            ascendente: 'ASC',
+            descendente: 'DESC',
+          },
+          sinDato: { texto: 'sin tope', nota: 'por que no hay tope' },
+        },
+        {
+          clave: 'del-saco',
+          titulo: 'del saco',
+          columnas: [{ rotulo: 'columna', alineadoDerecha: false }],
+          vacio: 'vacio',
+        },
+        {
+          clave: 'con-salida',
+          titulo: 'con salida',
+          columnas: [{ rotulo: 'columna', alineadoDerecha: false }],
+          vacioConSalida: {
+            titulo: 'ninguno todavia',
+            texto: 'lo siguiente es crear el primero',
+            acciones: [{ rotulo: 'crear el primero', hace: 'nadie-lo-atiende' }],
+          },
+        },
+        {
+          clave: 'de-contenido',
+          titulo: 'de contenido',
+          columnas: [{ rotulo: 'columna', alineadoDerecha: false }],
+          filasDeContenido: [['fila que viaja']],
+        },
+      ],
+    },
+  ],
+};
+
+/**
  * Las dos piezas de #67 que componen la hoja, con TODAS sus ramas que dicen algo: un maestro con
  * filas —una elegida que no esta en la lista, con cabecera y subtitulo—, otro vacio, otro sin
  * eleccion, y unas pestanas con rotulo y la abierta con un bloque. Ninguna palabra es de la pieza:
@@ -239,6 +313,14 @@ const DATOS_QUE_NO_SE_TRADUCEN = new Set([
   'PUT /uno',
   // Y su separador, que no es una palabra.
   '·',
+  // Las tablas de #61: el nombre de un campo del contrato y su dominio son CODIGO, como las
+  // operaciones del pie; los tamanos de pagina son cifras. Ninguna de las tres tiene traduccion.
+  'registroId',
+  'codigo',
+  'valor',
+  'A · B',
+  '20',
+  '50',
 ]);
 
 /** Cada pieza con texto propio, montada con el saco marcado. */
@@ -354,6 +436,39 @@ const PIEZAS: readonly (readonly [string, () => React.ReactElement])[] = [
             ],
             ['vacia', { filas: [] }],
             ['muda', { filas: [] }],
+          ]),
+        }}
+        tonoDeLaInsignia={() => 'ok'}
+        traducir={marca}
+        textos={{ ...MARCADOS_DEL_INTERPRETE, ...MARCADAS_LAS_PIEZAS }}
+      />
+    ),
+  ],
+  [
+    'Pantalla con las tablas de #61',
+    () => (
+      <Pantalla
+        definicion={LAS_TABLAS_DE_61}
+        datos={{
+          ausencia: { enElCampo: 'hueco', explicacion: '', tono: 'info' },
+          nombrados: new Map<string, string | boolean>([
+            ['hayMas', false],
+            ['paginas', '3'],
+          ]),
+          tablas: new Map([
+            [
+              'paginada',
+              {
+                filas: [
+                  // Una celda con dato, otra sin el con la palabra de la tabla, y otra sin el con
+                  // su propia nota: los tres caminos de `SinDato`.
+                  { celdas: [marca('celda.uno'), { texto: null }] },
+                  { celdas: [marca('celda.dos'), { texto: null, nota: marca('nota.de.la.celda') }] },
+                ],
+              },
+            ],
+            ['del-saco', { filas: [{ celdas: [{ texto: null }] }] }],
+            ['con-salida', { filas: [] }],
           ]),
         }}
         tonoDeLaInsignia={() => 'ok'}

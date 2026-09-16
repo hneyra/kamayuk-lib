@@ -69,6 +69,27 @@ export function cambioEn(enLaRuta: EnLaRuta, valor: string | null): CambioDeLaRu
 }
 
 /**
+ * El cambio que mueve VARIOS sitios de la misma hoja **en un solo movimiento** (#61).
+ *
+ * Hace falta desde que una tabla ordena: cambiar de campo vuelve a la primera pagina, y las dos
+ * cosas viven en la ruta. Con dos `moverLaRuta` seguidos el marco pasa por una direccion
+ * intermedia —el orden nuevo con la pagina vieja— que nadie quiso pedir, y quien escuche la ruta
+ * para pedir datos la pide.
+ */
+export function cambiosEn(sitios: Readonly<Record<EnLaRuta, string | null>>): CambioDeLaRuta {
+  const parametros: Record<string, string | null> = {};
+  let sujeto: string | null | undefined;
+  for (const [sitio, valor] of Object.entries(sitios)) {
+    if (sitio === EL_SUJETO) sujeto = valor;
+    else parametros[sitio] = valor;
+  }
+  return {
+    ...(sujeto === undefined ? {} : { sujeto }),
+    ...(Object.keys(parametros).length === 0 ? {} : { parametros }),
+  };
+}
+
+/**
  * **El acto abierto, en la ruta** (#67, `estado-en-la-ruta`; el acto de #66).
  *
  * `<Pantalla>` guarda el acto abierto en su estado salvo que se le pase `actoAbierto` y
