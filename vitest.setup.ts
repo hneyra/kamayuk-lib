@@ -16,50 +16,20 @@ import { afterEach } from 'vitest';
 afterEach(cleanup);
 
 /**
- * EL `Request` DEL ARNES ACEPTA LA SENAL QUE CREA EL DOCUMENTO. Dos realms, y solo aqui.
+ * EL `Request` DEL ARNES ACEPTA LA SENAL QUE CREA EL DOCUMENTO. **Y ya no esta escrito aqui** (#92).
  *
- * En un navegador hay UN realm: el `AbortSignal` que fabrica `new AbortController()` y el
- * `Request` que lo recibe son del mismo sitio. Bajo Vitest no: el `Request` es el de `undici`,
- * que viene dentro de Node, y el `AbortController`/`AbortSignal` globales son los que instala
- * jsdom al montar el documento.
+ * Nacio en este archivo con #90 y a los pocos dias estaba copiado en el `vitest.setup.ts` de otro
+ * sistema, con su docblock de treinta lineas, y hacia falta en tres mas. Cinco copias de la misma
+ * costura es lo que esta libreria existe para evitar, asi que vive en
+ * `@kamayuk/verificaciones/arnes-del-request` —que es donde esta tambien la explicacion entera: por
+ * que el `Request` y no los globales del documento— y **este archivo lo importa como uno de los
+ * cinco sistemas**, que es lo que hace que la via publicada este probada de verdad.
  *
- * Desde **Node 24** eso revienta, y esta medido en la fuente de `undici`:
+ * Por RUTA RELATIVA, y no por `@kamayuk/verificaciones/arnes-del-request`: el nombre publico
+ * resuelve aqui —este repositorio es raiz de workspaces— y no en el consumidor, que resuelve el
+ * symlink a su ruta real (#4). Que lo enchufe y que lo enchufe asi lo vigila
+ * `el-arnes-del-request-se-publica.test.ts`, con su muestra.
  *
- *     webidl.util.MakeTypeAssertion = (I) => (O) => FunctionPrototypeSymbolHasInstance(I, O)
- *     webidl.is.AbortSignal = webidl.util.MakeTypeAssertion(AbortSignal)
- *
- * El `AbortSignal` de esa ultima linea se resuelve **cuando arranca Node**, antes de que exista
- * jsdom, asi que es el nativo; y `FunctionPrototypeSymbolHasInstance` es el `instanceof` de
- * siempre —recorre la cadena de prototipos— y **no se puede enganar** con un `Symbol.hasInstance`
- * propio. La senal de jsdom no esta en esa cadena, y `new Request(url, { signal })` lanza
- * `TypeError: RequestInit: Expected signal ("AbortSignal {}") to be an instance of AbortSignal`.
- *
- * **No es ruido.** Quien construye ese `Request` es `createClientSideRequest` de `react-router`,
- * en CADA navegacion del enrutador de datos: con Node 24 y sin esto, la navegacion muere ahi
- * dentro, el hash se queda como estaba y salen **21 pruebas rojas** de `paquetes/shell` mas
- * **1658 rechazos sin atender**. Lo que se rompe es el arnes, no el marco: en el navegador este
- * camino no existe.
- *
- * Se arregla donde esta la costura —el `Request` del arnes— y no tocando los globales del
- * documento: el nativo de Node ya no es alcanzable desde aqui (jsdom lo sustituyo, y ninguna
- * API publica lo devuelve), y ponerle a jsdom otro `AbortController` haria que su propio
- * `addEventListener(…, { signal })` rechazara la senal por el mismo motivo, al reves.
- *
- * La senal entra tal cual: `react-router` lee `request.signal` para cortar sus cargadores, y
- * tiene que recibir **la misma** que paso.
+ * Se monta al importarlo: no hay una segunda linea que se pueda olvidar.
  */
-const RequestDelEntorno = globalThis.Request;
-
-class RequestQueAceptaLaSenalDelDocumento extends RequestDelEntorno {
-  constructor(entrada: RequestInfo | URL, init?: RequestInit) {
-    if (init?.signal) {
-      const { signal, ...sinLaSenal } = init;
-      super(entrada, sinLaSenal);
-      Object.defineProperty(this, 'signal', { value: signal, configurable: true });
-    } else {
-      super(entrada, init);
-    }
-  }
-}
-
-globalThis.Request = RequestQueAceptaLaSenalDelDocumento;
+import './paquetes/verificaciones/arnes-del-request.ts';
