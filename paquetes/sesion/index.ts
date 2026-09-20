@@ -29,6 +29,10 @@
  *   · **La consola de la cuenta** (#42, de `rentas#115`): `urlDeLaCuenta()` y `abrirLaCuenta()`
  *     para «Mi perfil» y «Cambiar la contrasena», derivadas del realm y en otra pestana.
  *   · **La escalera** (`peldanoDe`): de un fallo de la API a lo que hay que decir y a quien.
+ *     **Nueve peldanos desde #52** —el 409 y el 422 `ORDEN_NO_ADMITIDO` dejaron de compartir
+ *     respuesta con otros—, cada uno con `esAveria`, `reintentable` y la `incidencia` del 500 como
+ *     campo; y **sus treinta palabras como dato** (`TEXTOS_DE_LA_ESCALERA`), que es el segundo
+ *     argumento opcional de `peldanoDe`.
  *
  * <h2>Lo que ADR-0030 le sigue encargando y todavia no hace</h2>
  *
@@ -39,11 +43,14 @@
  * `id_token_hint`, que es la mitad del tercero. Y de §4, que enumera el paquete: el **selector de
  * municipalidad**.
  *
- * Los cuatro son de la etapa en que haya un segundo frontend conectado a este paquete, y hoy **no
- * hay ni uno**: medido en `rentas@ac379ac`, su codigo de aplicacion sigue usando su copia
- * (`src/api/identidad.ts`) y solo importa `peldanoDe` desde una prueba de enlace. El primero sera
- * `catastro` (`hneyra/catastro#110`). Escribir el salto entre sistemas sin nadie al otro lado
- * seria escribirlo a ciegas.
+ * Los cuatro son de la etapa en que haya un segundo frontend conectado a la PUERTA de este
+ * paquete, y hoy no hay ninguno: medido en `rentas@ac379ac`, su codigo de aplicacion sigue usando
+ * su copia (`src/api/identidad.ts`) y solo importa `peldanoDe` desde una prueba de enlace.
+ * Escribir el salto entre sistemas sin nadie al otro lado seria escribirlo a ciegas.
+ *
+ * **La ESCALERA si tiene su primer consumidor de verdad** (medido el 2026-09-20 sobre
+ * `normativa@ab1e02e`): `frontend/src/datos/useDatosDeLaHoja.ts` la llama para toda lectura de sus
+ * hojas, y es lo que destapo los dos peldanos que faltaban (#52).
  */
 
 export { crearIdentidad } from './identidad.ts';
@@ -56,3 +63,5 @@ export type {
 } from './identidad.ts';
 export { peldanoDe } from './escalera.ts';
 export type { Peldano } from './escalera.ts';
+export { TEXTOS_DE_LA_ESCALERA } from './textos.ts';
+export type { TextosDeLaEscalera } from './textos.ts';

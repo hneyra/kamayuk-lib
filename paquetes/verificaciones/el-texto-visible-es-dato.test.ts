@@ -54,13 +54,39 @@ import { RAIZ, archivosDeProduccion } from './texto.ts';
  * en ninguna parte, y mirar la pantalla no las enseña. El tercero es la puerta de atrás del primero
  * —la palabra deja de estar en el JSX y pasa a estar en la firma— y es exactamente por donde se
  * habría colado el arreglo perezoso de este issue.
+ *
+ * <h2>Y el CUARTO sitio, que no es ninguno de esos tres: una frase devuelta (#52)</h2>
+ *
+ * `@kamayuk/sesion` no dibuja nada —no tiene ni un JSX— y sin embargo escribe palabras que una
+ * persona lee: `peldanoDe()` devuelve un título, una explicación y un remedio. **Medido**: el
+ * detector de las tres formas de arriba, aplicado a `paquetes/sesion/escalera.ts` antes de #52,
+ * daba **cero hallazgos** sobre veintiséis frases escritas dentro. Ninguna de las tres las ve,
+ * porque ahí una palabra es el valor de una propiedad de objeto.
+ *
+ * La cuarta forma es por eso **la frase**: un literal —o un trozo de plantilla— con dos rachas de
+ * letras separadas por un espacio. Es de forma y no de contenido, como las otras tres.
+ *
+ * **Y no se puede aplicar a `shell` ni a `ui`, medido el 2026-09-20**: una lista de clases de
+ * Tailwind son dos rachas de letras separadas por un espacio (`'inline-flex items-baseline'`), así
+ * que la cuarta forma da **393 hallazgos en `ui` y 86 en `shell`**, casi todos clases. Una guarda
+ * ruidosa se acaba apagando. En `api` (5) y en `formato` (14) los hallazgos son mensajes de
+ * excepción para quien programa —lo mismo que el armazón deja fuera a propósito, «traducirlas
+ * sería traducir un `stack trace`»—, así que tampoco entran hoy.
  */
 
-/** Los dos paquetes que dibujan pantalla. Los otros cuatro no tienen componentes. */
+/** Los dos paquetes que dibujan pantalla. Se les miran las tres primeras formas. */
 const DIBUJAN = ['shell', 'ui'] as const;
 
 /**
- * Los dos únicos archivos donde el texto literal es legítimo: los sacos.
+ * Los paquetes que **escriben palabras sin dibujar nada**: se les mira la cuarta forma (#52).
+ *
+ * Hoy es uno. Se escribe como lista y no como constante para que el día que otro paquete devuelva
+ * frases entre por una línea, y para que el recorrido diga cuál mira.
+ */
+const HABLAN_SIN_DIBUJAR = ['sesion'] as const;
+
+/**
+ * Los únicos archivos donde el texto literal es legítimo: los sacos.
  *
  * Escritos a mano y no derivados del nombre: un `textos.ts` nuevo en cualquier directorio no puede
  * autoexceptuarse por llamarse así.
@@ -68,7 +94,22 @@ const DIBUJAN = ['shell', 'ui'] as const;
 const LOS_SACOS = new Set([
   join('paquetes', 'shell', 'textos.ts'),
   join('paquetes', 'ui', 'textos.tsx'),
+  join('paquetes', 'sesion', 'textos.ts'),
 ]);
+
+/**
+ * **La única excepción declarada de la cuarta forma, con su motivo** (#52).
+ *
+ * `paquetes/sesion/identidad.ts` escribe texto que llega a una persona —`motivoDelEmisor` y el
+ * motivo y el detalle de cada `Vuelta` fallida— y **no se toca aquí**: lo reescribe entero
+ * `kamayuk-lib`#42, y mudar sus palabras en dos issues a la vez es un conflicto garantizado en el
+ * archivo más largo del paquete.
+ *
+ * Se comprueba **entera**, como la lista de excepciones de `fetch`: si ese archivo dejara de tener
+ * texto literal, esta guarda sale roja pidiendo que se borre la excepción. Así no sobrevive a su
+ * motivo.
+ */
+const LA_EXCEPCION = join('paquetes', 'sesion', 'identidad.ts');
 
 /** Hay letras dentro. Un `data-slot`, un separador o una clase de Tailwind no cuentan como palabra. */
 const LETRA = /[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/;
@@ -157,11 +198,67 @@ function textoLiteralVisible(archivo: string): readonly Hallazgo[] {
   return hallazgos;
 }
 
+/**
+ * **Una frase**: dos rachas de letras separadas por espacio en blanco.
+ *
+ * Es lo que separa una palabra de una clave. `'sin-identidad'`, `'ORDEN_NO_ADMITIDO'`,
+ * `'application/json'` y `'flex'` no casan; `'Hay que volver a identificarse'` sí. Lo que NO puede
+ * distinguir es una frase de una lista de clases de Tailwind, y por eso esta forma no se aplica a
+ * los paquetes que dibujan — ver la cabecera, con las cifras medidas.
+ */
+const FRASE = /[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]\s+[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/;
+
+/** Las frases literales de un archivo: cadenas y trozos de plantilla, preguntándole al analizador. */
+function frasesLiterales(archivo: string): readonly Hallazgo[] {
+  const relativo = relative(RAIZ, archivo);
+  const fuente = ts.createSourceFile(
+    archivo,
+    readFileSync(archivo, 'utf8'),
+    ts.ScriptTarget.Latest,
+    true,
+    archivo.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );
+  const hallazgos: Hallazgo[] = [];
+
+  const visitar = (nodo: ts.Node): void => {
+    // Los cinco nodos por los que una frase puede estar escrita: una cadena, una plantilla sin
+    // huecos, y los tres trozos de una plantilla que sí los tiene. Sin los tres últimos, partir la
+    // frase con un `${}` la volvería invisible.
+    if (
+      (ts.isStringLiteral(nodo) ||
+        ts.isNoSubstitutionTemplateLiteral(nodo) ||
+        ts.isTemplateHead(nodo) ||
+        ts.isTemplateMiddle(nodo) ||
+        ts.isTemplateTail(nodo)) &&
+      FRASE.test(nodo.text)
+    ) {
+      hallazgos.push({
+        archivo: relativo,
+        linea: fuente.getLineAndCharacterOfPosition(nodo.getStart(fuente)).line + 1,
+        por: 'frase literal',
+        texto: nodo.text.trim(),
+      });
+    }
+    ts.forEachChild(nodo, visitar);
+  };
+  visitar(fuente);
+  return hallazgos;
+}
+
 const ARCHIVOS = DIBUJAN.flatMap((paquete) => archivosDeProduccion(join(RAIZ, 'paquetes', paquete)));
 
 const FUERA_DEL_SACO = ARCHIVOS.filter((a) => !LOS_SACOS.has(relative(RAIZ, a))).flatMap(
   textoLiteralVisible,
 );
+
+const LOS_QUE_HABLAN = HABLAN_SIN_DIBUJAR.flatMap((paquete) =>
+  archivosDeProduccion(join(RAIZ, 'paquetes', paquete)),
+);
+
+const FRASES_SUELTAS = LOS_QUE_HABLAN.filter((a) => {
+  const relativo = relative(RAIZ, a);
+  return !LOS_SACOS.has(relativo) && relativo !== LA_EXCEPCION;
+}).flatMap(frasesLiterales);
 
 describe('EL AC1: el texto literal visible vive SOLO en los dos sacos', () => {
   it('EL CENTINELA: hay archivos que barrer, y los sacos SI tienen texto', () => {
@@ -197,6 +294,77 @@ describe('EL AC1: el texto literal visible vive SOLO en los dos sacos', () => {
         '\n\n  Un segundo idioma lo dejaria en castellano y la pantalla saldria a medias. Sacalo\n' +
         '  a «paquetes/shell/textos.ts» o a «paquetes/ui/textos.tsx» y pasalo por parametro.',
     ).toEqual([]);
+  });
+});
+
+/**
+ * **La cuarta forma: una frase escrita dentro de lo que no dibuja** (#52, AC5).
+ *
+ * El sujeto es `@kamayuk/sesion`, que no tiene un solo JSX y aun asi escribe lo que se lee cuando
+ * algo falla. Ver la cabecera para por que esta forma no se aplica a `shell` ni a `ui`.
+ */
+describe('EL AC5 de #52: en «sesion» las frases viven SOLO en su saco', () => {
+  it('EL CENTINELA: hay archivos que barrer, y el detector ve una frase donde la hay', () => {
+    expect(LOS_QUE_HABLAN.length, 'el barrido de «sesion» no encontro ni un archivo').toBeGreaterThan(
+      2,
+    );
+    // Y que el detector no esta mudo: el saco tiene frases a proposito.
+    expect(
+      frasesLiterales(join(RAIZ, 'paquetes', 'sesion', 'textos.ts')).length,
+      'el detector no ve la frase NI DONDE LA HAY: no esta mirando',
+    ).toBeGreaterThan(20);
+  });
+
+  it('y fuera del saco no queda ni una frase escrita dentro', () => {
+    expect(
+      FRASES_SUELTAS,
+      'Hay frases escritas DENTRO del codigo de «sesion», fuera de su saco:\n' +
+        FRASES_SUELTAS.map((h) => `  ${h.archivo}:${String(h.linea)}  «${h.texto}»`).join('\n') +
+        '\n\n  Eso no se puede traducir nunca: «peldanoDe()» devuelve lo que una persona lee.\n' +
+        '  Sacalo a «paquetes/sesion/textos.ts» y pasalo por el segundo argumento.',
+    ).toEqual([]);
+  });
+
+  it('LA EXCEPCION es UNA, y sigue teniendo su motivo', () => {
+    // Se comprueba entera —como la lista de `fetch`— y en las dos direcciones: que el archivo
+    // existe entre los barridos, y que todavia tiene frases dentro. El dia que `kamayuk-lib`#42
+    // las mude, esta linea sale roja pidiendo que se borre la excepcion, en vez de quedarse
+    // eximiendo a un archivo que ya no lo necesita.
+    const excepciones = LOS_QUE_HABLAN.map((a) => relative(RAIZ, a)).filter(
+      (a) => a === LA_EXCEPCION,
+    );
+    expect(excepciones).toEqual([LA_EXCEPCION]);
+    expect(
+      frasesLiterales(join(RAIZ, LA_EXCEPCION)).length,
+      'La excepcion sobrevivio a su motivo: «identidad.ts» ya no tiene frases dentro, asi que ' +
+        'borra LA_EXCEPCION y deja que el barrido lo cubra.',
+    ).toBeGreaterThan(0);
+  });
+
+  it('LA MUESTRA: la forma muerde, y se demuestra con una que la viola y otra que la cumple', () => {
+    // Una regla que no puede fallar no protege nada. Las dos muestras son el mismo peldano
+    // escrito de las dos maneras.
+    const viola = join(RAIZ, 'paquetes', 'verificaciones', 'muestras', 'frase-escrita-dentro.ts');
+    const cumple = join(RAIZ, 'paquetes', 'verificaciones', 'muestras', 'frase-que-sale-del-saco.ts');
+
+    const halladas = frasesLiterales(viola);
+    expect(halladas.length, 'la muestra que VIOLA la forma no la dispara').toBeGreaterThan(0);
+    expect(halladas.map((h) => h.texto)).toContain('Hay que volver a identificarse');
+
+    expect(
+      frasesLiterales(cumple),
+      'la muestra que CUMPLE la forma sale roja: la guarda tiene falsos positivos',
+    ).toEqual([]);
+  });
+
+  it('y la forma no confunde una clave, un codigo ni un tipo de medio con una frase', () => {
+    // Lo que separa esta forma de un `grep`: `escalera.ts` esta lleno de cadenas —las nueve
+    // claves de peldano y los codigos del contrato— y ninguna es una palabra que nadie lea.
+    const escalera = join(RAIZ, 'paquetes', 'sesion', 'escalera.ts');
+    const fuente = readFileSync(escalera, 'utf8');
+    expect(frasesLiterales(escalera)).toEqual([]);
+    expect(fuente).toContain("'ORDEN_NO_ADMITIDO'");
+    expect(fuente).toContain("'sin-municipalidad'");
   });
 });
 
