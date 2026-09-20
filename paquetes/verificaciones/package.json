@@ -8,6 +8,7 @@
   "main": "index.ts",
   "exports": {
     ".": "./index.ts",
-    "./prohibiciones": "./prohibiciones.mjs"
+    "./prohibiciones": "./prohibiciones.mjs",
+    "./arnes-del-request": "./arnes-del-request.ts"
   }
 }
