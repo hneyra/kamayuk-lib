@@ -32,6 +32,12 @@ import { crearIdentidad, type FallaDeLaPuerta, type Identidad } from './identida
  * emisor, aqui se construye otra instancia con otro `realm`: es la misma pregunta —¿sale del
  * emisor o de un literal?— hecha a una fabrica. Y se anade lo que la copia de `rentas` no tiene:
  * que la sonda **no mande credenciales**.
+ *
+ * <h2>Lo que se anade en #70</h2>
+ *
+ * El bloque de `quienEntro()`, y con el **un segundo barrido del almacenamiento**: el de arriba
+ * busca el token, que es base64 y no lleva el nombre como texto, asi que guardar los claims ya
+ * decodificados lo pasaria entero. El nuevo busca los tres valores tal como se leen.
  */
 
 const REALM = 'http://localhost:8181/realms/kamayuk';
@@ -284,6 +290,163 @@ describe('el canje deja el token EN MEMORIA y en ningun almacenamiento', () => {
       estado: 'fallo',
       motivo: 'El emisor no contesto',
     });
+  });
+});
+
+/**
+ * **Quien entro, publicado del `id_token` que el canje ya guardaba** (#70).
+ *
+ * Lo que decodifica el token lo prueba `quien-entro.test.ts`, que es una funcion pura. Aqui se
+ * prueba lo otro, que es de la instancia y no de la funcion: que los claims aparezcan **con el
+ * canje**, que **se mueran con `salir()`**, que un `id_token` ilegible **no rompa el canje** —el
+ * `access_token` es el que abre la API, y perderlo por un rotulo dejaria fuera a quien el emisor
+ * dejo entrar— y que nada de esto acabe en un almacenamiento.
+ */
+describe('quien entro sale del id_token, en memoria y sin romper el canje', () => {
+  const TOKEN = 'eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJyb3NhIn0.firma';
+  const NOMBRE = 'Rosa Quispe Mamani';
+  const USUARIO = 'rquispe';
+  const MUNICIPALIDAD = '150101';
+
+  function base64url(texto: string): string {
+    const bytes = new TextEncoder().encode(texto);
+    let porByte = '';
+    bytes.forEach((b) => (porByte += String.fromCharCode(b)));
+    return btoa(porByte).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  /**
+   * El `id_token` que el realm manda de verdad: la municipalidad **como numero**, porque su
+   * mapeador declara `jsonType.label: "long"`
+   * (`infrastructure:despliegue/identidad/realm-kamayuk.json`, cliente `kamayuk-backoffice`).
+   */
+  const ID_TOKEN = `${base64url('{"alg":"RS256"}')}.${base64url(
+    JSON.stringify({ name: NOMBRE, preferred_username: USUARIO, municipalidad_id: 150101 }),
+  )}.firma`;
+
+  /** La vuelta de Keycloak con el cuerpo de canje que se le pase. */
+  function vuelveCon(cuerpo: Record<string, unknown>) {
+    sessionStorage.setItem(VERIFICADOR, 'el-verificador');
+    sessionStorage.setItem(ESTADO, 'el-estado');
+    ubicacion('http://localhost:5173/?code=un-codigo&state=el-estado');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>(() => Promise.resolve(Response.json(cuerpo))),
+    );
+  }
+
+  it('antes de canjear no hay nadie: null, y no un objeto con tres huecos', () => {
+    expect(identidad.quienEntro()).toBeNull();
+  });
+
+  it('despues del canje dice el nombre, el usuario y la municipalidad del emisor', async () => {
+    vuelveCon({ access_token: TOKEN, id_token: ID_TOKEN });
+
+    await expect(identidad.canjearSiVuelve()).resolves.toEqual({ estado: 'canjeado' });
+
+    expect(identidad.quienEntro()).toEqual({
+      nombre: NOMBRE,
+      usuario: USUARIO,
+      municipalidad: MUNICIPALIDAD,
+    });
+  });
+
+  it('y lo devuelve por la MISMA referencia: la barra lo lee en cada dibujado', async () => {
+    vuelveCon({ access_token: TOKEN, id_token: ID_TOKEN });
+    await identidad.canjearSiVuelve();
+
+    // Un objeto nuevo en cada llamada haria que cualquier comparacion por referencia del
+    // consumidor —un `useMemo`, un `React.memo`— viera un cambio donde no hay ninguno.
+    expect(identidad.quienEntro()).toBe(identidad.quienEntro());
+  });
+
+  it('salir lo OLVIDA: null otra vez, como el token', async () => {
+    vuelveCon({ access_token: TOKEN, id_token: ID_TOKEN });
+    await identidad.canjearSiVuelve();
+    expect(identidad.quienEntro()).not.toBeNull();
+    ubicacion();
+
+    identidad.salir();
+
+    expect(identidad.quienEntro()).toBeNull();
+    expect(identidad.token()).toBeNull();
+  });
+
+  it('y el de un canje nuevo sustituye al del anterior: son los del ULTIMO', async () => {
+    vuelveCon({ access_token: TOKEN, id_token: ID_TOKEN });
+    await identidad.canjearSiVuelve();
+
+    const otro = `${base64url('{"alg":"RS256"}')}.${base64url(
+      JSON.stringify({ name: 'Julio Ccahuana', preferred_username: 'jccahuana' }),
+    )}.firma`;
+    vuelveCon({ access_token: 'otro-token', id_token: otro });
+    await identidad.canjearSiVuelve();
+
+    expect(identidad.quienEntro()).toEqual({
+      nombre: 'Julio Ccahuana',
+      usuario: 'jccahuana',
+      municipalidad: null,
+    });
+  });
+
+  /**
+   * **El AC-2, y es lo mas importante del issue**: los cuatro casos de ilegible, cada uno contra el
+   * canje entero. No basta con que la funcion pura devuelva `null`: lo que hay que ver es que la
+   * `Vuelta` siga siendo `canjeado` y que `token()` siga sirviendo, porque es el `access_token` el
+   * que abre la API y el `id_token` solo pinta un rotulo.
+   */
+  const ID_TOKENS_ILEGIBLES: readonly (readonly [string, Record<string, unknown>])[] = [
+    ['ausente: el emisor no mando id_token', { access_token: TOKEN }],
+    ['no es un JWT: no tiene las tres partes', { access_token: TOKEN, id_token: 'no-es-un-jwt' }],
+    [
+      'base64url mal formado en la carga',
+      { access_token: TOKEN, id_token: 'cabecera.%%%%.firma' },
+    ],
+    [
+      'la carga no es JSON',
+      { access_token: TOKEN, id_token: `cabecera.${base64url('no soy json')}.firma` },
+    ],
+  ];
+
+  it.each(ID_TOKENS_ILEGIBLES)(
+    'un id_token ilegible NO rompe el canje (%s)',
+    async (_caso, cuerpo) => {
+      vuelveCon(cuerpo);
+
+      await expect(identidad.canjearSiVuelve()).resolves.toEqual({ estado: 'canjeado' });
+
+      expect(identidad.token()).toBe(TOKEN);
+      expect(identidad.quienEntro()).toBeNull();
+      // Y el freno del rebote se levanta igual: un canje bueno es un canje bueno.
+      expect(sessionStorage.getItem(IDAS)).toBeNull();
+    },
+  );
+
+  /**
+   * **El AC-3, y por que esta prueba no es la que ya habia.**
+   *
+   * La de arriba —«NADA de lo que se canjeo acaba en localStorage ni en sessionStorage»— barre los
+   * valores buscando **el token**, que es base64: el nombre de quien entro no aparece en el como
+   * texto. O sea que guardar los claims YA DECODIFICADOS —`localStorage.setItem('kamayuk.barra',
+   * JSON.stringify(quienEntro()))`, que es exactamente el atajo que un consumidor pediria para no
+   * perder el rotulo al recargar— pasaria esa prueba **y** la prohibicion `token-en-almacenamiento`
+   * de ESLint, que mira el nombre de la clave. Esto barre los tres valores tal como se leen.
+   */
+  it('NI EL NOMBRE, NI EL USUARIO, NI LA MUNICIPALIDAD acaban en ningun almacenamiento', async () => {
+    vuelveCon({ access_token: TOKEN, id_token: ID_TOKEN });
+
+    await identidad.canjearSiVuelve();
+
+    const guardado = [localStorage, sessionStorage].flatMap((donde) =>
+      Object.keys(donde).flatMap((clave) => [clave, donde.getItem(clave) ?? '']),
+    );
+    for (const dato of [NOMBRE, USUARIO, MUNICIPALIDAD, ID_TOKEN, 'rosa', 'Quispe']) {
+      expect(
+        guardado.filter((valor) => valor.includes(dato)),
+        `«${dato}» aparece en un almacenamiento del navegador`,
+      ).toEqual([]);
+    }
+    expect(localStorage.length).toBe(0);
   });
 });
 
