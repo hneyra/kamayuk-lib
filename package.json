@@ -19,6 +19,7 @@
     "registro:autoprueba": "node docs/00-gobierno/verificar-las-muestras-del-registro.mjs",
     "consumidor:rama": "node paquetes/verificaciones/rama-del-consumidor.mjs",
     "consumidor:ensayo": "node paquetes/verificaciones/ensayar-la-rama-del-consumidor.mjs",
+    "arnes:copias": "node paquetes/verificaciones/el-arnes-del-request-no-se-copia.mjs",
     "test:capas": "vitest run --dangerouslyIgnoreUnhandledErrors paquetes/ui/shadcn/capa-del-desplegable.test.tsx paquetes/ui/shadcn/capa-emergente.test.tsx paquetes/ui/shadcn/capa-del-menu.test.tsx"
   },
   "devDependencies": {
