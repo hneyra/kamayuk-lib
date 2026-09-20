@@ -39,9 +39,9 @@ jobs:
     outputs:
       consumidores: ${{ steps.quien.outputs.consumidores }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "24"
           cache: yarn
@@ -134,7 +134,7 @@ jobs:
         include: ${{ fromJSON(needs.verificar.outputs.consumidores) }}
     steps:
       - name: Esta libreria
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: kamayuk-lib
           # Historia completa: hay que poder saltar entre `main` y esta rama en el mismo arbol.
@@ -144,7 +144,7 @@ jobs:
       # es un guion de esta libreria. La version no se deja a la que traiga la imagen del corredor:
       # este repositorio declara `node >=24`. El `setup-node` de mas abajo se queda donde esta,
       # porque el suyo cachea el `yarn.lock` DEL CONSUMIDOR y ese archivo todavia no existe aqui.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "24"
 
@@ -170,24 +170,32 @@ jobs:
           --consumidor "$QUIEN" --comprobar >> "$GITHUB_OUTPUT"
 
       - name: El consumidor
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ matrix.repositorio }}
           # Vacio es «la rama por omision del repositorio», que es lo que hacia hasta #26 y sigue
           # siendo el caso normal (AC2). NO se pone `main` de reserva: la rama por omision de un
           # consumidor la decide el consumidor, y escribirla aqui seria suponerla.
           ref: ${{ steps.contra.outputs.rama }}
-          path: consumidor
+          # DIRECTAMENTE EN SU SITIO, Y NO EN `consumidor/` PARA MOVERLO DESPUES (#93).
+          #
+          # La disposicion que el `link:` del consumidor espera es `<x>/<sistema>/frontend` junto a
+          # `<x>/kamayuk-lib`: `link:../../kamayuk-lib/...` sube dos niveles desde `frontend/` y
+          # tiene que caer al lado de la libreria. Eso no cambia — lo que cambia es que el clon cae
+          # ahi de una vez, sin el `mv consumidor '<directorio>'` que habia hasta #93.
+          #
+          # Y NO ES COSMETICA: `actions/checkout@v7` guarda las credenciales del clon en un archivo
+          # APARTE, enganchado con `includeIf.gitdir:<ruta absoluta del clon>/.git`, en vez de
+          # dejarlas en el `.git/config` como hacia `@v4`. Un `includeIf` por ruta absoluta **no
+          # sobrevive a mover el directorio**: tras el `mv`, la condicion deja de casar, el clon se
+          # queda sin autenticacion y el `git fetch` de un `orden` revienta con
+          # `fatal: could not read Username for 'https://github.com'` y RC=128. Medido en el trabajo
+          # de `catastro`, cuyo `orden` baja un commit antes de verificar; los cinco consumidores
+          # que no tocan la red no se enteraban, que es lo que lo hacia un defecto silencioso.
+          path: ${{ matrix.directorio }}
           token: ${{ secrets.GH_CLONE_KEY || github.token }}
 
-      # La disposicion que el `link:` del consumidor espera es `<x>/<sistema>/frontend` junto a
-      # `<x>/kamayuk-lib`. El `path:` de arriba lo deja en `consumidor/`, asi que se renombra al
-      # nombre que el repositorio tiene de verdad — `link:../../kamayuk-lib/...` sube dos niveles
-      # desde `frontend/` y tiene que caer al lado de la libreria, se llame como se llame el medio.
-      - name: Ponerlo donde el enlace lo busca
-        run: mv consumidor '${{ matrix.directorio }}'
-
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "24"
           cache: yarn
