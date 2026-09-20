@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Tarjeta, TarjetaCabecera, TarjetaCampos, TarjetaNota, TarjetaPie } from '../shadcn/tarjeta.tsx';
 import type { TextosDeLaPantalla } from '../textos.tsx';
 import { CampoDelBloque } from './CampoDelBloque.tsx';
+import { eleccionDe, momentoDeLaEleccion } from './campos-en-la-ruta.ts';
 import type { InteraccionDeLaPantalla } from './interaccion.ts';
 import { type Nombrados, resolverTexto } from './componer.ts';
 import type { Ausencia, Coordenada, DatosDeUnaTabla, FilaDeLaTabla } from './datos.ts';
@@ -48,6 +49,11 @@ export interface BloqueDeLaPantallaProps {
   /** El indice de este bloque, para componer la coordenada de sus campos. */
   readonly indice: number;
   readonly alCambiar: (indiceDelCampo: number, valor: string | boolean) => void;
+  /**
+   * Salir de un campo que escribe en la ruta `alSalir`, o pulsar Intro en el (#94). Solo se ata a
+   * esos campos: en los demas no hay nada que llevar a ninguna parte al salir.
+   */
+  readonly alSalirDelCampo?: (indiceDelCampo: number) => void;
   readonly traducir: (texto: string) => string;
   readonly textos: TextosDeLaPantalla;
   readonly tonoDeLaInsignia: (texto: string) => TonoDeInsignia;
@@ -74,6 +80,7 @@ export function BloqueDeLaPantalla({
   ausenciaPorCampo,
   indice,
   alCambiar,
+  alSalirDelCampo,
   traducir,
   textos,
   tonoDeLaInsignia,
@@ -124,6 +131,15 @@ export function BloqueDeLaPantalla({
               alCambiar={(v) => {
                 alCambiar(i, v);
               }}
+              {...(alSalirDelCampo !== undefined &&
+              eleccionDe(campo) !== undefined &&
+              momentoDeLaEleccion(campo) === 'alSalir'
+                ? {
+                    alSalir: () => {
+                      alSalirDelCampo(i);
+                    },
+                  }
+                : {})}
               traducir={traducir}
               textos={textos}
               nombrados={nombrados}

@@ -81,3 +81,27 @@ export const barreraDeLasFilas: DatosDeLaPantalla = {
   // @ts-expect-error una celda es texto, jamas number
   tablas: new Map([['t', { filas: [{ celdas: [1842.6] }] }]]),
 };
+
+/**
+ * **LAS BARRERAS DE #94: quien puede declarar donde vive lo que se elige, y como.**
+ *
+ * Lo declaran **el que se teclea y el que elige de una lista**, y nadie mas: en un campo de solo
+ * lectura no se elige nada, y como se escribe un booleano en una ruta lo dice el backend que lo
+ * lee, no esta libreria.
+ *
+ * **Y se impide sin ningun `eleccion?: never`, que se escribio y sobraba.** La duda era razonable
+ * —en una union la comprobacion de propiedades de mas mira todas las ramas, que es el motivo de
+ * los `?: never` de `DefinicionDeAccion`—, pero `DefinicionDeCampo` esta discriminada por `tipo`:
+ * TypeScript estrecha a UNA rama antes de mirar las propiedades de mas, y las dos primeras lineas
+ * de aqui salen con TS2353 sin ayuda. Medido con las dos declaraciones puestas y quitadas.
+ */
+export const barrerasDeLaEleccion: readonly DefinicionDeCampo[] = [
+  // @ts-expect-error en un campo de solo lectura no se elige nada: muestra lo que otro decidio
+  { etiqueta: 'Cobrado', tipo: 'r', eleccion: { enLaRuta: 'cobrado' } },
+  // @ts-expect-error una casilla no: como se escribe un booleano en una ruta lo dice el backend
+  { etiqueta: 'Solo activos', tipo: 'c', casilla: 'Solo activos', eleccion: { enLaRuta: 'activos' } },
+  // @ts-expect-error `enLaRuta` es obligatorio: un «cuando» sin «donde» no escribe nada
+  { etiqueta: 'Buscar', tipo: 't', eleccion: { cuando: 'alSalir' } },
+  // @ts-expect-error los momentos son DOS, y un tercero no lo dibuja nadie
+  { etiqueta: 'Buscar', tipo: 't', eleccion: { enLaRuta: 'q', cuando: 'conRetardo' } },
+];

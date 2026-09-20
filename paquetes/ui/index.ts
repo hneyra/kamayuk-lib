@@ -279,3 +279,11 @@ export type { CeldaDeLaTabla } from './interprete/datos.ts';
 export type { PaginaDeUnaTabla } from './interprete/reglas-de-las-tablas.ts';
 export { notaDeLaCelda, paginaDeLaTabla, textoDeLaCelda } from './interprete/reglas-de-las-tablas.ts';
 export { cambiosEn } from './interprete/hoja.ts';
+// Lo que se elige en un campo, en la ruta de la hoja (#94). Las cuatro reglas son puras, por lo
+// mismo que las de las tablas: un sistema recorre sus definiciones con ellas —para comprobar que
+// cada `enLaRuta` de un campo esta declarado en el `Destino` de su hoja— sin montar una pantalla.
+export type { EleccionDelCampo, MomentoDeLaEleccion } from './interprete/tipos.ts';
+export { cambioAlElegir, eleccionDe, momentoDeLaEleccion, valorElegido } from './interprete/campos-en-la-ruta.ts';
+// Como viaja una fecha —ISO— y como se lee —`dd/mm/aaaa`—: dejaron de ser la misma cadena cuando lo
+// elegido en un campo empezo a viajar en una ruta (#94).
+export { diaDeUnaFecha, fechaDeUnDia, fechaLeida } from './shadcn/fecha.ts';
