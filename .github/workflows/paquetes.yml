@@ -39,9 +39,9 @@ jobs:
     outputs:
       consumidores: ${{ steps.quien.outputs.consumidores }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "24"
           cache: yarn
@@ -134,7 +134,7 @@ jobs:
         include: ${{ fromJSON(needs.verificar.outputs.consumidores) }}
     steps:
       - name: Esta libreria
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: kamayuk-lib
           # Historia completa: hay que poder saltar entre `main` y esta rama en el mismo arbol.
@@ -144,7 +144,7 @@ jobs:
       # es un guion de esta libreria. La version no se deja a la que traiga la imagen del corredor:
       # este repositorio declara `node >=24`. El `setup-node` de mas abajo se queda donde esta,
       # porque el suyo cachea el `yarn.lock` DEL CONSUMIDOR y ese archivo todavia no existe aqui.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "24"
 
@@ -170,7 +170,7 @@ jobs:
           --consumidor "$QUIEN" --comprobar >> "$GITHUB_OUTPUT"
 
       - name: El consumidor
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ matrix.repositorio }}
           # Vacio es «la rama por omision del repositorio», que es lo que hacia hasta #26 y sigue
@@ -187,7 +187,7 @@ jobs:
       - name: Ponerlo donde el enlace lo busca
         run: mv consumidor '${{ matrix.directorio }}'
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "24"
           cache: yarn
