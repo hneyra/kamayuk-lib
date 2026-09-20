@@ -26,7 +26,7 @@ muestra que la viola.
 |---|---|---|
 | [`@kamayuk/formato`](paquetes/formato) | fechas, importes y documento de identidad | **Existe.** 67 pruebas |
 | [`@kamayuk/api`](paquetes/api) | `solicitar()`, `solicitarRespuesta()`, `descargar()`, `subir()`, la clave de idempotencia y el catálogo de errores | **Existe.** 118 pruebas |
-| [`@kamayuk/sesion`](paquetes/sesion) | OIDC con PKCE S256, la sonda del emisor, la consola de la cuenta y la escalera de peldaños | **Existe.** 45 pruebas |
+| [`@kamayuk/sesion`](paquetes/sesion) | OIDC con PKCE S256, la sonda del emisor, la consola de la cuenta, quién entró según el `id_token` y la escalera de peldaños | **Existe.** 74 pruebas |
 | [`@kamayuk/ui`](paquetes/ui) | los 42 tokens, cuatro identidades por dos modos, las piezas de shadcn y el intérprete de pantallas | **Existe.** 364 pruebas, más las 3 de capa |
 | [`@kamayuk/shell`](paquetes/shell) | barra, árbol de módulos, paleta de mando, enrutado por hash, miga, acciones y el aviso de cambios sin guardar | **Existe.** 113 pruebas |
 | [`@kamayuk/verificaciones`](paquetes/verificaciones) | las barreras y sus muestras | **Existe.** 144 pruebas |

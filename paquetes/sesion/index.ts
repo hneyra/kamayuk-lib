@@ -22,8 +22,13 @@
  *     devuelve `FallaDeLaPuerta` si no contesta. Una ida que no ocurrio no gasta del tope.
  *   · **El canje**, con tope de espera, comprobando el `state`, limpiando la URL siempre y
  *     explicando cada fallo con su motivo (`Vuelta`) en vez de un `false` mudo.
- *   · **El token en memoria** y en ningun almacenamiento; el `id_token` tambien, solo para
- *     `id_token_hint` al salir.
+ *   · **El token en memoria** y en ningun almacenamiento; el `id_token` tambien, para
+ *     `id_token_hint` al salir y para `quienEntro()`.
+ *   · **Quien entro** (#70): `quienEntro()` devuelve el `nombre`, el `usuario` y la
+ *     `municipalidad` que el emisor puso en el `id_token` del ultimo canje —en memoria, `null`
+ *     antes del canje y despues de `salir()`, y **sin validar la firma**, porque es para dibujar y
+ *     el backend es quien valida—. Un `id_token` ilegible o ausente da `null` y **no rompe el
+ *     canje**: el `access_token` sigue sirviendo, que es el que abre la API.
  *   · **Los dos frenos del rebote**: el tope de idas y la marca de salida.
  *   · **Salir en el emisor**, con `id_token_hint`, para que el siguiente arranque no entre solo.
  *   · **La consola de la cuenta** (#42, de `rentas#115`): `urlDeLaCuenta()` y `abrirLaCuenta()`
@@ -54,5 +59,6 @@ export type {
   PaginaDeLaCuenta,
   Vuelta,
 } from './identidad.ts';
+export type { QuienEntro } from './quien-entro.ts';
 export { peldanoDe } from './escalera.ts';
 export type { Peldano } from './escalera.ts';
