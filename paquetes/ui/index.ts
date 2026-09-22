@@ -212,7 +212,7 @@ export type {
 // lectura, el pie, el despachador— NO se exportan, por lo mismo que el bloque: nadie dibuja medio
 // interprete. Las reglas si, para que una pieza del consumidor use las mismas y no una copia.
 export type { PiezasDelConsumidor, PropsDeUnaPiezaDelConsumidor } from './interprete/PiezaDeLaPantalla.tsx';
-export { piezasSinRegistrar, resolverTexto, seCumple } from './interprete/componer.ts';
+export { esBloque, piezasSinRegistrar, resolverTexto, seCumple } from './interprete/componer.ts';
 // Lo que la hoja HACE (#66): actos con observacion, acciones con su motivo y navegacion entre hojas.
 // Las piezas de dentro —el acto, el grupo de acciones— NO se exportan, por lo mismo que el bloque.
 // `BotonConMotivo` si: el pie de `@kamayuk/shell` tiene el mismo `disabled` mudo (#55, #61).
