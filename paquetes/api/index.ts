@@ -38,5 +38,6 @@ export type {
   OpcionesDeDescarga,
   OpcionesDeSolicitud,
   OpcionesDeSubida,
+  ParametroQueFalta,
   RespuestaTalCual,
 } from './cliente.ts';

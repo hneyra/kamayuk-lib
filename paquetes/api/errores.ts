@@ -26,14 +26,43 @@
  */
 
 /**
+ * La cifra normativa que hay que publicar, cuando eso es lo que falta.
+ *
+ * Es el miembro `parametroQueFalta` **tal como lo compone el backend**, y aqui no se interpreta:
+ * quien decide que significa es la pantalla. Medido el 2026-09-20 sobre `ParametroQueFalta.java`
+ * de los cinco sistemas —`comoMiembro()`, identico en los cinco—: `ejercicio` va siempre; `llave`
+ * **desaparece del cuerpo** cuando lo que falta es el conjunto sellado del ano entero, y no llega
+ * como `null` a proposito, porque un `null` es un valor y el cliente que preguntara por el lo
+ * veria presente.
+ *
+ * `ejercicio` es un ano y no un importe: por eso es `number` y no texto decimal (regla 1).
+ */
+export interface ParametroQueFalta {
+  readonly ejercicio: number;
+  /** `TIPO:CLAVE` si falta una fila, `TIPO` si falta el bloque; ausente si falta el conjunto. */
+  readonly llave?: string;
+}
+
+/**
  * Los miembros del `problem+json` que el backend publica, tal como los publica.
  *
  * Son los de `ManejadorDeErrores.cuerpoDe`: los cuatro de RFC 9457 —`type`, `title`, `status`,
- * `detail`— mas las dos extensiones del contrato, `codigo` y `mensaje`. **Y llegan de a pocos:**
- * medido contra la instalacion, el 401 de la cadena de identidad trae CUATRO —`status`, `title`,
- * `codigo`, `mensaje`— y ni `type` ni `detail`, mientras que el 404 de una ruta que no existe
- * trae los seis mas `instance`. Por eso todos son opcionales aqui: dar por hecho que viene
- * `detail` dejaria la explicacion de la pantalla en `undefined` justo en el peldano mas comun.
+ * `detail`— mas **las CINCO extensiones del contrato**, que son las mismas en los cinco sistemas.
+ * Medido el 2026-09-20 sobre los cinco `ManejadorDeErrores.java`: `CAMPO_CODIGO`, `CAMPO_MENSAJE`,
+ * `CAMPO_DETALLES`, `CAMPO_INCIDENCIA` y `CAMPO_PARAMETRO_QUE_FALTA`, en `:46-60` en `identidad`,
+ * `catastro`, `caja` y `normativa`, y en `:47-61` en `rentas`.
+ *
+ * **Hasta #52 aqui solo estaban dos, y las otras tres se tiraban en el constructor** —con lo que
+ * la interfaz no podia distinguir dos 404 que llegan con el mismo `codigo`, ni decir el numero de
+ * incidencia de un 500, ni nombrar el campo por el que se pidio ordenar—.
+ *
+ * **Y llegan de a pocos:** medido contra la instalacion, el 401 de la cadena de identidad trae
+ * CUATRO —`status`, `title`, `codigo`, `mensaje`— y ni `type` ni `detail`, mientras que el 404 de
+ * una ruta que no existe trae los seis mas `instance`. Por eso todos son opcionales aqui: dar por
+ * hecho que viene `detail` dejaria la explicacion de la pantalla en `undefined` justo en el
+ * peldano mas comun. Lo mismo vale para las tres nuevas — `detalles` **no se escribe cuando la
+ * lista esta vacia** (`ManejadorDeErrores.java:65-67` y `:307-309`), `incidencia` solo la lleva lo
+ * que cae en el catch-all (`:288-296`) y `parametroQueFalta` solo sale cuando el problema lo trae.
  */
 export interface CuerpoDeProblema {
   readonly type?: string;
@@ -43,6 +72,11 @@ export interface CuerpoDeProblema {
   readonly instance?: string;
   readonly codigo?: string;
   readonly mensaje?: string;
+  /** Las cifras del rechazo, como dato y no dentro de la frase. Ausente cuando no hay ninguna. */
+  readonly detalles?: readonly string[];
+  /** El identificador con el que soporte encuentra la causa en el registro. Solo en los 5xx. */
+  readonly incidencia?: string;
+  readonly parametroQueFalta?: ParametroQueFalta;
 }
 
 /**
@@ -59,6 +93,26 @@ export interface CuerpoDeProblema {
  *
  * La interfaz reacciona al **codigo**, que es estable, y no al texto en castellano, que se
  * reescribe en cuanto alguien lo lee en voz alta.
+ *
+ * <h2>Y desde #52 conserva las otras TRES extensiones, por el mismo motivo</h2>
+ *
+ * `incidencia`, `detalles` y `parametroQueFalta` llegaban y se tiraban aqui. Cada una tapaba una
+ * distincion que solo se puede hacer con ella:
+ *
+ *   · **`incidencia`** — la lleva todo 500 (`ManejadorDeErrores.java:288-296`) y es lo unico con
+ *     lo que quien atiende encuentra la causa. Sin ella el peldano de averia dice «avise a
+ *     soporte con este mensaje» y el mensaje es «No se pudo completar la operacion (500)», que es
+ *     el mismo para todos los 500 de todos los sistemas.
+ *   · **`detalles`** — es donde viaja el campo de un 422 `ORDEN_NO_ADMITIDO` («Campo pedido: …»,
+ *     `ManejadorDeErrores.java:75-81`), porque el `mensaje` de ese codigo es fijo.
+ *   · **`parametroQueFalta`** — separa dos 404 que llegan los dos con `codigo: 'NO_ENCONTRADO'`:
+ *     «esa ruta no existe» y «ese ejercicio no esta publicado». Medido desde `normativa` al
+ *     conectar su hoja de Publicacion (`normativa`#67): sin este miembro, distinguirlos obligaba
+ *     a leer el `mensaje` en castellano, que es justo lo que el catalogo de errores prohibe.
+ *
+ * **Aqui se conservan y no se interpretan.** No hay ningun `faltaUnaCifraNormativa` ni ningun
+ * `reintentable` en esta clase: decidir que significa cada una es de quien dibuja, y la escalera
+ * de `@kamayuk/sesion` es quien lo hace.
  *
  * <h2>Es UNA clase para los cuatro sistemas, y ese es el punto</h2>
  *
@@ -80,6 +134,23 @@ export class ErrorDeLaApi extends Error {
   readonly detalle: string | null;
   /** `VERBO /ruta`, lo que se pidio. Es lo que se ensena cuando el cuerpo no dice nada. */
   readonly operacion: string;
+  /**
+   * La extension `incidencia`: el identificador con el que soporte encuentra la causa, o `null`.
+   *
+   * Solo lo lleva lo que cayo en el catch-all del backend, o sea los 500. Un 4xx no lo trae, y
+   * eso significa algo: no hay nada en el registro del servidor que buscar.
+   */
+  readonly incidencia: string | null;
+  /**
+   * La extension `detalles`: las cifras del rechazo, como dato y no dentro de la frase.
+   *
+   * **Vacio cuando no llega**, y no `null`: el backend no escribe el miembro con la lista vacia
+   * (`ManejadorDeErrores.java:65-67`), asi que la ausencia significa «este rechazo no publica
+   * ninguna cifra» y nunca «no se sabe».
+   */
+  readonly detalles: readonly string[];
+  /** La extension `parametroQueFalta`, tal como llego y sin interpretar, o `null`. */
+  readonly parametroQueFalta: ParametroQueFalta | null;
 
   constructor(estado: number, operacion: string, cuerpo: CuerpoDeProblema = {}) {
     // El `message` de `Error` es lo que acaba en pantalla por el camino corto, asi que lleva lo
@@ -92,6 +163,9 @@ export class ErrorDeLaApi extends Error {
     this.titulo = cuerpo.title ?? null;
     this.detalle = cuerpo.detail ?? null;
     this.operacion = operacion;
+    this.incidencia = cuerpo.incidencia ?? null;
+    this.detalles = cuerpo.detalles ?? [];
+    this.parametroQueFalta = cuerpo.parametroQueFalta ?? null;
   }
 }
 

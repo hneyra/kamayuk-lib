@@ -53,7 +53,7 @@ import { subirElArchivo, type OpcionesDeSubida } from './subir.ts';
  * la cabecera de `errores.ts`.
  */
 export { ArchivoRechazado, ErrorDeLaApi, NoEsUnDocumento } from './errores.ts';
-export type { CuerpoDeProblema, MotivoDelRechazo } from './errores.ts';
+export type { CuerpoDeProblema, MotivoDelRechazo, ParametroQueFalta } from './errores.ts';
 export type { AvanceDeLaSubida, OpcionesDeSubida } from './subir.ts';
 
 /**
