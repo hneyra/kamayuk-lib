@@ -1,8 +1,9 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { Avisos, avisar } from '../shadcn/avisos.tsx';
 import { TEXTOS_DE_LAS_PIEZAS, TEXTOS_DEL_INTERPRETE } from '../textos.tsx';
 import type { DatosDeLaPantalla } from './datos.ts';
 import type { HojaDelMarco, LoTecleado } from './hoja.ts';
@@ -31,6 +32,17 @@ beforeAll(() => {
     unobserve() {}
     disconnect() {}
   } as unknown as typeof ResizeObserver;
+  // Y el de `sonner`, que la llama al resolver el modo `system`: medido en #13, ver `el-texto-propio-es-dato`.
+  window.matchMedia = ((consulta: string) => ({
+    matches: false,
+    media: consulta,
+    onchange: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+    dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia;
 });
 
 type Definicion = DefinicionDePantalla<PiezaDeLaPantalla>;
@@ -438,6 +450,122 @@ describe('`ayuda-en-un-campo-de-solo-lectura` (H50)', () => {
   });
 });
 
+// ── Grupo C ─────────────────────────────────────────────────────────────────────────────────────
+
+describe('`aviso-efimero-tras-un-acto` (H37): `avisar`, con `<Avisos>` montado', () => {
+  const { definicion } = MUESTRAS['aviso-efimero-tras-un-acto'];
+  const acto = definicion.bloques[0] as DefinicionDeActo;
+  const sinElDato: Definicion = { instruccion: '', bloques: [{ ...acto, alTerminar: undefined, alFallar: undefined }] };
+
+  afterEach(() => {
+    act(() => {
+      avisar.dismiss();
+    });
+  });
+
+  /** La pantalla con la region de avisos al lado, como la monta el marco. */
+  const conAvisos = (def: Definicion, manejador: () => void | Promise<unknown>) =>
+    render(
+      <>
+        <Pantalla
+          definicion={def}
+          datos={{ ausencia: SIN_FRASE }}
+          tonoDeLaInsignia={() => 'ok'}
+          actos={{ alta: manejador }}
+          actoAbierto={{ clave: 'alta' }}
+        />
+        <Avisos />
+      </>,
+    );
+
+  const rellenarYEnviar = async () => {
+    escribir('Codigo', 'G-01');
+    escribir('Observacion', 'Un grupo nuevo.');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Dar de alta' }));
+      await Promise.resolve();
+    });
+  };
+
+  it('aceptada la escritura, sale el aviso de `alTerminar`; y lo hecho se sigue diciendo en la tarjeta', async () => {
+    const { container } = conAvisos(definicion, () => Promise.resolve());
+    await rellenarYEnviar();
+    expect(await screen.findByText('Grupo dado de alta.')).toBeTruthy();
+    // El mismo selector con el que la prueba sin el dato afirma que NO hay aviso: aqui lo encuentra.
+    expect(container.querySelector('[data-sonner-toast]')).not.toBeNull();
+    expect(container.querySelector('[data-fase-del-acto="hecho"]')).not.toBeNull();
+  });
+
+  it('rechazada, el de `alFallar`', async () => {
+    conAvisos(definicion, () => Promise.reject(new Error('409')));
+    await rellenarYEnviar();
+    expect(await screen.findByText('El alta no se completo: el motivo esta encima del formulario.')).toBeTruthy();
+    expect(screen.queryByText('Grupo dado de alta.')).toBeNull();
+  });
+
+  it('SIN el dato, ningun aviso: la region de avisos se queda vacia, como antes de #86', async () => {
+    const { container } = conAvisos(sinElDato, () => Promise.resolve());
+    await rellenarYEnviar();
+    expect(container.querySelector('[data-fase-del-acto="hecho"]')).not.toBeNull();
+    expect(container.querySelector('[data-sonner-toast]'), 'salio un aviso que nadie pidio').toBeNull();
+  });
+
+  it('TECLADO: se envia con Enter sobre el primario, y el aviso sale igual', async () => {
+    const teclado = userEvent.setup({ delay: null });
+    conAvisos(definicion, () => Promise.resolve());
+    escribir('Codigo', 'G-01');
+    escribir('Observacion', 'Un grupo nuevo.');
+    act(() => {
+      screen.getByRole('button', { name: 'Dar de alta' }).focus();
+    });
+    await teclado.keyboard('{Enter}');
+    expect(await screen.findByText('Grupo dado de alta.')).toBeTruthy();
+  });
+});
+
+describe('`insignias-fijas-en-la-cabecera` (H42)', () => {
+  const { definicion, datos } = MUESTRAS['insignias-fijas-en-la-cabecera'];
+  const bloque = definicion.bloques[0];
+  const sinElDato: Definicion = { instruccion: '', bloques: [{ ...bloque, insignias: undefined, aLaDerecha: undefined }] };
+
+  it('SIN el dato, la cabecera es la de antes BYTE A BYTE', () => {
+    const { container } = monta(sinElDato, datos);
+    expect(container.querySelector('[data-slot="tarjeta-cabecera"]')?.outerHTML).toBe(
+      '<div data-slot="tarjeta-cabecera" class="px-[15px] py-[11px] bg-azul text-sobre-azul">' +
+        '<h2 class="m-0 text-[14.5px] font-bold">Detalle del registro</h2></div>',
+    );
+  });
+
+  it('CON el dato, las insignias y el codigo van en la cabecera y FUERA del encabezado: su nombre no cambia', () => {
+    const { container } = monta(definicion, datos);
+    expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('Detalle del registro');
+    expect(screen.getByRole('heading', { name: 'Detalle del registro' })).toBeTruthy();
+    const cabecera = container.querySelector('[data-slot="tarjeta-cabecera"]') as HTMLElement;
+    const junto = cabecera.querySelector('[data-slot="tarjeta-cabecera-junto"]') as HTMLElement;
+    expect(junto.closest('h2')).toBeNull();
+    expect([...junto.querySelectorAll('span.rounded-full')].map((i) => i.textContent)).toEqual(['Vigente', 'Solo lectura']);
+    // El tono es el del dato, no el que diria el texto.
+    expect(within(junto).getByText('Vigente').className).toContain('bg-ok-fondo');
+    expect(within(junto).getByText('Solo lectura').className).toContain('bg-info-fondo');
+    expect(junto.querySelector('[data-slot="codigo-de-la-cabecera"]')?.textContent).toBe('R-00042');
+  });
+
+  it('`tonoDeLaInsignia` NO se llama para ellas: el tono es dato de la definicion', () => {
+    const tono = vi.fn(() => 'mal' as const);
+    render(<Pantalla definicion={definicion} datos={datos} tonoDeLaInsignia={tono} />);
+    expect(tono).not.toHaveBeenCalled();
+  });
+
+  it('TECLADO: no son mandos: el tabulador no se para en la cabecera', async () => {
+    const teclado = userEvent.setup({ delay: null });
+    monta({ instruccion: '', bloques: [{ ...bloque, acciones: [{ rotulo: 'Volver a leer', hace: 'releer' }] }] }, datos, {
+      alHacer: { releer: () => {} },
+    });
+    await teclado.tab();
+    expect(document.activeElement?.textContent).toBe('Volver a leer');
+  });
+});
+
 // ── El centinela ───────────────────────────────────────────────────────────────────────────────
 
 describe('LAS MUESTRAS DE #86: una por hueco, y todas se dibujan', () => {
@@ -448,6 +576,8 @@ describe('LAS MUESTRAS DE #86: una por hueco, y todas se dibujan', () => {
     'obligatorio-u-opcional-por-campo',
     'errores-tras-el-primer-intento',
     'ayuda-en-un-campo-de-solo-lectura',
+    'aviso-efimero-tras-un-acto',
+    'insignias-fijas-en-la-cabecera',
   ];
 
   it('EL CENTINELA: estan los huecos de esta tanda, ni uno menos ni uno de mas', () => {

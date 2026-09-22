@@ -1,6 +1,7 @@
 import { useId, useRef, useState, type FormEvent } from 'react';
 
 import { Alerta } from '../shadcn/alerta.tsx';
+import { avisar } from '../shadcn/avisos.tsx';
 import { BotonConMotivo } from '../shadcn/boton-con-motivo.tsx';
 import { Area } from '../shadcn/campo.tsx';
 import { tipoDe } from '../shadcn/campos.ts';
@@ -77,6 +78,10 @@ import type { CampoDelActo, DefinicionDeActo } from './tipos-de-los-actos.ts';
  *     mientras la escritura viaja: vaciar un formulario cuyo envio aun puede aceptarse deja a quien
  *     mira sin saber que se guardo.
  *   · **`errores: 'trasElPrimerIntento'`**: el error de cada obligatorio vacio, bajo su campo.
+ *   · **`alTerminar` y `alFallar`**: un aviso de `sonner` —`avisar`, el de `<Avisos>`, que el marco
+ *     monta una vez—. No sustituye a lo de siempre: lo hecho y el fallo se siguen dibujando aqui.
+ *     Descartar NO avisa por ahi: ya lo dice su propia region viva, y dos regiones diciendo lo mismo
+ *     es un anuncio repetido para quien no ve.
  */
 
 export interface ActoDeLaPantallaProps {
@@ -190,8 +195,10 @@ export function ActoDeLaPantalla({ acto, datos, traducir, textos, interaccion }:
       if (bien) {
         setFase('hecho');
         interaccion.alQuedarGuardada();
+        if (acto.alTerminar !== undefined) avisar(texto(acto.alTerminar.aviso));
       } else {
         setRechazado(true);
+        if (acto.alFallar !== undefined) avisar.error(texto(acto.alFallar.aviso));
       }
     };
     let resultado: unknown;

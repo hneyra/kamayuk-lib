@@ -649,6 +649,25 @@ export interface DefinicionDeBloque<
    * cabecera. Ver `tipos-de-los-actos.ts`.
    */
   readonly acciones?: readonly DefinicionDeAccion[];
+  /**
+   * **Insignias fijas en la cabecera, junto al titulo** (#86, `insignias-fijas-en-la-cabecera`):
+   * «Vigente», «Solo lectura». Van FUERA del encabezado, asi que el nombre accesible del titulo no
+   * cambia: quien salta de encabezado en encabezado oye «Detalle del registro» y no «Detalle del
+   * registro Vigente Solo lectura».
+   */
+  readonly insignias?: readonly InsigniaDeLaCabecera<T>[];
+  /** Lo que va a la derecha de la cabecera: el codigo de lo que se mira, «R-00042» (#86). */
+  readonly aLaDerecha?: { readonly codigo: T };
+}
+
+/**
+ * Una insignia de la cabecera de un bloque (#86). **El tono es dato**, como en toda insignia desde
+ * #65: nunca se deduce del texto. Es fija —no hay regla que la cambie segun un dato—; el texto si
+ * puede llevar uno, porque es un `Texto`.
+ */
+export interface InsigniaDeLaCabecera<T extends Texto = Texto> {
+  readonly tono: TonoDeInsignia;
+  readonly texto: T;
 }
 
 /** Un aviso con tono, titulo y parrafo (#44, `aviso`). Es la `Alerta`, como dato. */

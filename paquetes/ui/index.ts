@@ -266,7 +266,7 @@ export type {
   TecleadoDeUnActo,
 } from './interprete/hoja.ts';
 // La marca de sucia y lo tecleado como dato de la hoja (#86).
-export type { ComportamientoDeLaHoja } from './interprete/tipos.ts';
+export type { ComportamientoDeLaHoja, InsigniaDeLaCabecera, MensajesDelCampo } from './interprete/tipos.ts';
 export { EL_SUJETO, actoEnLaRuta, cambioEn, valorEnLaRuta } from './interprete/hoja.ts';
 export type { PiezaEnSuSitio } from './interprete/composicion.ts';
 export {

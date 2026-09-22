@@ -174,6 +174,18 @@ export interface DefinicionDeActo extends ComunDeUnaPieza {
    * «nunca» es lo de hoy, que se dice no poniendo el dato.
    */
   readonly errores?: 'trasElPrimerIntento';
+  /**
+   * **Un aviso que sale abajo y se va solo** cuando el sistema acepta la escritura (#86,
+   * `aviso-efimero-tras-un-acto`): «Grupo abierto». Es `avisar` —el `sonner` de `<Avisos>`, que el
+   * marco monta una vez—, en una region viva que no roba el foco. **No sustituye a lo hecho**: la
+   * tarjeta sigue diciendolo en su sitio, que es lo que queda cuando el aviso ya se fue.
+   *
+   * Se resuelve con los datos que hay AL TERMINAR: lo que el servidor contesto llega a `nombrados`
+   * despues, y un aviso que lo nombrara saldria con la raya del dato ausente.
+   */
+  readonly alTerminar?: { readonly aviso: Texto };
+  /** Y cuando la rechaza. El fallo detallado sigue siendo el de `datos.lecturas`, encima del formulario. */
+  readonly alFallar?: { readonly aviso: Texto };
 }
 
 /** Lo que el manejador de un acto recibe. La libreria no pone ningun nombre del cuerpo de la peticion. */

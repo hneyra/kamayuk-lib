@@ -169,4 +169,43 @@ export const MUESTRAS_DE_LOS_CAMPOS_LOS_ACTOS_Y_LA_PROSA = {
     },
     datos: { ausencia: SIN_FRASE_DE_PANTALLA, valores: new Map([['0|0', '1200.00']]) },
   },
+
+  'aviso-efimero-tras-un-acto': {
+    deDonde: 'normativa, HUECOS.md H37: lo hecho se decia en la tarjeta y nada mas, y quien miraba la lista no se enteraba',
+    definicion: {
+      instruccion: 'Registre el grupo.',
+      bloques: [
+        {
+          tipo: 'acto',
+          clave: 'alta',
+          titulo: 'Dar de alta',
+          campos: [{ nombre: 'codigo', etiqueta: 'Codigo', tipo: '' }],
+          observacion: OBSERVACION,
+          alTerminar: { aviso: 'Grupo dado de alta.' },
+          alFallar: { aviso: 'El alta no se completo: el motivo esta encima del formulario.' },
+        },
+      ],
+    },
+    datos: { ausencia: SIN_FRASE_DE_PANTALLA },
+  },
+
+  'insignias-fijas-en-la-cabecera': {
+    deDonde: 'normativa, HUECOS.md H42: el estado y el codigo de lo que se mira no tenian sitio en la cabecera',
+    definicion: {
+      instruccion: 'Consulte el registro.',
+      bloques: [
+        {
+          titulo: 'Detalle del registro',
+          nota: '',
+          campos: [{ etiqueta: 'Codigo', tipo: 'r' }],
+          insignias: [
+            { tono: 'ok', texto: 'Vigente' },
+            { tono: 'info', texto: 'Solo lectura' },
+          ],
+          aLaDerecha: { codigo: { desde: 'registroId' } },
+        },
+      ],
+    },
+    datos: { ausencia: SIN_FRASE_DE_PANTALLA, nombrados: new Map([['registroId', 'R-00042']]) },
+  },
 } as const satisfies Record<string, Muestra>;
