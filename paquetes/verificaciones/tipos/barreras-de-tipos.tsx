@@ -190,6 +190,10 @@ export const accionesImposibles: readonly DefinicionDeAccion[] = [
   { rotulo: 'Dos cosas', abre: 'a', va: { hoja: 'h' } },
   // @ts-expect-error y una que no hace ninguna, tampoco: seria un boton sin efecto
   { rotulo: 'Nada' },
+  // @ts-expect-error guardar Y hacer algo del sistema: la cuarta clase (#86) tampoco se mezcla
+  { rotulo: 'Dos cosas', guarda: { texto: { desde: 't' }, tipoDeMedio: 'text/plain', nombre: 'n' }, hace: 'x' },
+  // @ts-expect-error lo que se guarda es SOLO `desde`: una plantilla lo envolveria y `traducir` lo cambiaria
+  { rotulo: 'Guardar', guarda: { texto: { plantilla: '{t}' }, tipoDeMedio: 'text/plain', nombre: 'n' } },
 ];
 
 /**

@@ -303,4 +303,38 @@ export const MUESTRAS_DE_LOS_CAMPOS_LOS_ACTOS_Y_LA_PROSA = {
       ]),
     },
   },
+
+  'guardar-como-archivo': {
+    deDonde: 'normativa, HUECOS.md H30a: guardar el texto que se verifico, y no el que el navegador volveria a pedir',
+    definicion: {
+      instruccion: 'Guarde la version verificada del registro.',
+      bloques: [
+        {
+          titulo: 'Version verificada',
+          nota: 'Su huella coincide con la que firmo el servidor.',
+          campos: [],
+          acciones: [
+            {
+              rotulo: 'Guardar como archivo',
+              // `desde` y nada mas: el texto tal como se verifico, sin plantilla ni `traducir`.
+              guarda: {
+                texto: { desde: 'lectura.texto' },
+                tipoDeMedio: 'application/json',
+                nombre: { plantilla: 'registro-{registroId}.json' },
+              },
+              sinDescarga: 'Este navegador no guarda archivos: copie el texto desde la vista.',
+            },
+          ],
+        },
+      ],
+    },
+    datos: {
+      ausencia: SIN_FRASE_DE_PANTALLA,
+      nombrados: new Map([
+        // Tal como llego: `1.0` no es `1`, el escape no es la letra y el salto final es parte del texto.
+        ['lectura.texto', '{"valor":1.0,"nombre":"Jos\\u00e9"}\n'],
+        ['registroId', '00042'],
+      ]),
+    },
+  },
 } as const satisfies Record<string, Muestra>;

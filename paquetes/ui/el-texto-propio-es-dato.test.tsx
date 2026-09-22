@@ -270,6 +270,8 @@ const LA_PROSA_DE_86: DefinicionDePantalla<PiezaDeLaPantalla> = {
       nota: '',
       notaConMarcas: [{ texto: 'lo impide ' }, { codigo: { desde: 'restriccion' } }, { fuerte: 'no se deshace' }],
       campos: [],
+      // Un texto que no llego: el motivo sale del saco (`faltaParaGuardar`).
+      acciones: [{ rotulo: 'guardar', guarda: { texto: { desde: 'no-llego' }, tipoDeMedio: 'text/plain', nombre: 'nombre' } }],
       tablas: [
         {
           clave: 'filtrable',

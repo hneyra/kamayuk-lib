@@ -6,6 +6,7 @@ import type {
   DefinicionDeAccion,
   DefinicionDeActo,
   DestinoDeUnaAccion,
+  GuardadoComoArchivo,
   Impedimento,
   ManejadoresDeLasAcciones,
   ManejadoresDeLosActos,
@@ -102,13 +103,20 @@ export interface ContextoDeUnaAccion {
   readonly navegacion: NavegacionDeLaPantalla | undefined;
   /** Si la operacion de esta accion esta pendiente (solo las que `hace`). */
   readonly enCurso: boolean;
+  /**
+   * Si este navegador sabe descargar (solo las que `guarda`, #86). Sin el, se supone que si: quien
+   * llama sin decirlo es el de antes de #86, que no tenia ninguna accion que lo necesitara.
+   */
+  readonly ofreceDescarga?: boolean;
 }
 
 /**
  * **Por que no se puede pulsar una accion**, o `undefined` si se puede (#66, `impedido-con-motivo`).
  *
  * En este orden: en curso · lo que la definicion declara · nadie la atiende · y, si `va`, que el
- * catalogo no ofrezca la hoja o que falte un dato. Lo de la definicion va antes que lo de la costura
+ * catalogo no ofrezca la hoja o que falte un dato. Una que `guarda` (#86) no la atiende nadie del
+ * sistema —la entrega el navegador—: la impide que el navegador no sepa descargar, o que el texto o
+ * su nombre no hayan llegado. Lo de la definicion va antes que lo de la costura
  * porque es lo que la persona puede arreglar: «falta elegir un grupo» se arregla eligiendo, y «nadie
  * atiende esto» no se arregla desde la pantalla.
  */
@@ -130,10 +138,32 @@ export function motivoDeLaAccion(accion: DefinicionDeAccion, contexto: ContextoD
   if (accion.hace !== undefined) {
     return atiende(contexto.alHacer, accion.hace) ? undefined : textos.sinQuienLoAtienda(accion.hace);
   }
+  if (accion.guarda !== undefined) {
+    // Primero el navegador: si no sabe descargar, esperar a que llegue el texto no arregla nada.
+    if (contexto.ofreceDescarga === false) {
+      return accion.sinDescarga === undefined ? textos.sinDescarga : resolver(accion.sinDescarga, nombrados, traducir, textos);
+    }
+    if (textoQueSeGuarda(accion.guarda, nombrados) === undefined) return textos.faltaParaGuardar(accion.guarda.texto.desde);
+    // Y el nombre: con un dato ausente se guardaria un archivo llamado «—».
+    const ausente = datosQueLee(accion.guarda.nombre).find((nombre) => falta(nombrados, nombre));
+    return ausente === undefined ? undefined : textos.faltaParaGuardar(ausente);
+  }
   if (contexto.navegacion === undefined) return textos.sinNavegacion;
   if (!contexto.navegacion.ofrece(accion.va.hoja)) return textos.hojaNoOfrecida;
   const resuelta = peticionDe(accion.va, nombrados, traducir, textos);
   return 'faltaElDato' in resuelta ? textos.faltaElDato(resuelta.faltaElDato) : undefined;
+}
+
+/**
+ * **El texto que una accion `guarda` pone en el archivo**, tal como esta en `nombrados`, o
+ * `undefined` si no llego (#86, `guardar-como-archivo`).
+ *
+ * Tal cual: sin `traducir`, sin plantilla y sin `trim`, porque es lo que se verifico. Un booleano no
+ * es un texto, y `''` no es nada que guardar.
+ */
+export function textoQueSeGuarda(guarda: GuardadoComoArchivo, nombrados: Nombrados): string | undefined {
+  const texto = nombrados?.get(guarda.texto.desde);
+  return typeof texto === 'string' && texto !== '' ? texto : undefined;
 }
 
 /** Si un registro trae manejador para una clave. `toString` no cuenta, como en `piezas` (#44). */

@@ -222,6 +222,7 @@ export type {
   DefinicionDeActo,
   DestinoDeUnaAccion,
   EnvioDeUnActo,
+  GuardadoComoArchivo,
   HechoDelActo,
   Impedimento,
   ManejadoresDeLasAcciones,

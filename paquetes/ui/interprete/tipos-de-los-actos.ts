@@ -49,7 +49,7 @@ export interface DestinoDeUnaAccion {
   readonly parametros?: Readonly<Record<string, Texto>>;
 }
 
-/** Lo que tienen en comun las tres clases de accion. */
+/** Lo que tienen en comun las cuatro clases de accion. */
 interface ComunDeUnaAccion {
   readonly rotulo: Texto;
   /** La principal, en azul. Una por grupo, como en el pie. */
@@ -62,10 +62,19 @@ interface ComunDeUnaAccion {
  * **Una accion: un boton que abre un acto, va a otra hoja o hace algo del sistema** (#66,
  * `acciones-del-bloque`).
  *
- * Es una union y no tres campos opcionales, a proposito: una accion que abriera un acto Y fuera a
- * otra hoja no tiene significado, y con tres opcionales compilaria. Los `?: never` son los que lo
+ * Es una union y no cuatro campos opcionales, a proposito: una accion que abriera un acto Y fuera a
+ * otra hoja no tiene significado, y con cuatro opcionales compilaria. Los `?: never` son los que lo
  * impiden de verdad: sin ellos TypeScript admite `{ abre, va }`, porque en una union la comprobacion
  * de propiedades de mas mira todas las ramas a la vez (medido con la barrera de tipo).
+ *
+ * <h2>La cuarta, `guarda`, desde #86 — y lo que cuesta</h2>
+ *
+ * Una rama mas en la union es **aditiva para quien escribe definiciones** —un literal de las tres de
+ * antes sigue compilando— pero no para quien RECORRE acciones y estrecha por descarte: tras mirar
+ * `abre` y `va`, `hace` ya no es `string` sino `string | undefined`. Medido aqui, antes de tocar las
+ * dos piezas que lo hacen: `GrupoDeAcciones.tsx(84,45): error TS2538: Type 'undefined' cannot be used
+ * as an index type` y `acciones.ts(134,35): error TS18048: 'accion.va' is possibly 'undefined'`. El
+ * codigo de un sistema que estreche igual sale con el mismo rojo; lo mide el trabajo `consumidores`.
  */
 export type DefinicionDeAccion = ComunDeUnaAccion &
   (
@@ -74,20 +83,63 @@ export type DefinicionDeAccion = ComunDeUnaAccion &
         readonly abre: string;
         readonly va?: never;
         readonly hace?: never;
+        readonly guarda?: never;
         /**
          * Lo que el acto necesita saber de donde se abrio: la fila sobre la que se actua (#65).
          * Se resuelve contra `nombrados` y llega al manejador en `EnvioDeUnActo.parametros`.
          */
         readonly con?: Readonly<Record<string, Texto>>;
       }
-    | { readonly va: DestinoDeUnaAccion; readonly abre?: never; readonly hace?: never }
+    | { readonly va: DestinoDeUnaAccion; readonly abre?: never; readonly hace?: never; readonly guarda?: never }
     | {
         /** La clave de una operacion del sistema en `<Pantalla alHacer>`: «Volver a leer la lista». */
         readonly hace: string;
         readonly abre?: never;
         readonly va?: never;
+        readonly guarda?: never;
+      }
+    | {
+        /** El texto que ya se leyo —y se verifico—, guardado como archivo (#86). Ver `GuardadoComoArchivo`. */
+        readonly guarda: GuardadoComoArchivo;
+        /**
+         * Lo que se dice si este navegador no sabe descargar: el boton sale impedido con esto, en vez
+         * de no hacer nada al pulsarlo. Sin ella, `textos.sinDescarga`.
+         */
+        readonly sinDescarga?: Texto;
+        readonly abre?: never;
+        readonly va?: never;
+        readonly hace?: never;
       }
   );
+
+/**
+ * **Guardar como archivo EL TEXTO QUE SE VERIFICO** (#86, `guardar-como-archivo`, H30a de
+ * `normativa`).
+ *
+ * <h2>El texto sale de `nombrados`, tal cual, y no se vuelve a pedir</h2>
+ *
+ * Quien verifica una lectura —la huella de un cuerpo firmado, con `solicitarRespuesta` de
+ * `@kamayuk/api`— lo hace sobre **los bytes que llegaron**, y eso es lo que tiene que acabar en el
+ * disco. Un enlace a la ruta haria que el navegador la pidiera otra vez: otra respuesta, que nadie ha
+ * verificado. Y reserializar el objeto da otro texto (`1.0` vuelve `1`, un escape vuelve la letra).
+ * Por eso `texto` es **solo** `{ desde }`: el dato tal cual, sin plantilla que lo envuelva y sin
+ * pasar por `traducir`, que son las dos formas de `Texto` que lo cambiarian. El sistema lo pone en
+ * `nombrados` despues de verificarlo, y mientras no esta el boton sale impedido con su motivo.
+ *
+ * <h2>Se entrega con `entregarAlNavegador`, y no con una copia</h2>
+ *
+ * La de `@kamayuk/api`, que revoca la URL del `Blob` al volver del clic y esta medida en Chromium.
+ * `descarga-de-documento` de `catastro` es otra cosa —un PDF que genera el servidor, con
+ * `descargar()`— y no choca con esto.
+ */
+export interface GuardadoComoArchivo {
+  /** El nombre del dato con el texto verificado. **Solo `desde`**: ver arriba. */
+  readonly texto: { readonly desde: string };
+  /** El `Content-Type` del archivo: `application/json`, `text/plain;charset=utf-8`. Es codigo. */
+  readonly tipoDeMedio: string;
+  /** El nombre con que se guarda. Puede llevar un dato —`registro-{registroId}.json`—, y sin el no se guarda. */
+  readonly nombre: Texto;
+}
 
 /**
  * Un campo de un acto: **un campo del bloque, con el nombre con que viaja**.

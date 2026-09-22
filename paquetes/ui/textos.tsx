@@ -214,6 +214,10 @@ export interface TextosDeLasPiezas {
   readonly filasQueDejaElFiltro: (visibles: number, recibidas: number, total: string | undefined) => string;
   /** Lo que se dice cuando el filtro no deja ninguna fila. NO es el `vacio` de la tabla: la lista llego con filas. */
   readonly ningunaPasaElFiltro: string;
+  /** Por que no se puede guardar todavia: el dato con el texto —o con su nombre— aun no llego. */
+  readonly faltaParaGuardar: (nombre: string) => string;
+  /** Por que no se puede guardar en este navegador, si la accion no dice su propia frase. Nunca un boton mudo. */
+  readonly sinDescarga: string;
 }
 
 /** Lo que se ve si nadie pasa nada. */
@@ -278,6 +282,8 @@ export const TEXTOS_DE_LAS_PIEZAS: TextosDeLasPiezas = {
   filasQueDejaElFiltro: (visibles, recibidas, total) =>
     `${String(visibles)} de ${String(recibidas)}${total === undefined ? '' : ` · ${total} en total`}`,
   ningunaPasaElFiltro: 'Ninguna de las filas que llegaron pasa el filtro. Quitelo para verlas todas.',
+  faltaParaGuardar: (nombre) => `Todavia no se ha leido «${nombre}»: no hay nada que guardar.`,
+  sinDescarga: 'Este navegador no permite guardar archivos desde la pagina.',
 };
 
 /** Los dos sacos que `Pantalla` recibe juntos, y lo que una pieza del consumidor recibe ya fundido. */
