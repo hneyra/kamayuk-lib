@@ -63,6 +63,10 @@ export interface DatosDeLaPantalla {
   /**
    * Los datos que las piezas leen por su nombre (#44). Los nombres los elige el sistema —con
    * puntos, si quiere: `marco.ejercicio`—, y un dato que todavia no llego **no se pone**.
+   *
+   * **Una serie entra APLANADA, y es el contrato** (#102): un nombre por celda, con el indice en
+   * medio —`recaudacion.0.tributo`, `recaudacion.0.monto`, `recaudacion.1.tributo`…—, cada valor
+   * ya en texto. Por que no hay aqui un canal para datos que no son texto lo dice `DatoConNombre`.
    */
   readonly nombrados?: ReadonlyMap<string, DatoConNombre>;
   /**
@@ -193,5 +197,31 @@ export type EstadoDeUnaLectura =
  * **Sin `number`**: una cifra llega ya formateada por el sistema, igual que `valores`. En coma
  * flotante un importe pierde el centimo antes de llegar a la pantalla (regla 1), y el formato de
  * una cifra es de `@kamayuk/formato`, no de quien la dibuja.
+ *
+ * <h2>Una serie se aplana, y aplanar es el contrato (#102)</h2>
+ *
+ * Tampoco hay un arreglo ni un objeto. Una pieza `delConsumidor` que dibuja una serie —el grafico
+ * de `rentas`, el primero que la pidio— la recibe **aplanada**, un nombre por celda y el indice
+ * en medio —`recaudacion.0.tributo`, `recaudacion.1.tributo`…, y lo mismo con cada otro campo de
+ * la fila—, y la recompone ella, leyendo `recaudacion.<i>.<campo>` desde `0` hasta el primer
+ * indice que no este. Una cifra de la serie llega en texto, como cualquier otra (regla 1).
+ * **Esa es la forma reconocida**: los puntos ya eran el separador de los nombres de `nombrados`
+ * (`marco.ejercicio`, `ruta.<clave>`), y ninguna funcion nueva la acompana, a proposito.
+ *
+ * **No se abre un canal para datos que no son texto, y es una decision y no un olvido.** Tres
+ * motivos:
+ *
+ *   1. **Disenado con un solo uso, ataria la API a ese uso.** Hoy hay UNA pieza que pide una
+ *      serie; la forma de la serie —que columnas, que orden, que pasa con un hueco— la diria ella,
+ *      y el segundo que llegue tendria que caber en la forma del primero.
+ *   2. **El canal, si lo hay, entra con el grafico.** El grafico sube a bloque del interprete con
+ *      #25, que espera al segundo consumidor que pida una serie. #102 lo dice asi: que la API
+ *      salga de dos usos y no de uno.
+ *   3. **El grafico no es gratis.** `recharts` cuesta +324,74 kB de JS (+98,12 kB gzip), y en esta
+ *      libreria seria una dependencia de todos sus consumidores y no del que dibuja el grafico.
+ *      Mientras lo use uno, vive en el.
+ *
+ * Aplanar tiene un coste y se paga donde se ve: la pieza que lo pide escribe el bucle que
+ * recompone, en su arbol y no en el de los seis.
  */
 export type DatoConNombre = string | boolean | null;
