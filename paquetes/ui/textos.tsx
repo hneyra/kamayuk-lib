@@ -199,6 +199,10 @@ export interface TextosDeLasPiezas {
   readonly celdaSinDato: string;
   /** Y por que esta vacia, anunciado en la celda. Nunca una celda en blanco y sin motivo. */
   readonly porQueLaCeldaNoTieneDato: string;
+
+  // ── Los campos, los actos y la prosa (#86) ────────────────────────────────────────────────────
+  /** Lo que se anuncia tras descartar lo escrito en un acto, si su definicion no da su `dicho`. */
+  readonly loEscritoSeDescarto: string;
 }
 
 /** Lo que se ve si nadie pasa nada. */
@@ -255,6 +259,9 @@ export const TEXTOS_DE_LAS_PIEZAS: TextosDeLasPiezas = {
   mandosDeLaTabla: (tabla) => `Mandos de «${tabla}»`,
   celdaSinDato: '—',
   porQueLaCeldaNoTieneDato: 'Aqui no hay dato, y no es un cero.',
+
+  // #86
+  loEscritoSeDescarto: 'Se descarto lo escrito: el formulario esta como al abrirlo.',
 };
 
 /** Los dos sacos que `Pantalla` recibe juntos, y lo que una pieza del consumidor recibe ya fundido. */

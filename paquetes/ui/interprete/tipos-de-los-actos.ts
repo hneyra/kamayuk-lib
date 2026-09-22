@@ -153,6 +153,14 @@ export interface DefinicionDeActo extends ComunDeUnaPieza {
   /** Lo que impide enviar por el dominio: «falta elegir un grupo». Va antes que lo que falta rellenar. */
   readonly impedido?: readonly Impedimento[];
   readonly hecho?: HechoDelActo;
+  /**
+   * **Un secundario al pie que vacia lo escrito, y lo dice** (#86, `descartar-lo-escrito`).
+   *
+   * Vacia los valores, la observacion, el intento y el rechazo; la hoja queda limpia si lo del acto
+   * era lo unico tecleado. `dicho` es lo que se anuncia despues en una region viva; sin el, la frase
+   * del saco. Sin `descartar` no hay boton, y el pie es el de siempre.
+   */
+  readonly descartar?: { readonly rotulo: Texto; readonly dicho?: Texto };
 }
 
 /** Lo que el manejador de un acto recibe. La libreria no pone ningun nombre del cuerpo de la peticion. */

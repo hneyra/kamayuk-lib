@@ -753,6 +753,39 @@ export interface DefinicionDePantalla<Pieza extends PiezaDeLaPantalla = Definici
    */
   readonly instruccion: string;
   readonly bloques: readonly Pieza[];
+  /**
+   * **Como lleva esta hoja la marca de sucia y lo tecleado** (#86). Sin ella, como hasta #86: la
+   * hoja solo se ensucia si el sistema cablea `alEnsuciar`, y lo tecleado muere con la pantalla.
+   */
+  readonly hoja?: ComportamientoDeLaHoja;
+}
+
+/**
+ * **La marca de sucia y lo tecleado, como dato de la hoja** (#86).
+ *
+ * <h2>`suciaAlTeclear` — `la-hoja-se-marca-sucia-al-teclear`</h2>
+ *
+ * Con ella —y una `<Pantalla hoja>` que traiga `marcarSucia`— **cada** cambio que ensucia llama a
+ * `hoja.marcarSucia()`, y al guardar un acto la hoja se limpia y lo tecleado se vacia. Hasta aqui el
+ * aviso salia solo con la PRIMERA tecla de la vida de la pantalla y lo tecleado no se vaciaba nunca,
+ * asi que una hoja guardada no podia volver a ensuciarse: la segunda tanda de cambios se perdia sin
+ * preguntar.
+ *
+ * El issue la escribia con `limpiaAl: ['guardar', 'descartar']`. **No entra**, y es criterio y no
+ * olvido: una lista cuyo unico valor con sentido es la lista entera es un dato que solo se puede
+ * escribir mal —una hoja que siguiera sucia despues de guardar es el defecto de este hueco—.
+ *
+ * <h2>`conservaLoTecleado` — `lo-tecleado-y-la-negativa-sobreviven`</h2>
+ *
+ * **Solo `'soloSiSucia'`, la opcion C que se decidio.** Con ella, y una `<Pantalla hoja>` que traiga
+ * `alTeclear`, lo tecleado —en los campos y en los actos— vive en el marco y no en la pantalla, y
+ * sobrevive a irse y volver **mientras la hoja siga sucia**. Es una union de un valor a proposito: la
+ * A (siempre) y la B (nunca, la de normativa#58) se miraron, y el dia que una hoja demuestre que
+ * necesita otra entra como otro valor sin tocar a nadie.
+ */
+export interface ComportamientoDeLaHoja {
+  readonly suciaAlTeclear?: boolean;
+  readonly conservaLoTecleado?: 'soloSiSucia';
 }
 
 /**

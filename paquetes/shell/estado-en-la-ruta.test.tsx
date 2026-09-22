@@ -427,5 +427,15 @@ describe('`hoja-a-sangre`', () => {
  * La barrera de tipo del cableado de una linea: `HojaAbierta` ES una `HojaDelMarco`. Si el marco
  * renombrara `ruta` o `moverLaRuta`, `<Pantalla hoja={useHoja()} />` dejaria de compilar AQUI y no
  * en el sistema que la usa.
+ *
+ * **Y desde #86, con los cuatro miembros nuevos OBLIGATORIOS**: en `HojaDelMarco` son opcionales —una
+ * hoja escrita a mano tiene que seguir cabiendo—, asi que la asignacion a secas seguiria compilando
+ * con un marco que dejara de darlos, y la hoja dejaria de ensuciarse y de conservar lo tecleado sin
+ * un solo rojo. Si el marco deja de dar cualquiera de los cuatro, o lo renombra, sale rojo AQUI.
  */
-export const _laHojaDelMarcoCabeEnLaPantalla = (hoja: HojaAbierta): HojaDelMarco => hoja;
+export const _laHojaDelMarcoCabeEnLaPantalla = (
+  hoja: HojaAbierta,
+): HojaDelMarco &
+  Required<Pick<HojaDelMarco, 'marcarSucia' | 'marcarGuardada' | 'alTeclear'>> & {
+    readonly tecleado: HojaDelMarco['tecleado'];
+  } => hoja;

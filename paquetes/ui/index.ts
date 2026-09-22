@@ -256,7 +256,17 @@ export type {
   PestanaDeLaPantalla,
 } from './interprete/tipos.ts';
 export type { FilaDeUnaLista } from './interprete/datos.ts';
-export type { CambioDeLaRuta, EnLaRuta, HojaDelMarco, RutaDeLaHoja } from './interprete/hoja.ts';
+export type {
+  CambioDeLaRuta,
+  CambioDeLoTecleado,
+  EnLaRuta,
+  HojaDelMarco,
+  LoTecleado,
+  RutaDeLaHoja,
+  TecleadoDeUnActo,
+} from './interprete/hoja.ts';
+// La marca de sucia y lo tecleado como dato de la hoja (#86).
+export type { ComportamientoDeLaHoja } from './interprete/tipos.ts';
 export { EL_SUJETO, actoEnLaRuta, cambioEn, valorEnLaRuta } from './interprete/hoja.ts';
 export type { PiezaEnSuSitio } from './interprete/composicion.ts';
 export {
