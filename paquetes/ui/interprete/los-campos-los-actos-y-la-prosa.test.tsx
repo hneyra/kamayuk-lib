@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { TEXTOS_DE_LAS_PIEZAS } from '../textos.tsx';
+import { TEXTOS_DE_LAS_PIEZAS, TEXTOS_DEL_INTERPRETE } from '../textos.tsx';
 import type { DatosDeLaPantalla } from './datos.ts';
 import type { HojaDelMarco, LoTecleado } from './hoja.ts';
 import { MUESTRAS_DE_LOS_CAMPOS_LOS_ACTOS_Y_LA_PROSA as MUESTRAS } from './muestras-de-los-campos-los-actos-y-la-prosa.ts';
@@ -37,6 +37,7 @@ type Definicion = DefinicionDePantalla<PiezaDeLaPantalla>;
 
 const SIN_FRASE = { enElCampo: '—', explicacion: '', tono: 'info' } as const;
 const T = TEXTOS_DE_LAS_PIEZAS;
+const TEXTOS_DE_LAS_PIEZAS_Y_EL_INTERPRETE = { ...TEXTOS_DEL_INTERPRETE, ...TEXTOS_DE_LAS_PIEZAS };
 
 const monta = (definicion: Definicion, datos: Partial<DatosDeLaPantalla> = {}, extra: Partial<PantallaProps> = {}) =>
   render(
@@ -320,6 +321,123 @@ describe('`descartar-lo-escrito` (H48)', () => {
   });
 });
 
+// ── Grupo B ─────────────────────────────────────────────────────────────────────────────────────
+
+/** La marca «(opcional)» dentro del rotulo de un campo, buscada por su rotulo. */
+function marcadoOpcional(rotulo: string): boolean {
+  const etiqueta = [...document.querySelectorAll('[data-slot="etiqueta"]')].find(
+    (e) => e.querySelector('label span')?.textContent === rotulo,
+  );
+  if (etiqueta === undefined) throw new Error(`No hay ningun campo «${rotulo}».`);
+  return etiqueta.querySelector('label')?.textContent?.includes(TEXTOS_DE_LAS_PIEZAS_Y_EL_INTERPRETE.opcional) === true;
+}
+
+describe('`obligatorio-u-opcional-por-campo` (H05b): «(opcional)» es un dato, no una palabra de la ayuda', () => {
+  const { definicion } = MUESTRAS['obligatorio-u-opcional-por-campo'];
+
+  it('se marca por el DATO, en lo que se teclea y en una lista; lo obligatorio no se marca', () => {
+    monta(definicion);
+    expect(marcadoOpcional('Alias')).toBe(true);
+    expect(marcadoOpcional('Categoria')).toBe(true);
+    expect(marcadoOpcional('Codigo')).toBe(false);
+  });
+
+  it('una ayuda que DICE «opcional» ya no marca nada: la regla vieja la marcaba, y «no es opcional» tambien', () => {
+    monta({
+      instruccion: '',
+      bloques: [
+        {
+          titulo: 'B',
+          nota: '',
+          campos: [
+            { etiqueta: 'Uno', tipo: '', ayuda: 'Es opcional.' },
+            { etiqueta: 'Otro', tipo: '', ayuda: 'No es opcional: sin el no se envia.' },
+          ],
+        },
+      ],
+    });
+    expect(marcadoOpcional('Uno'), 'la ayuda volvio a decidir la marca').toBe(false);
+    expect(marcadoOpcional('Otro'), 'la ayuda volvio a decidir la marca').toBe(false);
+  });
+
+  it('en un acto, el MISMO dato decide la marca y si se puede enviar en blanco', () => {
+    monta(definicion, {}, { actoAbierto: { clave: 'alta' }, actos: { alta: () => {} } });
+    const acto = document.querySelector('[data-acto="alta"]') as HTMLElement;
+    const alias = [...acto.querySelectorAll('[data-slot="etiqueta"]')].find((e) => e.textContent?.startsWith('Alias'));
+    expect(alias?.textContent).toContain(TEXTOS_DE_LAS_PIEZAS_Y_EL_INTERPRETE.opcional);
+    // Y lo que falta rellenar no lo nombra: es el mismo `opcional`.
+    const primario = acto.querySelector('button[type="submit"]') as HTMLElement;
+    expect(descripcionDe(primario)).toBe(T.faltaRellenar(['Codigo']));
+  });
+});
+
+describe('`errores-tras-el-primer-intento` (H07)', () => {
+  const { definicion } = MUESTRAS['errores-tras-el-primer-intento'];
+  const acto = definicion.bloques[0] as DefinicionDeActo;
+  const sinElDato: Definicion = { instruccion: '', bloques: [{ ...acto, errores: undefined }] };
+  const abierto = { actoAbierto: { clave: 'alta' }, actos: { alta: () => {} } } as const;
+  const primarioDelActo = () => screen.getByRole('button', { name: 'Dar de alta' });
+
+  it('ANTES del primer intento, nada en rojo', () => {
+    monta(definicion, {}, abierto);
+    for (const rotulo of ['Codigo', 'Nombre', 'Alias', 'Observacion']) {
+      expect(screen.getByLabelText(new RegExp(`^${rotulo}`)).getAttribute('aria-invalid'), rotulo).toBeNull();
+    }
+  });
+
+  it('TRAS el primer intento, cada obligatorio vacio dice SU error —el propio o el del saco—, y el opcional no', () => {
+    monta(definicion, {}, abierto);
+    fireEvent.click(primarioDelActo());
+    const codigo = screen.getByLabelText('Codigo');
+    const nombre = screen.getByLabelText('Nombre');
+    expect(codigo.getAttribute('aria-invalid')).toBe('true');
+    expect(descripcionDe(codigo)).toBe('Falta el codigo del grupo.');
+    expect(nombre.getAttribute('aria-invalid')).toBe('true');
+    expect(descripcionDe(nombre)).toBe(T.campoObligatorio);
+    expect(screen.getByLabelText(/^Alias/).getAttribute('aria-invalid')).toBeNull();
+
+    // Relleno, el error se va: se mira lo de ahora, no lo del intento.
+    escribir('Codigo', 'G-01');
+    expect(codigo.getAttribute('aria-invalid')).toBeNull();
+    expect(nombre.getAttribute('aria-invalid')).toBe('true');
+  });
+
+  it('SIN el dato, como desde #66: tras el intento solo la observacion dice su error bajo el campo', () => {
+    monta(sinElDato, {}, abierto);
+    fireEvent.click(primarioDelActo());
+    expect(screen.getByLabelText('Codigo').getAttribute('aria-invalid')).toBeNull();
+    expect(screen.getByLabelText('Nombre').getAttribute('aria-invalid')).toBeNull();
+    expect(screen.getByLabelText('Observacion').getAttribute('aria-invalid')).toBe('true');
+  });
+
+  it('TECLADO: Enter sobre el primario impedido cuenta como intento, y los errores salen', async () => {
+    const teclado = userEvent.setup({ delay: null });
+    monta(definicion, {}, abierto);
+    act(() => {
+      primarioDelActo().focus();
+    });
+    await teclado.keyboard('{Enter}');
+    expect(screen.getByLabelText('Codigo').getAttribute('aria-invalid')).toBe('true');
+  });
+});
+
+describe('`ayuda-en-un-campo-de-solo-lectura` (H50)', () => {
+  const { definicion, datos } = MUESTRAS['ayuda-en-un-campo-de-solo-lectura'];
+
+  it('se dibuja bajo el dato, y el dato la anuncia con `aria-describedby`', () => {
+    monta(definicion, datos);
+    const dato = document.querySelector('[data-slot="dato"]') as HTMLElement;
+    expect(dato.textContent).toBe('1200.00');
+    expect(descripcionDe(dato)).toBe('La calcula el servidor con la tabla vigente: aqui no se corrige.');
+  });
+
+  it('SIN ayuda, el campo de solo lectura es el de siempre: ni linea ni `aria-describedby`', () => {
+    const { container } = monta({ instruccion: '', bloques: [{ titulo: 'B', nota: '', campos: [{ etiqueta: 'Base', tipo: 'r' }] }] });
+    expect(container.querySelector('[data-slot="ayuda"]')).toBeNull();
+    expect(container.querySelector('[data-slot="dato"]')?.getAttribute('aria-describedby')).toBeNull();
+  });
+});
+
 // ── El centinela ───────────────────────────────────────────────────────────────────────────────
 
 describe('LAS MUESTRAS DE #86: una por hueco, y todas se dibujan', () => {
@@ -327,6 +445,9 @@ describe('LAS MUESTRAS DE #86: una por hueco, y todas se dibujan', () => {
     'la-hoja-se-marca-sucia-al-teclear',
     'lo-tecleado-y-la-negativa-sobreviven',
     'descartar-lo-escrito',
+    'obligatorio-u-opcional-por-campo',
+    'errores-tras-el-primer-intento',
+    'ayuda-en-un-campo-de-solo-lectura',
   ];
 
   it('EL CENTINELA: estan los huecos de esta tanda, ni uno menos ni uno de mas', () => {

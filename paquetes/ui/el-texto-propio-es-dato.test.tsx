@@ -270,7 +270,8 @@ const PANTALLA_ENTERA: DefinicionDePantalla = {
       titulo: 'bloque',
       nota: 'nota',
       campos: [
-        { etiqueta: 'texto', tipo: '', ayuda: 'ayuda, opcional' },
+        // Opcional por el DATO (#86): la ayuda ya no decide la marca, y por eso no la nombra.
+        { etiqueta: 'texto', tipo: '', ayuda: 'ayuda', opcional: true },
         { etiqueta: 'otro', tipo: 't' },
         { etiqueta: 'lista', tipo: 's', opciones: ['una', 'dos'] },
         { etiqueta: 'fecha', tipo: 'd' },
@@ -654,5 +655,47 @@ describe('EL AC1 en las piezas de #66: cada paso de una escritura saca sus palab
     });
     expect(document.querySelector('[data-fase-del-acto="hecho"]')).not.toBeNull();
     rojo('con el acto hecho');
+  });
+
+  it('#86: el error de un obligatorio y lo descartado tambien salen del saco', () => {
+    const rojo = (paso: string) => {
+      const fuera = loQueNoPasoPorElSaco(document.body, DATOS_QUE_NO_SE_TRADUCEN);
+      expect(fuera, elRojo(fuera, `«Pantalla con los actos de #86», ${paso}`)).toEqual([]);
+    };
+    render(
+      <Pantalla
+        definicion={{
+          instruccion: 'no la dibuja el interprete',
+          bloques: [
+            {
+              tipo: 'acto',
+              clave: 'escribir',
+              titulo: 'escribir',
+              campos: [
+                { nombre: 'uno', etiqueta: 'uno', tipo: '' },
+                { nombre: 'dos', etiqueta: 'dos', tipo: '', opcional: true },
+              ],
+              observacion: { etiqueta: 'observacion', largo: { minimo: 3, maximo: 9 } },
+              errores: 'trasElPrimerIntento',
+              // Sin `dicho`: lo que se anuncia es la frase del saco.
+              descartar: { rotulo: 'descartar' },
+            },
+          ],
+        }}
+        datos={{ ausencia: { enElCampo: 'hueco', explicacion: '', tono: 'info' } }}
+        tonoDeLaInsignia={() => 'ok'}
+        traducir={marca}
+        textos={{ ...MARCADOS_DEL_INTERPRETE, ...MARCADAS_LAS_PIEZAS }}
+        actos={{ escribir: () => {} }}
+        actoAbierto={{ clave: 'escribir' }}
+      />,
+    );
+    rojo('con el campo opcional marcado');
+    fireEvent.click(screen.getByRole('button', { name: marca('escribir') }));
+    expect(screen.getByText(MARCADAS_LAS_PIEZAS.campoObligatorio)).toBeTruthy();
+    rojo('con el error de un obligatorio tras el primer intento');
+    fireEvent.click(screen.getByRole('button', { name: marca('descartar') }));
+    expect(screen.getByRole('status').textContent).toBe(MARCADAS_LAS_PIEZAS.loEscritoSeDescarto);
+    rojo('con lo escrito descartado');
   });
 });

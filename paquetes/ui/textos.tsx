@@ -203,6 +203,8 @@ export interface TextosDeLasPiezas {
   // ── Los campos, los actos y la prosa (#86) ────────────────────────────────────────────────────
   /** Lo que se anuncia tras descartar lo escrito en un acto, si su definicion no da su `dicho`. */
   readonly loEscritoSeDescarto: string;
+  /** El error bajo un campo obligatorio vacio, tras el primer intento, si el campo no dice el suyo. */
+  readonly campoObligatorio: string;
 }
 
 /** Lo que se ve si nadie pasa nada. */
@@ -262,6 +264,7 @@ export const TEXTOS_DE_LAS_PIEZAS: TextosDeLasPiezas = {
 
   // #86
   loEscritoSeDescarto: 'Se descarto lo escrito: el formulario esta como al abrirlo.',
+  campoObligatorio: 'Hay que rellenarlo para poder enviar.',
 };
 
 /** Los dos sacos que `Pantalla` recibe juntos, y lo que una pieza del consumidor recibe ya fundido. */

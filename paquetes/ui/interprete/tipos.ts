@@ -124,6 +124,10 @@ export interface CampoDeLista<O extends OpcionDelCampo = string> {
   readonly ayuda?: string;
   /** Donde vive lo elegido en la ruta de la hoja (#94). Sin ella, se queda en la pantalla. */
   readonly eleccion?: EleccionDelCampo;
+  /** Se puede dejar sin elegir, y se marca asi (#86, `obligatorio-u-opcional-por-campo`). */
+  readonly opcional?: boolean;
+  /** Lo que se dice bajo el campo cuando falta y es obligatorio (#86). Ver `MensajesDelCampo`. */
+  readonly mensajes?: MensajesDelCampo;
 }
 
 /**
@@ -144,6 +148,12 @@ export interface CampoDeSoloLectura {
    * el valor del campo o, con `segun`, un dato de `DatosDeLaPantalla.nombrados`.
    */
   readonly insignia?: ReglaDeLaInsignia;
+  /**
+   * La linea de debajo (#86, `ayuda-en-un-campo-de-solo-lectura`): de donde sale el dato, o por que
+   * aqui no se corrige —«lo calcula el servidor con la tabla vigente»—. Es una frase, y pasa por
+   * `traducir`. Hasta #86 un campo de solo lectura la callaba aunque la definicion la trajera.
+   */
+  readonly ayuda?: string;
   // **Aqui no hay `eleccion` (#94)**: un campo de solo lectura muestra lo que otro decidio, y no
   // hay nada que elegir. No hace falta un `eleccion?: never` para impedirlo —se escribio, se midio
   // y sobraba—: `DefinicionDeCampo` esta discriminada por `tipo`, asi que TypeScript estrecha a
@@ -177,7 +187,12 @@ export interface CampoDeEntrada {
   /** El nombre del campo del contrato, junto a la etiqueta (#61, `cabecera-con-campo-y-dominio`). */
   readonly campo?: string;
   readonly tipo: TipoDeEntrada;
-  /** La linea de ayuda. La mayoria no la lleva. Si dice «opcional», el campo se marca como tal. */
+  /**
+   * La linea de ayuda. La mayoria no la lleva. **Ya no decide si el campo es opcional** (#86): hasta
+   * aqui una ayuda que dijera «opcional» marcaba el campo, y la regla fallaba por los dos lados —una
+   * ayuda traducida o que no lo nombraba dejaba sin marca lo opcional, y «no es opcional» lo marcaba—.
+   * Eso lo dice `opcional`.
+   */
   readonly ayuda?: string;
   /**
    * El texto gris dentro del campo vacio (#65, `marcador`): «el numero que devolvio el alta». Es una
@@ -191,6 +206,27 @@ export interface CampoDeEntrada {
    * ordena; lo que se LEE en el campo sigue siendo `dd/mm/aaaa`. Ver `fecha.ts`.
    */
   readonly eleccion?: EleccionDelCampo;
+  /**
+   * **Se puede dejar en blanco, y se marca «(opcional)»** (#86, `obligatorio-u-opcional-por-campo`).
+   *
+   * Es un dato y no una deduccion: lo mismo que en un acto (`CampoDelActo.opcional`) decide si el
+   * campo es obligatorio al enviar, aqui decide la marca. Una sola fuente para las dos cosas: un
+   * campo marcado «(opcional)» que el acto exigia —o al reves— es lo que la regla vieja permitia.
+   */
+  readonly opcional?: boolean;
+  /** Lo que se dice bajo el campo cuando falta y es obligatorio (#86). Ver `MensajesDelCampo`. */
+  readonly mensajes?: MensajesDelCampo;
+}
+
+/**
+ * **Lo que un campo dice de si mismo cuando esta mal** (#86, `errores-tras-el-primer-intento`).
+ *
+ * Solo `obligatorio` por ahora: es el unico error que el interprete sabe ver sin preguntar al
+ * servidor. Sin el, la frase del saco (`textos.campoObligatorio`). Un `Texto`, asi que puede llevar
+ * un dato: «Falta el codigo del grupo {grupo}».
+ */
+export interface MensajesDelCampo {
+  readonly obligatorio?: Texto;
 }
 
 /** Un campo de un bloque, discriminado por su `tipo`. Generico en las opciones de su lista (#65). */

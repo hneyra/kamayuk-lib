@@ -161,6 +161,19 @@ export interface DefinicionDeActo extends ComunDeUnaPieza {
    * del saco. Sin `descartar` no hay boton, y el pie es el de siempre.
    */
   readonly descartar?: { readonly rotulo: Texto; readonly dicho?: Texto };
+  /**
+   * **Cuando se pintan los errores de los campos** (#86, `errores-tras-el-primer-intento`).
+   *
+   * Con `'trasElPrimerIntento'`, despues de pulsar el primario —impedido o no— cada obligatorio vacio
+   * lleva su error bajo el campo, con `aria-invalid`: el de `mensajes.obligatorio` del campo, o la
+   * frase del saco. Antes del primer intento, nada en rojo: un campo en rojo antes de escribir en el
+   * se lee como una reprimenda (`normativa`, H07). Sin el dato, solo la observacion dice su error bajo
+   * el campo, como desde #66, y lo que falta se dice una vez en el motivo del primario.
+   *
+   * Es una union de un valor y no un booleano a proposito: «siempre» es la reprimenda de arriba, y
+   * «nunca» es lo de hoy, que se dice no poniendo el dato.
+   */
+  readonly errores?: 'trasElPrimerIntento';
 }
 
 /** Lo que el manejador de un acto recibe. La libreria no pone ningun nombre del cuerpo de la peticion. */

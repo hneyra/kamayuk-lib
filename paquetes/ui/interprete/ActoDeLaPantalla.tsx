@@ -19,6 +19,7 @@ import { Tarjeta, TarjetaCabecera, TarjetaCampos, TarjetaNota } from '../shadcn/
 import type { TextosDeLaPantalla } from '../textos.tsx';
 import {
   atiende,
+  camposQueFaltan,
   motivoDelActo,
   motivoDeLaObservacion,
   seEscribeElCampo,
@@ -75,6 +76,7 @@ import type { CampoDelActo, DefinicionDeActo } from './tipos-de-los-actos.ts';
  *   · **`descartar`**: un secundario que vacia lo escrito y lo dice en una region viva. Impedido solo
  *     mientras la escritura viaja: vaciar un formulario cuyo envio aun puede aceptarse deja a quien
  *     mira sin saber que se guardo.
+ *   · **`errores: 'trasElPrimerIntento'`**: el error de cada obligatorio vacio, bajo su campo.
  */
 
 export interface ActoDeLaPantallaProps {
@@ -147,6 +149,15 @@ export function ActoDeLaPantalla({ acto, datos, traducir, textos, interaccion }:
   const atendido = atiende(interaccion.actos, acto.clave);
   const motivo = motivoDelActo(acto, { valores, observacion, enCurso, nombrados, traducir, textos, atendido });
   const errorDeLaObservacion = intentado ? motivoDeLaObservacion(acto, observacion, textos) : undefined;
+  // Los de los campos, solo si la definicion los pide y tras el primer intento (#86, H07). Son los
+  // MISMOS que el motivo del primario enumera: la regla es `camposQueFaltan`, y no una segunda.
+  const faltan =
+    acto.errores === 'trasElPrimerIntento' && intentado ? camposQueFaltan(acto.campos, valores) : [];
+  const errorDelCampo = (campo: CampoDelActo): string | undefined => {
+    if (!faltan.includes(campo)) return undefined;
+    const propio = 'mensajes' in campo ? campo.mensajes?.obligatorio : undefined;
+    return propio === undefined ? textos.campoObligatorio : texto(propio);
+  };
 
   const ensuciar = () => {
     // CADA cambio marca, si la definicion lo pide (#86); el aviso de siempre, una vez por apertura.
@@ -281,6 +292,7 @@ export function ActoDeLaPantalla({ acto, datos, traducir, textos, interaccion }:
                       })()
                 }
                 ausencia={datos.ausencia}
+                error={errorDelCampo(campo)}
                 alCambiar={(valor) => {
                   ensuciar();
                   cambiarLoTecleado((antes) => ({ ...antes, valores: { ...antes.valores, [campo.nombre]: valor } }));

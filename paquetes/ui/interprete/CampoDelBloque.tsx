@@ -49,6 +49,19 @@ import type { DefinicionDeCampo, OpcionDelCampo } from './tipos.ts';
  *   el vacio se codifica por dentro (`VALOR_VACIO`) y sale como `''`.
  * · **Un dato de solo lectura con `insignia`** se pinta con el tono de la regla. Sin valor, dice su
  *   ausencia como cualquier otro: no se pinta un estado que nadie ha leido.
+ *
+ * <h2>Desde #86: lo opcional es un dato, el error llega de fuera, y el de solo lectura tiene ayuda</h2>
+ *
+ * · **«(opcional)» sale de `campo.opcional`, y ya no de la ayuda** (`obligatorio-u-opcional-por-campo`).
+ *   Se deducia con `/opcional/i` sobre la ayuda sin traducir, y fallaba por los dos lados: una ayuda
+ *   que no nombraba la palabra —o que venia en otro idioma en la definicion— dejaba sin marca un
+ *   campo opcional, y «no es opcional» lo marcaba. Y en un acto habia DOS fuentes: `opcional` decidia
+ *   si se podia enviar en blanco y la ayuda decidia la marca, asi que podian contradecirse.
+ * · **`error`** lo pone quien sabe que esta mal —el acto, tras el primer intento
+ *   (`errores-tras-el-primer-intento`)— y va a la `Etiqueta`, que ya lo sabia colgar con
+ *   `aria-invalid` y `aria-describedby`.
+ * · **La ayuda de un campo de solo lectura se dibuja** (`ayuda-en-un-campo-de-solo-lectura`). La
+ *   casilla sigue sin ella: su texto es la etiqueta de la marca.
  */
 
 /**
@@ -80,6 +93,8 @@ export interface CampoDelBloqueProps {
   readonly textos: TextosDelInterprete;
   /** Los datos con nombre de la pantalla, para la insignia que decide por uno de ellos (#65). */
   readonly nombrados?: Nombrados;
+  /** Que esta mal, ya en el idioma de la sesion (#86). Pinta el control invalido y se lee al enfocarlo. */
+  readonly error?: string;
 }
 
 export function CampoDelBloque({
@@ -92,15 +107,14 @@ export function CampoDelBloque({
   traducir,
   textos,
   nombrados,
+  error,
 }: CampoDelBloqueProps) {
   const tipo = tipoDe(campo.tipo);
   const ancho = anchoCompleto(campo.tipo);
-  // «(opcional)» sale de la propia ayuda, como en el artboard: no hay un campo aparte que
-  // mantener, y la frase que lo dice es la que el usuario lee. Se mira la ayuda SIN traducir,
-  // porque es la definicion la que decide que el campo es opcional, no el idioma de la sesion.
   const ayuda = 'ayuda' in campo ? campo.ayuda : undefined;
   const marcador = 'marcador' in campo && campo.marcador !== undefined ? traducir(campo.marcador) : undefined;
-  const opcional = ayuda !== undefined && /opcional/i.test(ayuda);
+  // Un dato de la definicion, y no una palabra de la ayuda (#86): ver el javadoc.
+  const opcional = 'opcional' in campo && campo.opcional === true;
 
   const comun = {
     // El nombre del campo del contrato va JUNTO a la etiqueta y no dentro de ella (#61,
@@ -121,6 +135,7 @@ export function CampoDelBloque({
     // Se pasa SIEMPRE, y no solo cuando `opcional` es cierto: una propiedad que se pone a veces es
     // una propiedad que un dia se olvida.
     marcaDeOpcional: textos.opcional,
+    error,
   } as const;
 
   switch (tipo) {
@@ -152,7 +167,8 @@ export function CampoDelBloque({
           ? resolverInsignia(campo.insignia, hayDato ? valor : undefined, nombrados, traducir)
           : undefined;
       return (
-        <Etiqueta {...comun} ayuda={undefined}>
+        // Con su ayuda desde #86: de donde sale el dato, o por que aqui no se corrige.
+        <Etiqueta {...comun}>
           <Dato
             // `data-sin-dato` no es decoracion: es lo que permite a una guarda contar los huecos
             // de una pantalla sin leer el texto, que cambia con quien la monta.

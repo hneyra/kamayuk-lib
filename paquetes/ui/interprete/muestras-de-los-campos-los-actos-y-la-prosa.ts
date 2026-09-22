@@ -93,4 +93,80 @@ export const MUESTRAS_DE_LOS_CAMPOS_LOS_ACTOS_Y_LA_PROSA = {
     },
     datos: { ausencia: SIN_FRASE_DE_PANTALLA },
   },
+
+  'obligatorio-u-opcional-por-campo': {
+    deDonde: 'normativa, HUECOS.md H05b: «(opcional)» salia de la palabra en la ayuda, y no de un dato',
+    definicion: {
+      instruccion: 'Registre el grupo.',
+      bloques: [
+        {
+          titulo: 'El grupo',
+          nota: '',
+          campos: [
+            { etiqueta: 'Codigo', tipo: '' },
+            // Opcional por el DATO: la ayuda dice lo que quiera, y no decide la marca.
+            { etiqueta: 'Alias', tipo: '', opcional: true, ayuda: 'Como se le conoce fuera del registro.' },
+            { etiqueta: 'Categoria', tipo: 's', opciones: ['Ninguna', 'Primera', 'Segunda'], opcional: true },
+          ],
+          acciones: [{ rotulo: 'Dar de alta', principal: true, abre: 'alta' }],
+        },
+        {
+          tipo: 'acto',
+          clave: 'alta',
+          titulo: 'Dar de alta',
+          // Y en un acto, el MISMO dato decide las dos cosas: la marca y si se puede enviar en blanco.
+          campos: [
+            { nombre: 'codigo', etiqueta: 'Codigo', tipo: '' },
+            { nombre: 'alias', etiqueta: 'Alias', tipo: '', opcional: true },
+          ],
+          observacion: OBSERVACION,
+        },
+      ],
+    },
+    datos: { ausencia: SIN_FRASE_DE_PANTALLA },
+  },
+
+  'errores-tras-el-primer-intento': {
+    deDonde: 'normativa, HUECOS.md H07: lo que faltaba se decia una vez en el boton, y no bajo cada campo',
+    definicion: {
+      instruccion: 'Registre el grupo.',
+      bloques: [
+        {
+          tipo: 'acto',
+          clave: 'alta',
+          titulo: 'Dar de alta',
+          errores: 'trasElPrimerIntento',
+          campos: [
+            { nombre: 'codigo', etiqueta: 'Codigo', tipo: '', mensajes: { obligatorio: 'Falta el codigo del grupo.' } },
+            // Sin mensaje propio: la frase del saco.
+            { nombre: 'nombre', etiqueta: 'Nombre', tipo: '' },
+            { nombre: 'alias', etiqueta: 'Alias', tipo: '', opcional: true },
+          ],
+          observacion: OBSERVACION,
+        },
+      ],
+    },
+    datos: { ausencia: SIN_FRASE_DE_PANTALLA },
+  },
+
+  'ayuda-en-un-campo-de-solo-lectura': {
+    deDonde: 'normativa, HUECOS.md H50: un campo de solo lectura callaba su ayuda aunque la definicion la trajera',
+    definicion: {
+      instruccion: 'Consulte la base del registro.',
+      bloques: [
+        {
+          titulo: 'La base',
+          nota: '',
+          campos: [
+            {
+              etiqueta: 'Base',
+              tipo: 'r',
+              ayuda: 'La calcula el servidor con la tabla vigente: aqui no se corrige.',
+            },
+          ],
+        },
+      ],
+    },
+    datos: { ausencia: SIN_FRASE_DE_PANTALLA, valores: new Map([['0|0', '1200.00']]) },
+  },
 } as const satisfies Record<string, Muestra>;
