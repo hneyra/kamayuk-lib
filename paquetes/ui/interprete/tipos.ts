@@ -51,6 +51,62 @@ export type ConAnchoCompleto<T extends string> = T | `${T}1`;
 export type TipoDeCampoConAncho = ConAnchoCompleto<TipoDeCampo>;
 
 /**
+ * **Cuando un campo escribe en la ruta lo que se eligio en el** (#94).
+ *
+ * <table>
+ *   <tr><td>`alElegir`</td><td>en cuanto cambia. Es el de una lista y el de un calendario: un solo
+ *     gesto ES la eleccion entera, y no hay nada intermedio que escribir</td></tr>
+ *   <tr><td>`alSalir`</td><td>al salir del campo, y al pulsar Intro. Es el de lo que se teclea: un
+ *     movimiento de la ruta por valor terminado, y **nunca uno por tecla**</td></tr>
+ * </table>
+ *
+ * <h2>La tercera que se miro —con retardo— NO esta, y esto es por que</h2>
+ *
+ * Un retardo mueve la ruta **mientras se escribe**: `bod`, `bode`, `bodeg`, `bodega` son cuatro
+ * direcciones que nadie quiso pedir, cuatro lecturas para quien escucha la ruta y cuatro entradas
+ * en el boton de atras del navegador. `alSalir` da exactamente una, y el gesto que la produce
+ * —salir del campo, o Intro— es deliberado. El dia que una hoja demuestre que lo necesita, entra
+ * como un tercer valor de esta union sin tocar a nadie.
+ */
+export type MomentoDeLaEleccion = 'alElegir' | 'alSalir';
+
+/**
+ * **Donde vive en la ruta lo que se elige en un campo** (#94).
+ *
+ * Es lo mismo que ya hacen la pagina, el orden, la pestana y el maestro: el interprete no pide
+ * datos y no filtra filas — **escribe en la ruta de la hoja**, y quien lee la ruta pide lo que
+ * toque. Hasta este issue un campo era el unico mando de una pantalla que no tenia por donde
+ * salir: lo tecleado se quedaba en el estado de `<Pantalla>` y no llegaba ni a `nombrados` ni a la
+ * ruta, asi que una caja de filtro no podia acotar nada.
+ *
+ * <h2>No hace falta un segundo canal hacia `nombrados`, y por eso no se abre</h2>
+ *
+ * `#94` lo pide para que `resolverTexto`, `seCumple` y los `parametros` de una accion `va` puedan
+ * leer lo elegido. Ya pueden: desde #67 la ruta de la hoja entra en `nombrados` como `ruta.<clave>`
+ * (`nombradosConLaHoja`). Un campo que escribe en `?descripcion=` se lee como `ruta.descripcion`
+ * en cualquiera de los tres sitios, sin publicar el estado interno del interprete —que cambia en
+ * cada tecla— por una segunda puerta.
+ *
+ * <h2>Cambiar lo elegido vuelve a la primera pagina, en UN movimiento</h2>
+ *
+ * Por lo mismo que cambiar de orden (#61): seguir en la pagina 7 de otro filtro es una lectura que
+ * nadie quiso, y dos `moverLaRuta` seguidos pasan por una direccion intermedia —el filtro nuevo
+ * con la pagina vieja— que alguien pide. Se reinician los sitios de paginacion **de las tablas de
+ * su propio bloque**, que son las que el filtro acota; ver `cambioAlElegir`.
+ *
+ * <h2>Sin `hoja`, el campo se comporta exactamente como hoy</h2>
+ *
+ * `<Pantalla>` montada fuera del marco no tiene donde escribir, asi que lo elegido se queda en su
+ * estado, como antes de #94. Es la misma regla que la pagina y el orden de una tabla.
+ */
+export interface EleccionDelCampo {
+  /** El sitio de la ruta: un parametro, o `EL_SUJETO`. Es tambien como se lee en `nombrados`. */
+  readonly enLaRuta: EnLaRuta;
+  /** Sin el, `alElegir` en los campos de un solo gesto y `alSalir` en los que se teclean. */
+  readonly cuando?: MomentoDeLaEleccion;
+}
+
+/**
  * Un desplegable de lista cerrada. Sus opciones son el dato; sin ellas no dibuja nada.
  *
  * **Generico en sus opciones, y por omision de cadenas** (#65): `rentas` mete `campo.opciones` en
@@ -66,6 +122,8 @@ export interface CampoDeLista<O extends OpcionDelCampo = string> {
   readonly opciones: readonly O[];
   /** La linea de debajo (#65, `ayuda-en-una-lista`): «solo los campos que el servidor admite». */
   readonly ayuda?: string;
+  /** Donde vive lo elegido en la ruta de la hoja (#94). Sin ella, se queda en la pantalla. */
+  readonly eleccion?: EleccionDelCampo;
 }
 
 /**
@@ -86,9 +144,21 @@ export interface CampoDeSoloLectura {
    * el valor del campo o, con `segun`, un dato de `DatosDeLaPantalla.nombrados`.
    */
   readonly insignia?: ReglaDeLaInsignia;
+  // **Aqui no hay `eleccion` (#94)**: un campo de solo lectura muestra lo que otro decidio, y no
+  // hay nada que elegir. No hace falta un `eleccion?: never` para impedirlo —se escribio, se midio
+  // y sobraba—: `DefinicionDeCampo` esta discriminada por `tipo`, asi que TypeScript estrecha a
+  // esta rama antes de mirar las propiedades de mas y `{ tipo: 'r', eleccion }` sale con TS2353.
+  // Lo vigila `barreras-de-campos-y-tablas.tsx`.
 }
 
-/** Una casilla. Su texto no es ayuda: es lo que se lee AL LADO de la marca. */
+/**
+ * Una casilla. Su texto no es ayuda: es lo que se lee AL LADO de la marca.
+ *
+ * **No lleva `eleccion` (#94)**, y no es un olvido: escribir un booleano en una ruta obliga a
+ * elegir COMO se escribe —`true`, `1`, o la presencia del parametro a secas—, y ese vocabulario es
+ * del backend que lo lee, no de esta libreria. Una casilla que tenga que acotar una lectura se
+ * declara como lista de dos opciones, cuyos valores los escribe el sistema.
+ */
 export interface CampoDeCasilla {
   readonly etiqueta: string;
   /** El nombre del campo del contrato, junto a la etiqueta (#61, `cabecera-con-campo-y-dominio`). */
@@ -114,6 +184,13 @@ export interface CampoDeEntrada {
    * frase, y pasa por `traducir`. En una fecha sustituye a `textos.marcadorDeFecha`.
    */
   readonly marcador?: string;
+  /**
+   * Donde vive lo elegido en la ruta de la hoja (#94). Sin ella, se queda en la pantalla.
+   *
+   * **En una fecha lo que viaja es ISO** (`aaaa-mm-dd`), que es lo que un backend lee y lo que
+   * ordena; lo que se LEE en el campo sigue siendo `dd/mm/aaaa`. Ver `fecha.ts`.
+   */
+  readonly eleccion?: EleccionDelCampo;
 }
 
 /** Un campo de un bloque, discriminado por su `tipo`. Generico en las opciones de su lista (#65). */

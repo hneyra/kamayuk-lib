@@ -50,7 +50,17 @@
  * donde sale el emisor: alli de `configuracion('oidcRealm')`, aqui del `realm` que entra por
  * argumento. Y la sonda sube con una linea mas que la de `rentas` —`credentials: 'omit'`—, medida
  * y explicada en `laPuertaContesta()`.
+ *
+ * <h2>Y lo que el emisor dijo de quien entro (#70)</h2>
+ *
+ * El `id_token` se guardaba aqui desde el primer dia y solo se usaba para `id_token_hint` al
+ * salir, asi que `Identidad` no publicaba ni el token ni sus claims y la barra de un consumidor
+ * se quedaba con un rotulo neutro. `quienEntro()` lo publica leido de ese mismo token, sin
+ * guardarlo en ningun sitio nuevo y **sin validar la firma**: por que eso es correcto esta escrito
+ * en `quien-entro.ts`, que es donde vive la lectura.
  */
+
+import { leerQuienEntro, type QuienEntro } from './quien-entro.ts';
 
 /**
  * Lo que un sistema tiene que decir para tener puerta. Nada de esto se adivina.
@@ -188,10 +198,22 @@ export interface Identidad {
   /** El token de esta pestana, o `null` si todavia no hay. */
   token(): string | null;
   /**
+   * **Quien entro, segun el `id_token` del ultimo canje** (#70). `null` si no hubo canje —o si el
+   * `id_token` no vino, o no se pudo leer— y `null` otra vez despues de `salir()`.
+   *
+   * En memoria, como el token: se muere con la pestana y no toca ningun almacenamiento. **Sin
+   * validar la firma** —el backend es quien valida; esto es solo para dibujar—, y por eso lo que
+   * devuelve no decide nada: es el rotulo de la barra. Ver `quien-entro.ts`.
+   */
+  quienEntro(): QuienEntro | null;
+  /**
    * Fija el token a mano.
    *
    * Existe para las pruebas y para pegar un token de verificacion en desarrollo sin montar el
    * rebote entero. No lo persiste: eso es justo lo que este archivo no hace.
+   *
+   * El segundo argumento es el `id_token`, y de el sale `quienEntro()`: las tres cosas se fijan
+   * juntas, porque son la misma sesion.
    */
   fijarToken(nuevo: string | null, identidad?: string | null): void;
   /** Sin `crypto.subtle` no hay S256, y el navegador no lo expone fuera de un origen seguro. */
@@ -316,6 +338,18 @@ export function crearIdentidad(configuracion: ConfiguracionDeIdentidad): Identid
    * la misma cuenta sin que nadie haya tecleado nada.
    */
   let identidadEnMemoria: string | null = null;
+  /**
+   * Quien entro, leido de ese `id_token` **una vez** y no en cada llamada (#70).
+   *
+   * Se calcula en `fijarToken`, que es el unico sitio donde el `id_token` cambia, y por eso
+   * `salir()` lo olvida sin tener que acordarse de el: `salir()` llama a `fijarToken(null)`, y de
+   * ahi sale `null`. Un segundo sitio que olvidar es un sitio que algun dia no se olvida.
+   *
+   * Y se calcula una vez porque esto lo lee la barra en cada dibujado: devolver un objeto nuevo en
+   * cada llamada haria que cualquier `useMemo` o comparacion por referencia del consumidor viera un
+   * cambio donde no hay ninguno.
+   */
+  let quienEntroEnMemoria: QuienEntro | null = null;
 
   const idas = (): number => Number(sessionStorage.getItem(IDAS) ?? 0);
 
@@ -324,6 +358,7 @@ export function crearIdentidad(configuracion: ConfiguracionDeIdentidad): Identid
   const fijarToken = (nuevo: string | null, identidad: string | null = null): void => {
     enMemoria = nuevo;
     identidadEnMemoria = identidad;
+    quienEntroEnMemoria = leerQuienEntro(identidad);
   };
 
   /**
@@ -394,6 +429,7 @@ export function crearIdentidad(configuracion: ConfiguracionDeIdentidad): Identid
 
   return {
     token: () => enMemoria,
+    quienEntro: () => quienEntroEnMemoria,
     fijarToken,
     hayPuerta,
     puedeIrALaPuerta: () => idas() < topeDeIdas,

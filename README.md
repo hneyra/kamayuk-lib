@@ -26,10 +26,10 @@ muestra que la viola.
 |---|---|---|
 | [`@kamayuk/formato`](paquetes/formato) | fechas, importes y documento de identidad | **Existe.** 67 pruebas |
 | [`@kamayuk/api`](paquetes/api) | `solicitar()`, `solicitarRespuesta()`, `descargar()`, `subir()`, la clave de idempotencia y el catálogo de errores | **Existe.** 118 pruebas |
-| [`@kamayuk/sesion`](paquetes/sesion) | OIDC con PKCE S256, la sonda del emisor, la consola de la cuenta y la escalera de peldaños | **Existe.** 45 pruebas |
+| [`@kamayuk/sesion`](paquetes/sesion) | OIDC con PKCE S256, la sonda del emisor, la consola de la cuenta, quién entró según el `id_token` y la escalera de peldaños | **Existe.** 74 pruebas |
 | [`@kamayuk/ui`](paquetes/ui) | los 42 tokens, cuatro identidades por dos modos, las piezas de shadcn y el intérprete de pantallas | **Existe.** 364 pruebas, más las 3 de capa |
 | [`@kamayuk/shell`](paquetes/shell) | barra, árbol de módulos, paleta de mando, enrutado por hash, miga, acciones y el aviso de cambios sin guardar | **Existe.** 113 pruebas |
-| [`@kamayuk/verificaciones`](paquetes/verificaciones) | las barreras y sus muestras | **Existe.** 144 pruebas |
+| [`@kamayuk/verificaciones`](paquetes/verificaciones) | las barreras, sus muestras y el **arnés del `Request`** que los cinco necesitan para correr con Node 24 | **Existe.** 171 pruebas |
 
 ## Cómo se consume
 
@@ -57,6 +57,54 @@ compila con su propio Vite, y React, Radix y Tailwind entran como `peerDependenc
 
 **Los cuatro frontends pasan a depender de un clon hermano**, y ADR-0038 lo dice sin disimular: *«ésa
 es la propiedad que se pierde. A cambio, el marco deja de estar escrito cuatro veces»*.
+
+### El arnés del `Request`, que se importa y no se copia (#92)
+
+**Una línea en el `vitest.setup.ts` del sistema que consume, y es ésta, exacta:**
+
+```ts
+import '@kamayuk/verificaciones/arnes-del-request';
+```
+
+Sin ella, con **Node 24** cada navegación del enrutador de datos de `react-router` muere dentro de
+`createClientSideRequest`: el `Request` de `undici` —el que viene dentro de Node— comprueba la señal
+con el `instanceof` ordinario contra el `AbortSignal` que existía **al arrancar Node**, y el
+`AbortController` global bajo Vitest es el de jsdom, de otro realm. El síntoma es
+`TypeError: RequestInit: Expected signal ("AbortSignal {}") to be an instance of AbortSignal`, y con
+`CI=true` Vitest no perdona los rechazos sin atender: **RC=1 sin que haya una sola prueba roja**. Lo
+medido con Node 24 el 2026-09-16, por el trabajo `consumidores` de este repositorio:
+
+| Sistema | Lo que le pasa hoy | Qué le falta |
+|---|---|---|
+| `rentas` | `652 passed (652)` y **2 168 errores** | la línea; ya enlaza `@kamayuk/verificaciones` en `devDependencies` |
+| `catastro` | `310 passed (310)` y **18 errores** | la línea; ya enlaza `@kamayuk/verificaciones` en `devDependencies` |
+| `normativa` | `Tests 2 failed \| 426 passed (428)` y **213 errores** | la línea **y** el `link:`: hoy enlaza cinco paquetes y `verificaciones` no es uno |
+| `caja` | verde desde `caja`#93, con **la copia a mano** | cambiar la copia —docblock incluido— por la línea |
+
+Que `rentas` y `catastro` **ya enlazan** `@kamayuk/verificaciones` está medido el 2026-09-20 sobre el
+`main` de cada uno —`frontend/package.json`, en `devDependencies`—; que `normativa` no lo enlaza sale de
+[`consumidores.json`](consumidores.json) y de la tabla de más abajo.
+
+Al que le falte el `link:`, primero esto en su `devDependencies`:
+
+```json
+{
+  "devDependencies": {
+    "@kamayuk/verificaciones": "link:../../kamayuk-lib/paquetes/verificaciones"
+  }
+}
+```
+
+**Y que no vuelva a escribirse a mano lo comprueba cada uno en su propio árbol**, sin instalar nada:
+
+```bash
+node node_modules/@kamayuk/verificaciones/el-arnes-del-request-no-se-copia.mjs
+```
+
+Sale con RC=1 nombrando archivo y línea si alguien ha vuelto a reimplementarlo, y dice con qué línea
+se cambia. Aquí es `yarn arnes:copias`, y además lo exige una prueba:
+`el-arnes-del-request-se-publica.test.ts`, con su muestra. **Lo que esta librería no puede vigilar es
+el árbol de un consumidor que no tiene clonado**, y por eso son dos piezas y no una.
 
 ## Quién la consume, y a quién mide la CI
 
@@ -95,6 +143,7 @@ Con `normativa` la lista queda **completa**: los cuatro sistemas de Kamayuk, `ci
 yarn install
 yarn verificar     # lint, tipos y pruebas
 yarn registro      # la guarda de la fila del registro
+yarn arnes:copias  # que nadie haya vuelto a escribir a mano el arnés del `Request` (#92)
 ```
 
 ## Qué NO hay aquí

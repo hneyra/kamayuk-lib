@@ -128,9 +128,10 @@ describe('la CI mira a sus consumidores', () => {
     // LO QUE DE VERDAD DECIDE SI EL `link:` RESUELVE, y hasta #79 esta guarda no lo miraba.
     //
     // NO es que el clon caiga «en otro sitio», que es lo que dijo este comentario hasta #77: el
-    // `mv consumidor '<directorio>'` del workflow usa ESTE mismo campo, asi que el clon cae
+    // `path:` del `actions/checkout` del consumidor usa ESTE mismo campo, asi que el clon cae
     // exactamente donde el campo diga, y lo que viene despues —`cache-dependency-path` y los
     // `working-directory`— lo sigue. La fila de #45 ya lo habia medido y el comentario se quedo.
+    // (Hasta #93 el clon caia en `consumidor/` y un `mv` lo movia; el campo era el mismo.)
     //
     // Lo que se rompe es el `link:` del consumidor, y ese `link:` mira la PROFUNDIDAD, no el
     // nombre: `link:../../kamayuk-lib/paquetes/ui` sube dos niveles desde `<directorio>/<ruta>`
@@ -160,16 +161,17 @@ describe('la CI mira a sus consumidores', () => {
   it('ningun `directorio` choca con el clon de esta libreria', () => {
     // La otra forma de tumbar el trabajo, y NO rompe por donde parece: medido, si el consumidor
     // llegara a estar en `kamayuk-lib/frontend` su `link:` resolveria —yarn lo acorta a
-    // `../../../paquetes/formato` y `require` devuelve «la libreria»—. Lo que se rompe es el `mv`.
+    // `../../../paquetes/formato` y `require` devuelve «la libreria»—. Lo que se rompe es la
+    // disposicion: `directorio: "kamayuk-lib"` manda el clon del consumidor AL MISMO SITIO donde el
+    // primer paso dejo el de esta libreria, y uno se come al otro.
     //
-    // `mv consumidor 'kamayuk-lib'` con `kamayuk-lib` ya existente sale **RC=0** y mete el clon
-    // DENTRO: queda `kamayuk-lib/consumidor` y `kamayuk-lib/frontend` no existe. El rojo lo da el
-    // `working-directory` del paso de instalar —`can't cd to kamayuk-lib/frontend`, RC=2—, otra vez
-    // lejos de `consumidores.json` y sin nombrarlo.
-    //
-    // El otro choque, `directorio: "consumidor"`, NO se vigila y esta medido por que: `mv consumidor
-    // consumidor` sale **RC=1** diciendo «cannot move 'consumidor' to a subdirectory of itself», o
-    // sea que falla en el acto, en el paso que lo causa y con el nombre del campo en la orden.
+    // Hasta #93 lo rompia el `mv`: `mv consumidor 'kamayuk-lib'` con `kamayuk-lib` ya existente
+    // salia **RC=0** y metia el clon DENTRO, dejando `kamayuk-lib/consumidor` y ningun
+    // `kamayuk-lib/frontend`. Desde #93 el clon cae directo en `path: <directorio>` y no hay `mv`,
+    // asi que el destrozo lo hace `actions/checkout` sobre el directorio de la libreria en vez del
+    // `mv`; el rojo sigue llegando lejos de `consumidores.json` y sin nombrarlo, que es lo que esta
+    // guarda existe para adelantar. Por eso la regla se queda igual: lo que prohibe no es un `mv`
+    // concreto, es que dos clones se pisen.
     const chocan = losQueChocanConLaLibreria(declarado.consumidores);
     expect(
       chocan,

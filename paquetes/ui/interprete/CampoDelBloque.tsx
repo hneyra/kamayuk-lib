@@ -1,3 +1,5 @@
+import type { KeyboardEvent } from 'react';
+
 import { Calendario } from '../shadcn/calendario.tsx';
 import { Area, Campo, Dato } from '../shadcn/campo.tsx';
 import { anchoCompleto, tipoDe } from '../shadcn/campos.ts';
@@ -6,6 +8,7 @@ import { Desplegable, Opcion } from '../shadcn/desplegable.tsx';
 import { CONTROL } from '../shadcn/control.ts';
 import { Capa, DisparadorEmergente, Emergente } from '../shadcn/emergente.tsx';
 import { Etiqueta } from '../shadcn/etiqueta.tsx';
+import { diaDeUnaFecha, fechaDeUnDia, fechaLeida } from '../shadcn/fecha.ts';
 import { Insignia } from '../Insignia.tsx';
 import type { TextosDelInterprete } from '../textos.tsx';
 import { cn } from '../utilidades.ts';
@@ -68,6 +71,11 @@ export interface CampoDelBloqueProps {
   /** Y si ESTE campo tiene su propio motivo, el suyo. Ver `datos.ts`. */
   readonly enElCampo?: string;
   readonly alCambiar: (valor: string | boolean) => void;
+  /**
+   * Se salio del campo, o se pulso Intro en el (#94). Solo lo atan los campos que escriben en la
+   * ruta `alSalir`: el resto no tiene nada que hacer al salir.
+   */
+  readonly alSalir?: () => void;
   readonly traducir: (texto: string) => string;
   readonly textos: TextosDelInterprete;
   /** Los datos con nombre de la pantalla, para la insignia que decide por uno de ellos (#65). */
@@ -80,6 +88,7 @@ export function CampoDelBloque({
   ausencia,
   enElCampo,
   alCambiar,
+  alSalir,
   traducir,
   textos,
   nombrados,
@@ -174,7 +183,10 @@ export function CampoDelBloque({
           />
         </Etiqueta>
       );
-    case 'd':
+    case 'd': {
+      // Lo que VIAJA es ISO y lo que se LEE es `dd/mm/aaaa`, desde #94: ver `shadcn/fecha.ts`.
+      const fecha = typeof valor === 'string' ? valor : '';
+      const elegido = fecha === '' ? undefined : diaDeUnaFecha(fecha);
       return (
         <Etiqueta {...comun}>
           <Emergente>
@@ -185,19 +197,23 @@ export function CampoDelBloque({
                 `shadcn/foco.test.ts` lo destapo al subir: un anillo escrito a mano es un foco que
                 ninguna guarda mide. */}
             <DisparadorEmergente className={cn(CONTROL, 'text-left')}>
-              {typeof valor === 'string' && valor !== '' ? valor : (marcador ?? textos.marcadorDeFecha)}
+              {fecha === '' ? (marcador ?? textos.marcadorDeFecha) : fechaLeida(fecha)}
             </DisparadorEmergente>
             <Capa>
               <Calendario
                 mode="single"
+                // El dia que lleva el campo sale marcado: abrir el calendario de una fecha puesta
+                // sin nada marcado obliga a buscar en el mes cual era.
+                {...(elegido === undefined ? {} : { selected: elegido, defaultMonth: elegido })}
                 onSelect={(dia) => {
-                  alCambiar(dia === undefined ? '' : dia.toLocaleDateString('es-PE'));
+                  alCambiar(dia === undefined ? '' : fechaDeUnDia(dia));
                 }}
               />
             </Capa>
           </Emergente>
         </Etiqueta>
       );
+    }
     case 'a':
       return (
         <Etiqueta {...comun}>
@@ -207,6 +223,8 @@ export function CampoDelBloque({
             onChange={(e) => {
               alCambiar(e.target.value);
             }}
+            // En un area Intro es una linea nueva, asi que aqui solo cuenta salir del campo.
+            {...(alSalir === undefined ? {} : { onBlur: alSalir })}
           />
         </Etiqueta>
       );
@@ -220,6 +238,17 @@ export function CampoDelBloque({
             onChange={(e) => {
               alCambiar(e.target.value);
             }}
+            {...(alSalir === undefined
+              ? {}
+              : {
+                  onBlur: alSalir,
+                  // Intro tambien: teclear y pulsar Intro es como se filtra una lista desde que hay
+                  // listas, y obligar a salir del campo con el raton o con el tabulador para que
+                  // pase algo se lee como que el campo no hace nada.
+                  onKeyDown: (e: KeyboardEvent) => {
+                    if (e.key === 'Enter') alSalir();
+                  },
+                })}
           />
         </Etiqueta>
       );

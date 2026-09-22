@@ -15,4 +15,5 @@ export const OTRAS_MUESTRAS: Readonly<Record<string, string>> = {
   // inservible: hace falta demostrar que ademas sabe callarse.
   'frase-escrita-dentro': 'el-texto-visible-es-dato',
   'frase-que-sale-del-saco': 'el-texto-visible-es-dato',
+  'arnes-del-request-copiado': 'el-arnes-del-request-se-publica',
 };

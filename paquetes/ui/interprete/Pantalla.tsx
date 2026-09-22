@@ -7,6 +7,7 @@ import {
   type TextosDeLaPantalla,
 } from '../textos.tsx';
 import { BloqueDeLaPantalla } from './BloqueDeLaPantalla.tsx';
+import { cambioAlElegir, eleccionDe, momentoDeLaEleccion, valorElegido } from './campos-en-la-ruta.ts';
 import type { DatosDeLaPantalla } from './datos.ts';
 import { coordenada } from './datos.ts';
 import { esBloque } from './componer.ts';
@@ -20,7 +21,15 @@ import type {
   ManejadoresDeLosActos,
   NavegacionDeLaPantalla,
 } from './tipos-de-los-actos.ts';
-import type { DefinicionDePantalla, PiezaDeLaPantalla as Pieza, TonoDeInsignia } from './tipos.ts';
+import type {
+  DefinicionDeBloque,
+  DefinicionDeCampo,
+  DefinicionDePantalla,
+  OpcionDelCampo,
+  PiezaDeLaPantalla as Pieza,
+  Texto,
+  TonoDeInsignia,
+} from './tipos.ts';
 
 /**
  * **El interprete**: una definicion, dibujada (#27).
@@ -112,6 +121,9 @@ export interface PantallaProps {
 /** `bloque|campo` -> lo tecleado. Plano a proposito: una pantalla no anida mas. */
 type Tecleado = Record<string, string | boolean>;
 
+/** `bloque|campo` -> lo que se esta escribiendo en un campo que aun no lo ha llevado a la ruta (#94). */
+type EnCurso = Record<string, string>;
+
 const TAL_CUAL = (texto: string): string => texto;
 
 export function Pantalla({
@@ -131,6 +143,11 @@ export function Pantalla({
   hoja,
 }: PantallaProps) {
   const [tecleado, setTecleado] = useState<Tecleado>({});
+  // Aparte de `tecleado` a proposito (#94): lo que se escribe en un campo que va a la ruta NO
+  // ensucia la hoja —no es trabajo sin guardar, es un filtro—, y mezclarlo con lo demas habria
+  // dejado a `alEnsuciar` sin avisar nunca despues de tocar un filtro, porque solo avisa la
+  // primera vez que el saco pasa de vacio a lleno.
+  const [enCurso, setEnCurso] = useState<EnCurso>({});
   const [abiertoAqui, setAbiertoAqui] = useState<ActoAbierto | null>(null);
   const interaccion: InteraccionDeLaPantalla = {
     actos,
@@ -158,15 +175,76 @@ export function Pantalla({
     });
   };
 
-  const valoresDe = (bloque: number, campos: number): Record<number, string | boolean> => {
-    const salida: Record<number, string | boolean> = {};
-    // Primero lo que se sepa de la API; lo tecleado va DESPUES y gana, porque un campo que alguien
-    // esta escribiendo no puede saltar hacia atras cuando llegue una respuesta.
-    for (let campo = 0; campo < campos; campo += 1) {
-      const sabido = datos.valores?.get(coordenada(bloque, campo));
-      if (sabido !== undefined) salida[campo] = sabido;
+  /**
+   * Lo que pasa al tocar un campo QUE ESCRIBE EN LA RUTA (#94), y que es distinto en dos cosas.
+   *
+   * · **No ensucia la hoja.** Un filtro no es trabajo sin guardar: vive en la barra de direcciones,
+   *   y avisar de que «hay cambios sin guardar» por haber acotado una lista manda a guardar algo
+   *   que no existe.
+   * · **`alElegir` no pasa por el estado de la pantalla**: mueve la ruta y ya esta. La ruta ES el
+   *   valor, y guardar ademas una copia aqui deja dos sitios que se pueden desincronizar —el de
+   *   atras del navegador contra el de la pantalla—.
+   */
+  const elegir = (
+    bloque: DefinicionDeBloque<Texto, OpcionDelCampo>,
+    indiceDelBloque: number,
+    indiceDelCampo: number,
+    campo: DefinicionDeCampo<OpcionDelCampo>,
+    valor: string,
+  ) => {
+    const eleccion = eleccionDe(campo);
+    // Sin `hoja` no hay donde escribir: se queda en la pantalla, como antes de #94.
+    if (eleccion === undefined || hoja === undefined) {
+      cambiar(indiceDelBloque, indiceDelCampo, valor);
+      return;
     }
-    for (const [clave, valor] of Object.entries(tecleado)) {
+    if (momentoDeLaEleccion(campo) === 'alElegir') {
+      hoja.moverLaRuta(cambioAlElegir(bloque, eleccion, valor));
+      return;
+    }
+    setEnCurso((antes) => ({ ...antes, [coordenada(indiceDelBloque, indiceDelCampo)]: valor }));
+  };
+
+  /**
+   * Salir de un campo `alSalir` —o pulsar Intro en el— lleva lo escrito a la ruta, **una vez**.
+   *
+   * Y lo saca del saco de en curso, para que lo que se vea salga de la ruta: dos sitios con el
+   * mismo valor son dos sitios que pueden discrepar, y el que manda es el que se puede compartir.
+   */
+  const salirDelCampo = (
+    bloque: DefinicionDeBloque<Texto, OpcionDelCampo>,
+    indiceDelBloque: number,
+    indiceDelCampo: number,
+    campo: DefinicionDeCampo<OpcionDelCampo>,
+  ) => {
+    const eleccion = eleccionDe(campo);
+    if (eleccion === undefined || hoja === undefined) return;
+    const escrito = enCurso[coordenada(indiceDelBloque, indiceDelCampo)];
+    // Nada escrito desde la ultima vez: salir del campo no puede volver a pedir lo mismo.
+    if (escrito === undefined) return;
+    setEnCurso((antes) => {
+      const despues = { ...antes };
+      delete despues[coordenada(indiceDelBloque, indiceDelCampo)];
+      return despues;
+    });
+    hoja.moverLaRuta(cambioAlElegir(bloque, eleccion, escrito));
+  };
+
+  const valoresDe = (
+    bloque: number,
+    campos: readonly DefinicionDeCampo<OpcionDelCampo>[],
+  ): Record<number, string | boolean> => {
+    const salida: Record<number, string | boolean> = {};
+    // Primero lo que se sepa de la API; despues lo que diga la ruta (#94), y por ultimo lo tecleado,
+    // porque un campo que alguien esta escribiendo no puede saltar hacia atras cuando llegue una
+    // respuesta.
+    campos.forEach((campo, i) => {
+      const sabido = datos.valores?.get(coordenada(bloque, i));
+      if (sabido !== undefined) salida[i] = sabido;
+      const enLaRuta = hoja === undefined ? undefined : valorElegido(campo, hoja.ruta);
+      if (enLaRuta !== undefined) salida[i] = enLaRuta;
+    });
+    for (const [clave, valor] of Object.entries({ ...tecleado, ...enCurso })) {
       const [b, c] = clave.split('|');
       if (b === String(bloque) && c !== undefined) salida[Number(c)] = valor;
     }
@@ -208,7 +286,7 @@ export function Pantalla({
           esBloque(pieza) ? (
             <BloqueDeLaPantalla
               bloque={pieza}
-              valores={valoresDe(i, pieza.campos.length)}
+              valores={valoresDe(i, pieza.campos)}
               filas={datos.filas?.get(i)}
               conteo={datos.conteos?.get(i)}
               datosDeLasTablas={datos.tablas}
@@ -217,7 +295,16 @@ export function Pantalla({
               ausenciaPorCampo={datos.ausenciaPorCampo}
               indice={i}
               alCambiar={(campo, valor) => {
+                const definicion = pieza.campos[campo];
+                if (definicion !== undefined && eleccionDe(definicion) !== undefined && typeof valor === 'string') {
+                  elegir(pieza, i, campo, definicion, valor);
+                  return;
+                }
                 cambiar(i, campo, valor);
+              }}
+              alSalirDelCampo={(campo) => {
+                const definicion = pieza.campos[campo];
+                if (definicion !== undefined) salirDelCampo(pieza, i, campo, definicion);
               }}
               traducir={traducir}
               textos={palabras}
