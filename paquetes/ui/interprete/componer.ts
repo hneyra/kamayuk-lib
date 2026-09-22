@@ -1,5 +1,3 @@
-import type { ComponentType } from 'react';
-
 import { recorrerLasPiezas } from './composicion.ts';
 import type { DatoConNombre } from './datos.ts';
 import type {
@@ -74,7 +72,14 @@ export function seCumple(condicion: Condicion | undefined, nombrados: Nombrados)
   return valor !== undefined && valor === condicion.vale;
 }
 
-/** Si una pieza es un bloque: los de #27 no llevan `tipo`, y siguen siendolo. */
+/**
+ * Si una pieza es un bloque: los de #27 no llevan `tipo`, y siguen siendolo.
+ *
+ * **Sale por el indice desde #102.** La guarda que un sistema escribe sobre sus definiciones —la
+ * que `piezasSinRegistrar` y `tablasSinVacio` existen para permitir— necesita distinguir un bloque
+ * de las demas piezas, y sin esto `rentas` lo copio: una segunda definicion de «que es un bloque»
+ * que no se entera el dia que esta cambie.
+ */
 export function esBloque(pieza: PiezaDeLaPantalla): pieza is DefinicionDeBloque<Texto> {
   return pieza.tipo === undefined || pieza.tipo === 'bloque';
 }
@@ -86,10 +91,35 @@ export function esBloque(pieza: PiezaDeLaPantalla): pieza is DefinicionDeBloque<
  * La pantalla ya lo dice montada —con un aviso visible en el sitio—, pero esa mitad solo se ve en
  * la hoja que alguien abre. Con esto, cada sistema escribe una guarda que recorre sus definiciones
  * sin montar nada.
+ *
+ * <h2>Por que el registro es `Record<string, unknown>` y no un registro de componentes (#102)</h2>
+ *
+ * Porque lo unico que esta funcion le pregunta al registro es **si trae una clave**
+ * (`Object.hasOwn`), y la firma pide lo que el cuerpo lee: ni un componente, ni sus props.
+ *
+ * La de antes, `Readonly<Record<string, ComponentType<never>>>`, queria decir «cualquier
+ * componente» y **no aceptaba el registro que esta misma libreria publica**: un
+ * `PiezasDelConsumidor` declarado con su tipo —lo que escribe un sistema— no compilaba, porque
+ * `ComponentType` incluye `ComponentClass`, cuyo `defaultProps?: Partial<P>` con `P = never` solo
+ * admite `undefined`. Da igual lo que el registro lleve dentro: basta el tipo declarado. `rentas`
+ * lo tapo con un `as` al estrenar `delConsumidor`; el rojo literal de `tsc` esta en `HISTORY.md`,
+ * y la llamada sin `as` se queda como barrera en `costuras-del-consumidor.test.tsx`.
+ *
+ * `PiezasDelConsumidor` a secas tambien lo arreglaba, y se midio contra seis registros: los dos
+ * tipos aceptan los mismos que acepta `<Pantalla piezas>` —el publicado, un `Record` con las
+ * claves en una union, uno de `FunctionComponent` y un literal `as const`— y los dos rechazan un
+ * registro declarado como `interface`, igual que `<Pantalla>`. **Solo difieren en uno que
+ * `<Pantalla>` tampoco monta** (un componente que exige una prop que el interprete no da). No se
+ * eligio por eso, sino por lo que el defecto de antes deja dicho: la firma exigia algo del VALOR que el
+ * cuerpo nunca leia, y eso fue lo que se rompio. Con `unknown`, lo que cambie manana en el tipo de
+ * una pieza —sus props, su forma— no puede volver a romper la guarda de nadie; que cada valor sea
+ * un componente montable lo comprueba `<Pantalla piezas>` al compilar, que es donde importa. Y de
+ * paso no se cierra un ciclo de tipos: `PiezaDeLaPantalla.tsx`, donde vive `PiezasDelConsumidor`,
+ * ya importa este archivo.
  */
 export function piezasSinRegistrar(
   definicion: DefinicionDePantalla<PiezaDeLaPantalla>,
-  piezas: Readonly<Record<string, ComponentType<never>>> | undefined,
+  piezas: Readonly<Record<string, unknown>> | undefined,
 ): readonly string[] {
   const faltan: string[] = [];
   // Con las anidadas (#67): una pieza del consumidor dentro de una pestana cerrada tambien falta.
