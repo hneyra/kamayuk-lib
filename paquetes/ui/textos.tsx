@@ -205,6 +205,15 @@ export interface TextosDeLasPiezas {
   readonly loEscritoSeDescarto: string;
   /** El error bajo un campo obligatorio vacio, tras el primer intento, si el campo no dice el suyo. */
   readonly campoObligatorio: string;
+  /** El nombre accesible del grupo del buscador y los chips de una tabla, con su nombre dentro. */
+  readonly filtrarLaTabla: (tabla: string) => string;
+  /**
+   * «N de M», o «N de M · T en total» cuando el sistema dio el total. Las cifras van donde el idioma
+   * las ponga. **Sin total, no se escribe ninguno**: M es lo que llego, no lo que hay.
+   */
+  readonly filasQueDejaElFiltro: (visibles: number, recibidas: number, total: string | undefined) => string;
+  /** Lo que se dice cuando el filtro no deja ninguna fila. NO es el `vacio` de la tabla: la lista llego con filas. */
+  readonly ningunaPasaElFiltro: string;
 }
 
 /** Lo que se ve si nadie pasa nada. */
@@ -265,6 +274,10 @@ export const TEXTOS_DE_LAS_PIEZAS: TextosDeLasPiezas = {
   // #86
   loEscritoSeDescarto: 'Se descarto lo escrito: el formulario esta como al abrirlo.',
   campoObligatorio: 'Hay que rellenarlo para poder enviar.',
+  filtrarLaTabla: (tabla) => `Filtrar «${tabla}»`,
+  filasQueDejaElFiltro: (visibles, recibidas, total) =>
+    `${String(visibles)} de ${String(recibidas)}${total === undefined ? '' : ` · ${total} en total`}`,
+  ningunaPasaElFiltro: 'Ninguna de las filas que llegaron pasa el filtro. Quitelo para verlas todas.',
 };
 
 /** Los dos sacos que `Pantalla` recibe juntos, y lo que una pieza del consumidor recibe ya fundido. */

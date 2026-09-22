@@ -270,6 +270,19 @@ const LA_PROSA_DE_86: DefinicionDePantalla<PiezaDeLaPantalla> = {
       nota: '',
       notaConMarcas: [{ texto: 'lo impide ' }, { codigo: { desde: 'restriccion' } }, { fuerte: 'no se deshace' }],
       campos: [],
+      tablas: [
+        {
+          clave: 'filtrable',
+          titulo: 'filtrable',
+          columnas: [{ rotulo: 'columna', alineadoDerecha: false }],
+          vacio: 'vacio',
+          filtroLocal: {
+            buscador: { rotulo: 'buscar', marcador: 'marcador del buscador' },
+            chips: [{ rotulo: 'chip', si: { dato: 'estado', vale: 'UNO' } }],
+            total: 'total',
+          },
+        },
+      ],
     },
   ],
 };
@@ -518,7 +531,11 @@ const PIEZAS: readonly (readonly [string, () => React.ReactElement])[] = [
         definicion={LA_PROSA_DE_86}
         datos={{
           ausencia: { enElCampo: 'hueco', explicacion: '', tono: 'info' },
-          nombrados: new Map([['restriccion', marca('dato.restriccion')]]),
+          nombrados: new Map([
+            ['restriccion', marca('dato.restriccion')],
+            ['total', marca('dato.total')],
+          ]),
+          tablas: new Map([['filtrable', { filas: [{ celdas: [marca('celda')], datos: new Map([['estado', 'UNO']]) }] }]]),
         }}
         tonoDeLaInsignia={() => 'ok'}
         traducir={marca}
@@ -728,5 +745,31 @@ describe('EL AC1 en las piezas de #66: cada paso de una escritura saca sus palab
     fireEvent.click(screen.getByRole('button', { name: marca('descartar') }));
     expect(screen.getByRole('status').textContent).toBe(MARCADAS_LAS_PIEZAS.loEscritoSeDescarto);
     rojo('con lo escrito descartado');
+  });
+
+  it('#86, segunda mitad: el conteo del filtro y lo que dice cuando no deja ninguna, del saco', () => {
+    const rojo = (paso: string) => {
+      const fuera = loQueNoPasoPorElSaco(document.body, DATOS_QUE_NO_SE_TRADUCEN);
+      expect(fuera, elRojo(fuera, `«Pantalla con el filtro local de #86», ${paso}`)).toEqual([]);
+    };
+    render(
+      <Pantalla
+        definicion={LA_PROSA_DE_86}
+        datos={{
+          ausencia: { enElCampo: 'hueco', explicacion: '', tono: 'info' },
+          nombrados: new Map([['total', marca('dato.total')]]),
+          tablas: new Map([['filtrable', { filas: [{ celdas: [marca('celda')], datos: new Map([['estado', 'UNO']]) }] }]]),
+        }}
+        tonoDeLaInsignia={() => 'ok'}
+        traducir={marca}
+        textos={{ ...MARCADOS_DEL_INTERPRETE, ...MARCADAS_LAS_PIEZAS }}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: marca('chip') }));
+    expect(document.querySelector('[data-slot="conteo-del-filtro"]')?.textContent).not.toBe('');
+    rojo('con un chip pulsado y su conteo');
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: marca('no casa') } });
+    expect(document.querySelector('[data-sin-coincidencias]')).not.toBeNull();
+    rojo('con el filtro que no deja ninguna');
   });
 });

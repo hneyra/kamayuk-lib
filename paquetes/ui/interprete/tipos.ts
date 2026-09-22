@@ -343,6 +343,69 @@ export interface DefinicionDeTabla<T extends Texto = string> {
    * Con ellas, la tabla **no mira los datos**: ni la ausencia, ni el vacio, ni `filas`.
    */
   readonly filasDeContenido?: readonly (readonly T[])[];
+  /**
+   * **Un buscador y unos chips que acotan las filas que YA llegaron** (#86,
+   * `filtro-en-el-cliente-con-conteo`). Sin el, la tabla no ofrece ningun filtro, como hasta #86.
+   * Ver `FiltroLocalDeLaTabla`.
+   */
+  readonly filtroLocal?: FiltroLocalDeLaTabla<T>;
+}
+
+/**
+ * **Un filtro que no sale de la pantalla** (#86, `filtro-en-el-cliente-con-conteo`, H02 de
+ * `normativa`).
+ *
+ * <h2>No viaja: ni a la ruta ni al servidor, y es a proposito</h2>
+ *
+ * Es lo contrario del campo con `eleccion` de #94, que escribe en la ruta para que el sistema pida
+ * otra lectura. Esto acota **las filas que el servidor ya mando** —la pagina que llego o, con la
+ * paginacion en cliente, todas las recibidas **antes** de cortar la pagina—, y lo que se elige vive
+ * en el estado de la tabla. Mandarlo seria pedir algo que el backend no admite: un `?estado=` que no
+ * esta en su lista blanca es un 422. Por eso tampoco ensucia la hoja: no es trabajo sin guardar.
+ *
+ * <h2>El conteo dice la diferencia, para que no se lea como filas que faltan</h2>
+ *
+ * Con el filtro puesto, la barra dice «N de M» —las que deja de las que llegaron— en una region viva,
+ * y «T en total» **solo si el sistema dio `total`**: M es lo que hay delante, y el total del
+ * servidor no se deduce de una pagina. Las palabras son del saco (`textos.filasQueDejaElFiltro`),
+ * como «Pagina N de M»: la mecanica es de la definicion y el idioma no.
+ *
+ * <h2>Lo que dice una tabla que el filtro deja sin filas NO es su `vacio`</h2>
+ *
+ * `vacio` es «la lectura contesto una lista vacia» (#65); aqui la lista llego con filas y es el
+ * filtro el que no deja ninguna. Se dice con `sinCoincidencias` o con la frase del saco, y la salida
+ * es quitar el filtro, que esta a la vista.
+ */
+export interface FiltroLocalDeLaTabla<T extends Texto = string> {
+  readonly buscador?: BuscadorDeLaTabla<T>;
+  /**
+   * Los chips, en su orden. Pulsados varios, **los del mismo dato se suman y los de datos distintos
+   * se cruzan**: «Vigentes» y «Anulados» dejan los dos estados; «Vigentes» y «Con cita», las vigentes
+   * que tienen cita.
+   */
+  readonly chips?: readonly ChipDelFiltro<T>[];
+  /** El nombre del dato con cuantas filas hay EN TOTAL, si el servidor lo dice. Sin el, no se escribe. */
+  readonly total?: string;
+  /** Lo que se dice cuando el filtro no deja ninguna. Sin ella, `textos.ningunaPasaElFiltro`. */
+  readonly sinCoincidencias?: T;
+}
+
+/** La caja de busqueda: busca lo tecleado en las celdas, sin distinguir mayusculas ni tildes. */
+export interface BuscadorDeLaTabla<T extends Texto = string> {
+  /** Su nombre accesible. Obligatorio: no se dibuja rotulo a la vista, y un campo sin nombre no se encuentra. */
+  readonly rotulo: T;
+  readonly marcador?: T;
+  /** Los indices de las columnas en que busca. Sin ellos, en todas. */
+  readonly columnas?: readonly number[];
+}
+
+/**
+ * Un chip: un boton que se queda pulsado (`aria-pressed`) y deja las filas cuyos datos cumplen `si`.
+ * Es la `Condicion` de #44, leida contra los `datos` de cada fila: el chip no mira el texto de la celda.
+ */
+export interface ChipDelFiltro<T extends Texto = string> {
+  readonly rotulo: T;
+  readonly si: Condicion;
 }
 
 /**

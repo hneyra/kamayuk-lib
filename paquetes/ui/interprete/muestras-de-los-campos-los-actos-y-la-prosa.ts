@@ -247,4 +247,60 @@ export const MUESTRAS_DE_LOS_CAMPOS_LOS_ACTOS_Y_LA_PROSA = {
       ]),
     },
   },
+
+  'filtro-en-el-cliente-con-conteo': {
+    deDonde: 'normativa, HUECOS.md H02: filtrar la pagina que llego sin mandarlo al servidor, y decir cuantas deja',
+    definicion: {
+      instruccion: 'Busque en la pagina de registros que llego.',
+      bloques: [
+        {
+          titulo: 'Registros',
+          nota: '',
+          campos: [],
+          tablas: [
+            {
+              clave: 'registros',
+              titulo: 'Registros de la pagina',
+              columnas: [
+                { rotulo: 'Codigo', alineadoDerecha: false },
+                { rotulo: 'Descripcion', alineadoDerecha: false },
+              ],
+              vacio: 'El servidor no devolvio ningun registro.',
+              paginacion: { en: 'servidor', enLaRuta: 'pagina', tamano: 4, hayMas: 'registros.hayMas' },
+              // Nada de esto viaja: `?estado=` no esta en la lista blanca del backend, y seria un 422.
+              filtroLocal: {
+                buscador: { rotulo: 'Buscar en esta pagina', marcador: 'Codigo o descripcion', columnas: [0, 1] },
+                chips: [
+                  { rotulo: 'Vigentes', si: { dato: 'estado', vale: 'VIGENTE' } },
+                  { rotulo: 'Anulados', si: { dato: 'estado', vale: 'ANULADO' } },
+                ],
+                total: 'registros.total',
+                sinCoincidencias: 'Ningun registro de esta pagina pasa el filtro.',
+              },
+            },
+          ],
+        },
+      ],
+    },
+    datos: {
+      ausencia: SIN_FRASE_DE_PANTALLA,
+      nombrados: new Map<string, string | boolean>([
+        ['registros.hayMas', true],
+        ['registros.total', '57'],
+      ]),
+      tablas: new Map([
+        [
+          'registros',
+          {
+            filas: [
+              { celdas: ['R-001', 'Bodega del puerto'], datos: new Map([['estado', 'VIGENTE']]) },
+              { celdas: ['R-002', 'Bódega vieja'], datos: new Map([['estado', 'ANULADO']]) },
+              { celdas: ['R-003', 'Taller'], datos: new Map([['estado', 'VIGENTE']]) },
+              { celdas: ['R-004', 'Almacen'], datos: new Map([['estado', 'VIGENTE']]) },
+            ],
+          },
+        ],
+      ]),
+    },
+  },
 } as const satisfies Record<string, Muestra>;

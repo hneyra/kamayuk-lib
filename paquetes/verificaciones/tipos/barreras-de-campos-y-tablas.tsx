@@ -127,3 +127,15 @@ export const barrerasDeLasMarcas: TextoConMarcas = [
   // @ts-expect-error y uno sin marca no dice nada
   {},
 ];
+
+/**
+ * **LAS BARRERAS DE #86, `filtro-en-el-cliente-con-conteo`**: un buscador sin nombre accesible no se
+ * encuentra, y un chip sin condicion no tiene que dejar. Ninguna de las dos tiene valor por omision
+ * que no mintiera.
+ */
+export const barrerasDelFiltroLocal: readonly DefinicionDeTabla<Texto>[] = [
+  // @ts-expect-error el buscador no dibuja rotulo a la vista: sin `rotulo` no tendria nombre
+  { titulo: 'T', columnas: [], filtroLocal: { buscador: { marcador: 'Buscar' } } },
+  // @ts-expect-error un chip lee los DATOS de la fila con una `Condicion`: sin ella no filtra nada
+  { titulo: 'T', columnas: [], filtroLocal: { chips: [{ rotulo: 'Vigentes' }] } },
+];

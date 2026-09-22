@@ -10,6 +10,7 @@ import type { DatosDeLaPantalla } from './datos.ts';
 import type { HojaDelMarco, LoTecleado } from './hoja.ts';
 import { MUESTRAS_DE_LOS_CAMPOS_LOS_ACTOS_Y_LA_PROSA as MUESTRAS } from './muestras-de-los-campos-los-actos-y-la-prosa.ts';
 import { Pantalla, type PantallaProps } from './Pantalla.tsx';
+import { conteoDelFiltro, filtrarLasFilas, SIN_FILTRO } from './reglas-de-las-tablas.ts';
 import type { DefinicionDeActo } from './tipos-de-los-actos.ts';
 import type { DefinicionDePantalla, PiezaDeLaPantalla } from './tipos.ts';
 
@@ -654,6 +655,182 @@ describe('`texto-con-marcas` (H43, N6): `code` y `strong` dentro de la MISMA fra
   });
 });
 
+// ── Grupo E ─────────────────────────────────────────────────────────────────────────────────────
+
+describe('`filtro-en-el-cliente-con-conteo` (H02): acota lo que LLEGO, y dice cuantas deja', () => {
+  const { definicion, datos } = MUESTRAS['filtro-en-el-cliente-con-conteo'];
+  const bloque = definicion.bloques[0];
+  const tabla = bloque.tablas[0];
+  const conTabla = (cambios: object): Definicion => ({
+    instruccion: '',
+    bloques: [{ ...bloque, tablas: [{ ...tabla, ...cambios }] }],
+  });
+  const codigos = () =>
+    screen
+      .getAllByRole('row')
+      .slice(1)
+      .map((fila) => fila.querySelector('td')?.textContent);
+  const buscador = () => screen.getByRole('searchbox', { name: 'Buscar en esta pagina' });
+  const chip = (rotulo: string) => screen.getByRole('button', { name: rotulo });
+  const estado = () => document.querySelector('[data-slot="conteo-del-filtro"]') as HTMLElement;
+
+  it('SIN el dato, la tabla es la de antes: ni buscador, ni chips, ni region viva, y el conteo de siempre', () => {
+    const { container } = monta(conTabla({ filtroLocal: undefined }), datos);
+    expect(screen.queryByRole('searchbox')).toBeNull();
+    expect(container.querySelector('[data-slot="filtro-local"], [data-chip], [role="status"]')).toBeNull();
+    expect(container.querySelector('[data-slot="tarjeta-barra-de-tabla"]')?.textContent).toBe(
+      'Registros de la pagina4 registros',
+    );
+    expect(codigos()).toEqual(['R-001', 'R-002', 'R-003', 'R-004']);
+  });
+
+  it('CON el dato: un grupo con nombre, el buscador con el suyo, los chips sin pulsar y la region viva ya montada', () => {
+    monta(definicion, datos);
+    const grupo = screen.getByRole('group', { name: T.filtrarLaTabla('Registros de la pagina') });
+    expect(within(grupo).getByRole('searchbox').getAttribute('aria-label')).toBe('Buscar en esta pagina');
+    expect(buscador().getAttribute('placeholder')).toBe('Codigo o descripcion');
+    expect(chip('Vigentes').getAttribute('aria-pressed')).toBe('false');
+    expect(chip('Anulados').getAttribute('aria-pressed')).toBe('false');
+    expect(estado().getAttribute('role')).toBe('status');
+    expect(estado().textContent, 'sin filtro puesto, la region viva no dice nada').toBe('');
+    expect(screen.getByText('4 registros')).toBeTruthy();
+  });
+
+  it('buscar deja las que casan —sin mayusculas ni tildes— y dice «N de M · T en total», con el total DEL SISTEMA', () => {
+    monta(definicion, datos);
+    fireEvent.change(buscador(), { target: { value: 'BODEGA' } });
+    expect(codigos()).toEqual(['R-001', 'R-002']);
+    expect(estado().textContent).toBe(T.filasQueDejaElFiltro(2, 4, '57'));
+    expect(estado().textContent).toBe('2 de 4 · 57 en total');
+    // El conteo de siempre se calla: «4 registros» junto a dos filas se leeria como dos que faltan.
+    expect(screen.queryByText('4 registros')).toBeNull();
+  });
+
+  it('sin el total del sistema, NO se escribe ninguno: M es lo que llego, no lo que hay', () => {
+    monta(definicion, { ...datos, nombrados: new Map([['registros.hayMas', true]]) });
+    fireEvent.change(buscador(), { target: { value: 'bodega' } });
+    expect(estado().textContent, 'el conteo invento un total que no llego').toBe('2 de 4');
+  });
+
+  it('los chips leen el DATO de la fila; los del mismo dato se suman, y con el buscador se cruzan', () => {
+    monta(definicion, datos);
+    fireEvent.click(chip('Anulados'));
+    expect(chip('Anulados').getAttribute('aria-pressed')).toBe('true');
+    expect(codigos()).toEqual(['R-002']);
+    fireEvent.click(chip('Vigentes'));
+    expect(codigos()).toEqual(['R-001', 'R-002', 'R-003', 'R-004']);
+    fireEvent.change(buscador(), { target: { value: 'bodega' } });
+    fireEvent.click(chip('Anulados'));
+    expect(codigos()).toEqual(['R-001']);
+    expect(estado().textContent).toBe('1 de 4 · 57 en total');
+  });
+
+  it('NO viaja: ni a la ruta ni a quien pide —ni un `moverLaRuta`, ni un `alHacer`— y no ensucia la hoja', () => {
+    const hoja = { ...hojaEspiada(), moverLaRuta: vi.fn() };
+    const alHacer = { releer: vi.fn() };
+    monta({ ...definicion, hoja: { suciaAlTeclear: true } }, datos, { hoja, alHacer });
+    fireEvent.change(buscador(), { target: { value: 'bodega' } });
+    fireEvent.click(chip('Anulados'));
+    expect(hoja.moverLaRuta, 'el filtro viajo a la ruta: `?estado=` seria un 422').not.toHaveBeenCalled();
+    expect(alHacer.releer).not.toHaveBeenCalled();
+    expect(hoja.marcarSucia, 'un filtro no es trabajo sin guardar').not.toHaveBeenCalled();
+  });
+
+  it('en la paginacion de CLIENTE filtra TODAS las recibidas antes de cortar, y vuelve a la primera sin llevar el filtro', () => {
+    const hoja = { ruta: { sujeto: null, parametros: { pagina: '1' } }, moverLaRuta: vi.fn() };
+    monta(conTabla({ paginacion: { en: 'cliente', enLaRuta: 'pagina', tamano: 2 } }), datos, { hoja });
+    expect(codigos()).toEqual(['R-003', 'R-004']);
+    fireEvent.change(buscador(), { target: { value: 'almacen' } });
+    // La que casa es la cuarta de lo recibido, y queda sola en la primera pagina de lo filtrado:
+    // cortar primero y filtrar despues buscaria en otra pagina y no dejaria ninguna.
+    expect(codigos(), 'se filtro la pagina ya cortada, y no todas las recibidas').toEqual(['R-004']);
+    expect(estado().textContent).toBe('1 de 4 · 57 en total');
+    // Lo unico que se mueve es la pagina, a la primera: el texto buscado no esta en ningun cambio.
+    expect(hoja.moverLaRuta.mock.calls).toEqual([[{ parametros: { pagina: null } }]]);
+    expect(JSON.stringify(hoja.moverLaRuta.mock.calls)).not.toContain('almacen');
+  });
+
+  it('si el filtro no deja ninguna, lo dice con SU frase —no con el `vacio` de la tabla—; sin ella, la del saco', () => {
+    const { container, unmount } = monta(definicion, datos);
+    fireEvent.change(buscador(), { target: { value: 'no existe' } });
+    expect(container.querySelector('[data-sin-coincidencias]')?.textContent).toBe(
+      'Ningun registro de esta pagina pasa el filtro.',
+    );
+    expect(container.querySelector('[data-vacio]'), 'el filtro reuso el `vacio` de la tabla').toBeNull();
+    expect(screen.queryByText('El servidor no devolvio ningun registro.')).toBeNull();
+    expect(container.querySelector('[data-tabla-sin-motivo]')).toBeNull();
+    expect(estado().textContent).toBe('0 de 4 · 57 en total');
+    unmount();
+
+    const otra = monta(conTabla({ filtroLocal: { ...tabla.filtroLocal, sinCoincidencias: undefined } }), datos);
+    fireEvent.change(buscador(), { target: { value: 'no existe' } });
+    expect(otra.container.querySelector('[data-sin-coincidencias]')?.textContent).toBe(T.ningunaPasaElFiltro);
+  });
+
+  it('sin dato y con `[]` no hay nada que acotar: ni buscador ni conteo; cada una dice lo suyo, como desde #61', () => {
+    const { container, unmount } = monta(definicion, { ...datos, tablas: new Map() });
+    expect(screen.queryByRole('searchbox')).toBeNull();
+    expect(container.querySelector('[data-sin-dato]')).not.toBeNull();
+    unmount();
+    const vacia = monta(definicion, { ...datos, tablas: new Map([['registros', { filas: [] }]]) });
+    expect(screen.queryByRole('searchbox')).toBeNull();
+    expect(vacia.container.querySelector('[role="status"]')).toBeNull();
+    expect(vacia.container.querySelector('[data-vacio]')?.textContent).toBe('El servidor no devolvio ningun registro.');
+  });
+
+  it('TECLADO: Tab llega al buscador y a cada chip; se escribe, y Espacio y Enter pulsan y sueltan', async () => {
+    const teclado = userEvent.setup({ delay: null });
+    monta(definicion, datos);
+    await teclado.tab();
+    expect(document.activeElement).toBe(buscador());
+    await teclado.keyboard('taller');
+    expect(codigos()).toEqual(['R-003']);
+    await teclado.tab();
+    expect(document.activeElement).toBe(chip('Vigentes'));
+    await teclado.keyboard(' ');
+    expect(chip('Vigentes').getAttribute('aria-pressed')).toBe('true');
+    await teclado.tab();
+    expect(document.activeElement).toBe(chip('Anulados'));
+    await teclado.keyboard('{Enter}');
+    expect(chip('Anulados').getAttribute('aria-pressed')).toBe('true');
+    await teclado.keyboard('{Enter}');
+    expect(chip('Anulados').getAttribute('aria-pressed')).toBe('false');
+    expect(estado().textContent).toBe('1 de 4 · 57 en total');
+  });
+});
+
+describe('`filtrarLasFilas` y `conteoDelFiltro`: la regla, sin montar', () => {
+  const filtro = MUESTRAS['filtro-en-el-cliente-con-conteo'].definicion.bloques[0].tablas[0].filtroLocal;
+  const fila = (codigo: string, descripcion: string | null, estado?: string) => ({
+    celdas: [codigo, { texto: descripcion }],
+    ...(estado === undefined ? {} : { datos: new Map([['estado', estado]]) }),
+  });
+  const filas = [fila('A-1', 'Bodega', 'VIGENTE'), fila('A-2', null, 'ANULADO'), fila('A-3', 'Otra')];
+
+  it('sin nada elegido, todas; unos blancos no son una busqueda', () => {
+    expect(filtrarLasFilas(filtro, filas, SIN_FILTRO)).toEqual(filas);
+    expect(filtrarLasFilas(filtro, filas, { busqueda: '   ', chips: [] })).toEqual(filas);
+  });
+
+  it('una celda sin dato no casa con nada, y un chip no mira el texto: una fila sin `datos` no pasa', () => {
+    expect(filtrarLasFilas(filtro, filas, { busqueda: 'a-', chips: [] })).toHaveLength(3);
+    expect(filtrarLasFilas(filtro, filas, { busqueda: 'null', chips: [] })).toEqual([]);
+    expect(filtrarLasFilas(filtro, filas, { busqueda: '', chips: [0] }).map((f) => f.celdas[0])).toEqual(['A-1']);
+  });
+
+  it('busca solo en las `columnas` que la definicion dice', () => {
+    const soloLaPrimera = { ...filtro, buscador: { rotulo: 'B', columnas: [0] } };
+    expect(filtrarLasFilas(soloLaPrimera, filas, { busqueda: 'bodega', chips: [] })).toEqual([]);
+  });
+
+  it('el total es el que dio el sistema, o ninguno', () => {
+    expect(conteoDelFiltro(1, 3, '57')).toEqual({ visibles: 1, recibidas: 3, total: '57' });
+    for (const noEsUnTotal of [undefined, null, '', true]) {
+      expect(conteoDelFiltro(1, 3, noEsUnTotal)).toEqual({ visibles: 1, recibidas: 3 });
+    }
+  });
+});
+
 // ── El centinela ───────────────────────────────────────────────────────────────────────────────
 
 describe('LAS MUESTRAS DE #86: una por hueco, y todas se dibujan', () => {
@@ -667,6 +844,7 @@ describe('LAS MUESTRAS DE #86: una por hueco, y todas se dibujan', () => {
     'aviso-efimero-tras-un-acto',
     'insignias-fijas-en-la-cabecera',
     'texto-con-marcas',
+    'filtro-en-el-cliente-con-conteo',
   ];
 
   it('EL CENTINELA: estan los huecos de esta tanda, ni uno menos ni uno de mas', () => {

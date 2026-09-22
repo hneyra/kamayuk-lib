@@ -4,6 +4,7 @@ import { Insignia } from '../Insignia.tsx';
 import { Alerta } from '../shadcn/alerta.tsx';
 import { CAPA_CABECERA_FIJA } from '../shadcn/capas.ts';
 import { Boton } from '../shadcn/boton.tsx';
+import { Campo } from '../shadcn/campo.tsx';
 import {
   Tabla,
   TablaCabecera,
@@ -23,9 +24,14 @@ import { cambiosEn, valorEnLaRuta, type EnLaRuta, type HojaDelMarco } from './ho
 import type { InteraccionDeLaPantalla } from './interaccion.ts';
 import { campoOrdenado, MandoDeOrden, MandoDePaginas, type SitioDeLaTabla } from './MandosDeLaTabla.tsx';
 import {
+  conteoDelFiltro,
+  type FiltroElegido,
+  filtrarLasFilas,
+  filtroPuesto,
   notaDeLaCelda,
   paginaDeLaTabla,
   resolverInsignia,
+  SIN_FILTRO,
   textoDeLaCelda,
 } from './reglas-de-las-tablas.ts';
 import type { DefinicionDeTabla, TonoDeInsignia, Texto } from './tipos.ts';
@@ -80,6 +86,14 @@ import type { DefinicionDeTabla, TonoDeInsignia, Texto } from './tipos.ts';
  * **La pagina y el orden viven en la ruta**, no aqui: con `hoja` se escriben ahi y de ahi se
  * restituyen, como la pestana de #67. Sin `hoja` —la pantalla montada fuera del marco— la tabla los
  * guarda en su estado, y entonces no sobreviven a recargar, que es lo unico que no puede dar.
+ *
+ * <h2>Y el filtro local de #86, que es lo contrario: NUNCA sale de aqui</h2>
+ *
+ * `filtroLocal` (`filtro-en-el-cliente-con-conteo`) acota las filas que llegaron —antes de cortar la
+ * pagina en cliente; la pagina misma en servidor— con lo elegido en el estado de la tabla, y ni lo
+ * escribe en la ruta ni lo pide: ver `FiltroLocalDeLaTabla`. Solo se ofrece cuando HAY filas —sin
+ * dato o con `[]` no hay nada que acotar—; puesto, el conteo dice «N de M» en una region viva, y si
+ * no deja ninguna se dice con su propia frase, que no es el `vacio` de la tabla.
  */
 
 export interface TablaDelBloqueProps {
@@ -119,6 +133,8 @@ export function TablaDelBloque({
   const texto = (t: Texto) => resolverTexto(t, nombrados, traducir, textos.datoAusente);
   // Sin `hoja`, la pagina y el orden viven aqui. No sobreviven a recargar, y es lo unico que no dan.
   const [sinMarco, fijarSinMarco] = useState<Readonly<Record<string, string>>>({});
+  // El filtro local vive SIEMPRE aqui, con hoja o sin ella: no viaja (#86).
+  const [elegido, fijarElegido] = useState<FiltroElegido>(SIN_FILTRO);
   const sitio: SitioDeLaTabla = {
     leer: (donde: EnLaRuta) => (hoja === undefined ? (sinMarco[donde] ?? null) : valorEnLaRuta(hoja.ruta, donde)),
     fijar: (cambios) => {
@@ -144,6 +160,12 @@ export function TablaDelBloque({
   const todas: readonly FilaDeLaTabla[] | undefined =
     deContenido === undefined ? filas : deContenido.map((celdas) => ({ celdas: celdas.map(texto) }));
 
+  // Se ofrece solo con filas delante; puesto, acota las que llegaron ANTES de cortar la pagina.
+  const filtro = tabla.filtroLocal;
+  const hayFiltro = filtro !== undefined && todas !== undefined && todas.length > 0;
+  const filtrando = hayFiltro && filtroPuesto(elegido);
+  const filtradas = todas === undefined || !filtrando ? todas : filtrarLasFilas(filtro, todas, elegido);
+
   const paginacion = tabla.paginacion;
   const pagina =
     paginacion === undefined
@@ -158,18 +180,33 @@ export function TablaDelBloque({
             hayMas: paginacion.hayMas === undefined ? undefined : nombrados?.get(paginacion.hayMas),
             paginas: paginacion.paginas === undefined ? undefined : nombrados?.get(paginacion.paginas),
           },
-          todas?.length ?? 0,
+          filtradas?.length ?? 0,
         );
   // Solo en cliente se corta: en servidor, las filas que llegaron YA son la pagina.
   const dibujadas =
-    todas === undefined || pagina?.recorte === undefined
-      ? todas
-      : todas.slice(pagina.recorte.desde, pagina.recorte.hasta);
+    filtradas === undefined || pagina?.recorte === undefined
+      ? filtradas
+      : filtradas.slice(pagina.recorte.desde, pagina.recorte.hasta);
 
   // El conteo se cuenta solo cuando HAY filas: ver el docblock. El que da el sistema, se escribe. Y
   // se cuentan TODAS y no la pagina: una tabla de 54 129 filas no tiene 100.
   const rotuloDelConteo =
-    todas === undefined ? null : (conteo ?? (todas.length === 0 ? null : textos.registros(todas.length)));
+    todas === undefined || filtrando ? null : (conteo ?? (todas.length === 0 ? null : textos.registros(todas.length)));
+  // Con el filtro puesto, lo que dice la barra es la diferencia: las que deja de las que llegaron, y
+  // el total solo si el sistema lo dio (#86).
+  const conteoFiltrado =
+    !filtrando || filtradas === undefined || todas === undefined || filtro === undefined
+      ? undefined
+      : conteoDelFiltro(
+          filtradas.length,
+          todas.length,
+          filtro.total === undefined ? undefined : nombrados?.get(filtro.total),
+        );
+  /** Cambiar lo elegido: en la paginacion de cliente vuelve a la primera pagina, que puede no existir ya. */
+  const elegir = (cambio: (antes: FiltroElegido) => FiltroElegido) => {
+    fijarElegido(cambio);
+    if (paginacion?.en === 'cliente' && (pagina?.pagina ?? 0) !== 0) sitio.fijar({ [paginacion.enLaRuta]: null });
+  };
   // `vacioConSalida` gana a `vacio` si la definicion trae los dos. Son dos campos y no una union
   // porque la union rompe la compilacion de `caja`: ver el docblock de `DefinicionDeTabla`.
   const conSalida = tabla.vacioConSalida !== undefined && tabla.vacioConSalida.titulo !== '' ? tabla.vacioConSalida : undefined;
@@ -188,6 +225,15 @@ export function TablaDelBloque({
         {rotuloDelConteo === null ? null : (
           <span className="text-[11.5px] text-tinta-3">{rotuloDelConteo}</span>
         )}
+        {/* La region viva existe mientras el filtro se ofrece, vacia hasta que se pone: una que aparece
+            ya con el texto dentro no la anuncian todos los lectores de pantalla (#86, como `descartar`). */}
+        {!hayFiltro ? null : (
+          <span role="status" data-slot="conteo-del-filtro" className="text-[11.5px] text-tinta-3">
+            {conteoFiltrado === undefined
+              ? null
+              : textos.filasQueDejaElFiltro(conteoFiltrado.visibles, conteoFiltrado.recibidas, conteoFiltrado.total)}
+          </span>
+        )}
         {tabla.orden === undefined ? null : (
           <MandoDeOrden
             orden={tabla.orden}
@@ -204,6 +250,17 @@ export function TablaDelBloque({
           </Boton>
         )}
       </TarjetaBarraDeTabla>
+
+      {!hayFiltro ? null : (
+        <FiltroDeLaTabla
+          filtro={filtro}
+          elegido={elegido}
+          elegir={elegir}
+          nombreDeLaTabla={traducir(tabla.titulo)}
+          texto={texto}
+          textos={textos}
+        />
+      )}
 
       <Tabla
         style={{ minWidth: `${String(columnasDibujadas * 130)}px` }}
@@ -391,6 +448,19 @@ export function TablaDelBloque({
         </p>
       ) : null}
 
+      {todas !== undefined && todas.length > 0 && filtradas?.length === 0 && filtro !== undefined ? (
+        // La lista llego CON filas y es el filtro el que no deja ninguna: esto no es el `vacio` de la
+        // tabla —que dice que la lectura contesto una lista vacia— y la salida esta a la vista.
+        <p
+          data-sin-coincidencias=""
+          className="m-0 px-[15px] py-[18px] text-center text-[13px] leading-[1.5] text-tinta-3 text-pretty"
+        >
+          {filtro.sinCoincidencias === undefined || filtro.sinCoincidencias === ''
+            ? textos.ningunaPasaElFiltro
+            : texto(filtro.sinCoincidencias)}
+        </p>
+      ) : null}
+
       {todas !== undefined && todas.length === 0 && !hayVacio ? (
         // Nunca una tabla muda (AC-3): una lista vacia sin motivo es un defecto de la definicion, y
         // se ve en la pantalla, como la pieza del consumidor sin registrar de #44.
@@ -414,6 +484,74 @@ export function TablaDelBloque({
       )}
 
       {tabla.nota === undefined ? null : <TablaNota>{traducir(tabla.nota)}</TablaNota>}
+    </div>
+  );
+}
+
+/**
+ * **El buscador y los chips del filtro local** (#86, `filtro-en-el-cliente-con-conteo`).
+ *
+ * Un grupo con nombre —el de la tabla dentro, como sus mandos de pagina—, un campo de busqueda con su
+ * nombre accesible y un boton por chip que se queda pulsado con `aria-pressed`. Nada de esto escribe
+ * en la ruta: lo elegido sube a `elegir`, que es el estado de la tabla.
+ */
+function FiltroDeLaTabla({
+  filtro,
+  elegido,
+  elegir,
+  nombreDeLaTabla,
+  texto,
+  textos,
+}: {
+  readonly filtro: NonNullable<DefinicionDeTabla<Texto>['filtroLocal']>;
+  readonly elegido: FiltroElegido;
+  readonly elegir: (cambio: (antes: FiltroElegido) => FiltroElegido) => void;
+  readonly nombreDeLaTabla: string;
+  readonly texto: (t: Texto) => string;
+  readonly textos: TextosDeLaPantalla;
+}) {
+  const { buscador, chips = [] } = filtro;
+  return (
+    <div
+      data-slot="filtro-local"
+      role="group"
+      aria-label={textos.filtrarLaTabla(nombreDeLaTabla)}
+      className="flex flex-wrap items-center gap-2 border-t border-linea-2 px-[15px] py-[10px]"
+    >
+      {buscador === undefined ? null : (
+        <Campo
+          type="search"
+          aria-label={texto(buscador.rotulo)}
+          placeholder={buscador.marcador === undefined ? undefined : texto(buscador.marcador)}
+          value={elegido.busqueda}
+          onChange={(evento) => {
+            const busqueda = evento.target.value;
+            elegir((antes) => ({ ...antes, busqueda }));
+          }}
+          className="w-auto min-w-[200px] flex-1"
+        />
+      )}
+      {chips.map((chip, i) => {
+        const pulsado = elegido.chips.includes(i);
+        return (
+          <Boton
+            key={i}
+            type="button"
+            tamano="menudo"
+            variante={pulsado ? 'primario' : 'secundario'}
+            aria-pressed={pulsado}
+            data-chip={chip.si.dato}
+            onClick={() => {
+              elegir((antes) => ({
+                ...antes,
+                chips: antes.chips.includes(i) ? antes.chips.filter((j) => j !== i) : [...antes.chips, i],
+              }));
+            }}
+          >
+            {texto(chip.rotulo)}
+          </Boton>
+        );
+      })}
     </div>
   );
 }

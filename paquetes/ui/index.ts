@@ -272,6 +272,11 @@ export type { ComportamientoDeLaHoja, InsigniaDeLaCabecera, MensajesDelCampo } f
 export type { TextoConMarcas, TramoConMarca } from './interprete/tipos.ts';
 export type { TramoResuelto } from './interprete/componer.ts';
 export { datosQueLee, resolverMarcas } from './interprete/componer.ts';
+// El filtro que acota lo que llego y no viaja (#86, `filtro-en-el-cliente-con-conteo`), y sus dos
+// reglas puras: que filas deja y que dice su conteo.
+export type { BuscadorDeLaTabla, ChipDelFiltro, FiltroLocalDeLaTabla } from './interprete/tipos.ts';
+export type { ConteoDelFiltro, FiltroElegido } from './interprete/reglas-de-las-tablas.ts';
+export { SIN_FILTRO, conteoDelFiltro, filtrarLasFilas, filtroPuesto } from './interprete/reglas-de-las-tablas.ts';
 export { EL_SUJETO, actoEnLaRuta, cambioEn, valorEnLaRuta } from './interprete/hoja.ts';
 export type { PiezaEnSuSitio } from './interprete/composicion.ts';
 export {
