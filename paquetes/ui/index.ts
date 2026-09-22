@@ -267,6 +267,11 @@ export type {
 } from './interprete/hoja.ts';
 // La marca de sucia y lo tecleado como dato de la hoja (#86).
 export type { ComportamientoDeLaHoja, InsigniaDeLaCabecera, MensajesDelCampo } from './interprete/tipos.ts';
+// La frase con `code` y `strong` dentro (#86, `texto-con-marcas`), y sus dos reglas puras: lo que
+// dice cada tramo y que datos lee, para la guarda del sistema que calcula que poner en `nombrados`.
+export type { TextoConMarcas, TramoConMarca } from './interprete/tipos.ts';
+export type { TramoResuelto } from './interprete/componer.ts';
+export { datosQueLee, resolverMarcas } from './interprete/componer.ts';
 export { EL_SUJETO, actoEnLaRuta, cambioEn, valorEnLaRuta } from './interprete/hoja.ts';
 export type { PiezaEnSuSitio } from './interprete/composicion.ts';
 export {

@@ -1,4 +1,4 @@
-import type { ComunDeUnaPieza, Condicion, DefinicionDeCampo, Texto } from './tipos.ts';
+import type { ComunDeUnaPieza, Condicion, DefinicionDeCampo, Texto, TextoConMarcas } from './tipos.ts';
 
 /**
  * **Los tipos de lo que una hoja HACE**: sus acciones, sus actos y a donde lleva (#66).
@@ -142,6 +142,13 @@ export interface DefinicionDeActo extends ComunDeUnaPieza {
   readonly titulo: Texto;
   /** Que hace, en una frase. */
   readonly nota?: Texto;
+  /**
+   * **La misma frase, con `code` y `strong` dentro** (#86, `texto-con-marcas`). Gana a `nota`. Es
+   * un campo aparte por lo mismo que en el bloque —ver `DefinicionDeBloque.notaConMarcas`—: con
+   * `nota?: Texto | TextoConMarcas`, `ActoDeLaPantalla.tsx(254,81)` dejaba de compilar con TS2345,
+   * y con el cualquier sistema que lea `acto.nota` como el `Texto` que es hoy.
+   */
+  readonly notaConMarcas?: TextoConMarcas;
   /** Sus campos. La observacion NO va aqui: va siempre, y siempre la ultima. */
   readonly campos: readonly CampoDelActo[];
   readonly observacion: ObservacionDelActo;

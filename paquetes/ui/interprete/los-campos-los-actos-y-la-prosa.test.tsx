@@ -5,6 +5,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { Avisos, avisar } from '../shadcn/avisos.tsx';
 import { TEXTOS_DE_LAS_PIEZAS, TEXTOS_DEL_INTERPRETE } from '../textos.tsx';
+import { datosQueLee } from './componer.ts';
 import type { DatosDeLaPantalla } from './datos.ts';
 import type { HojaDelMarco, LoTecleado } from './hoja.ts';
 import { MUESTRAS_DE_LOS_CAMPOS_LOS_ACTOS_Y_LA_PROSA as MUESTRAS } from './muestras-de-los-campos-los-actos-y-la-prosa.ts';
@@ -566,6 +567,93 @@ describe('`insignias-fijas-en-la-cabecera` (H42)', () => {
   });
 });
 
+// ── Grupo D ─────────────────────────────────────────────────────────────────────────────────────
+
+describe('`texto-con-marcas` (H43, N6): `code` y `strong` dentro de la MISMA frase', () => {
+  const { definicion, datos } = MUESTRAS['texto-con-marcas'];
+  const bloque = definicion.bloques[0];
+  const notaDelBloque = (container: HTMLElement) =>
+    container.querySelector('[data-slot="tarjeta"]:not([data-acto]) [data-slot="tarjeta-nota"]') as HTMLElement;
+
+  it('CON el dato: una sola nota, con el codigo en `<code>` y el enfasis en `<strong>`, en su orden', () => {
+    const { container } = monta(definicion, datos);
+    const nota = notaDelBloque(container);
+    expect(nota.tagName).toBe('P');
+    expect(nota.textContent).toBe('Lo impide fk_cita_registro: retirarlo no se deshace, y el registro sigue citado.');
+    expect(nota.querySelector('code')?.textContent, 'el codigo salio como texto plano').toBe('fk_cita_registro');
+    expect(nota.querySelector('strong')?.textContent).toBe('retirarlo no se deshace');
+    // Los tramos van en la MISMA frase: ni un parrafo por tramo, ni una caja por el texto corrido.
+    expect([...nota.children].map((hijo) => hijo.tagName)).toEqual(['CODE', 'STRONG']);
+  });
+
+  it('`traducir` pasa por el texto y el enfasis, y NUNCA por el codigo ni por el dato', () => {
+    const { container } = monta(definicion, datos, { traducir: (t) => t.toUpperCase() });
+    const nota = notaDelBloque(container);
+    expect(nota.querySelector('code')?.textContent).toBe('fk_cita_registro');
+    expect(nota.querySelector('strong')?.textContent).toBe('RETIRARLO NO SE DESHACE');
+    expect(nota.textContent?.startsWith('LO IMPIDE ')).toBe(true);
+
+    // Y un codigo ESCRITO en la definicion —no un dato— tampoco: es codigo, como un campo del contrato.
+    const literal = monta(
+      { instruccion: '', bloques: [{ titulo: 'B', nota: '', notaConMarcas: [{ texto: 'usa ' }, { codigo: 'fk_cita' }], campos: [] }] },
+      {},
+      { traducir: (t) => t.toUpperCase() },
+    );
+    const suya = literal.container.querySelector('[data-slot="tarjeta-nota"]') as HTMLElement;
+    expect(suya.querySelector('code')?.textContent, 'el codigo paso por `traducir`').toBe('fk_cita');
+    expect(suya.textContent).toBe('USA fk_cita');
+  });
+
+  it('un dato que no llego se escribe con la palabra del saco, tambien dentro de una marca', () => {
+    const { container } = monta(definicion, {});
+    expect(notaDelBloque(container).querySelector('code')?.textContent).toBe(T.datoAusente);
+  });
+
+  it('en un acto, igual: la plantilla del codigo se llena y la frase es una', () => {
+    const { container } = monta(definicion, datos, { actoAbierto: { clave: 'retirar' } });
+    const nota = container.querySelector('[data-acto="retirar"] [data-slot="tarjeta-nota"]') as HTMLElement;
+    expect(nota.textContent).toBe('Se retira R-00042.');
+    expect(nota.querySelector('code')?.textContent).toBe('R-00042');
+  });
+
+  it('SIN el dato, la nota es la de antes BYTE A BYTE; y con los dos, gana la de las marcas', () => {
+    const conNota = (extra: object): Definicion => ({
+      instruccion: '',
+      bloques: [{ titulo: 'B', nota: 'Una nota sin marcas.', campos: [], ...extra }],
+    });
+    const { container, unmount } = monta(conNota({}));
+    expect(container.querySelector('[data-slot="tarjeta-nota"]')?.outerHTML).toBe(
+      '<p data-slot="tarjeta-nota" class="m-0 px-[15px] py-[11px] border-b border-linea-2 text-[13px] leading-[1.55] text-tinta-2 max-w-[80ch] text-pretty">' +
+        'Una nota sin marcas.</p>',
+    );
+    unmount();
+    const otra = monta(conNota({ notaConMarcas: [{ fuerte: 'La de las marcas.' }] }));
+    expect(otra.container.querySelector('[data-slot="tarjeta-nota"]')?.innerHTML).toBe(
+      '<strong data-slot="marca-fuerte" class="font-bold text-tinta">La de las marcas.</strong>',
+    );
+  });
+
+  it('`datosQueLee` nombra lo que se lee DENTRO de una marca: sin eso, nadie lo pediria', () => {
+    expect(datosQueLee(bloque.notaConMarcas)).toEqual(['restriccion']);
+    const acto = definicion.bloques[1] as DefinicionDeActo;
+    expect(datosQueLee(acto.notaConMarcas ?? [])).toEqual(['registroId']);
+    // Y las cuatro formas de `Texto`, como desde #66.
+    expect(datosQueLee('fija')).toEqual([]);
+    expect(datosQueLee({ desde: 'a' })).toEqual(['a']);
+    expect(datosQueLee({ segun: 'b', casos: {} })).toEqual(['b']);
+    expect(datosQueLee({ plantilla: '{c} y {d.e}' })).toEqual(['c', 'd.e']);
+  });
+
+  it('TECLADO: las marcas no son mandos: el tabulador va de la accion al campo sin pararse en la nota', async () => {
+    const teclado = userEvent.setup({ delay: null });
+    monta(definicion, datos, { actos: { retirar: () => {} } });
+    await teclado.tab();
+    expect(document.activeElement?.textContent).toBe('Retirar');
+    await teclado.tab();
+    expect(document.activeElement?.closest('[data-slot="tarjeta-nota"]')).toBeNull();
+  });
+});
+
 // ── El centinela ───────────────────────────────────────────────────────────────────────────────
 
 describe('LAS MUESTRAS DE #86: una por hueco, y todas se dibujan', () => {
@@ -578,6 +666,7 @@ describe('LAS MUESTRAS DE #86: una por hueco, y todas se dibujan', () => {
     'ayuda-en-un-campo-de-solo-lectura',
     'aviso-efimero-tras-un-acto',
     'insignias-fijas-en-la-cabecera',
+    'texto-con-marcas',
   ];
 
   it('EL CENTINELA: estan los huecos de esta tanda, ni uno menos ni uno de mas', () => {

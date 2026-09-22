@@ -6,6 +6,8 @@ import type {
   DefinicionDePantalla,
   PiezaDeLaPantalla,
   Texto,
+  TextoConMarcas,
+  TramoConMarca,
 } from './tipos.ts';
 
 /**
@@ -54,6 +56,65 @@ export function resolverTexto(
   if (caso !== undefined) return traducir(caso);
   return texto.otro === undefined ? ausente : traducir(texto.otro);
 }
+
+/** Un tramo de una frase con marcas, ya resuelto: que elemento lleva y que dice (#86). */
+export interface TramoResuelto {
+  readonly marca: 'texto' | 'codigo' | 'fuerte';
+  readonly dice: string;
+}
+
+/**
+ * **Lo que dice una frase con marcas, tramo a tramo** (#86, `texto-con-marcas`).
+ *
+ * Pura, como `resolverTexto`: quien dibuja pone cada tramo en su elemento (`ProsaConMarcas`), y una
+ * pieza del consumidor que quiera la misma frase usa esto y no una copia. **El tramo `codigo` no pasa
+ * por `traducir`**: es codigo, como el nombre de un campo del contrato, y traducirlo lo cambia. Los
+ * datos de cada tramo se ponen igual que en `resolverTexto`, con `ausente` si no llegaron.
+ */
+export function resolverMarcas(
+  marcas: TextoConMarcas,
+  nombrados: Nombrados,
+  traducir: (texto: string) => string,
+  ausente: string,
+): readonly TramoResuelto[] {
+  return marcas.map((tramo): TramoResuelto => {
+    if (tramo.codigo !== undefined) {
+      return { marca: 'codigo', dice: resolverTexto(tramo.codigo, nombrados, (t) => t, ausente) };
+    }
+    if (tramo.fuerte !== undefined) return { marca: 'fuerte', dice: resolverTexto(tramo.fuerte, nombrados, traducir, ausente) };
+    return { marca: 'texto', dice: resolverTexto(tramo.texto, nombrados, traducir, ausente) };
+  });
+}
+
+/**
+ * **Los nombres de dato que un texto lee**: los huecos de una plantilla, `desde`, `segun` y, en una
+ * frase con marcas, los de cada tramo, en su orden (#66; las marcas desde #86).
+ *
+ * Es el analizador paralelo a `resolverTexto`, y vive a su lado para que no se desincronicen: lo que
+ * uno pone, el otro lo nombra. Lo usan las acciones para no dejar viajar un hueco (`peticionDe`) ni
+ * guardar un texto que no llego (`guarda`), y sale por el indice para la guarda del sistema que
+ * calcula que datos tiene que poner en `nombrados`: **un dato leido solo dentro de una marca que
+ * esto no nombrara no lo pediria nadie**, y la frase saldria con la raya del dato ausente.
+ */
+export function datosQueLee(texto: Texto | TextoConMarcas): readonly string[] {
+  if (esTextoConMarcas(texto)) {
+    return texto.flatMap((tramo) => datosQueLee(contenidoDelTramo(tramo)));
+  }
+  if (typeof texto === 'string') return [];
+  if ('desde' in texto) return [texto.desde];
+  if ('segun' in texto) return [texto.segun];
+  return [...texto.plantilla.matchAll(HUECO)].flatMap((hueco) => (hueco[1] === undefined ? [] : [hueco[1]]));
+}
+
+/** El `Texto` de un tramo, sea cual sea su marca. */
+function contenidoDelTramo(tramo: TramoConMarca): Texto {
+  if (tramo.codigo !== undefined) return tramo.codigo;
+  if (tramo.fuerte !== undefined) return tramo.fuerte;
+  return tramo.texto;
+}
+
+/** Si un texto es una frase con marcas. Un `Texto` nunca es una lista. */
+const esTextoConMarcas = (texto: Texto | TextoConMarcas): texto is TextoConMarcas => Array.isArray(texto);
 
 /**
  * Si una pieza existe. Sin condicion, siempre.

@@ -563,6 +563,44 @@ export type Texto =
     };
 
 /**
+ * **Un tramo de una frase con marcas** (#86, `texto-con-marcas`): texto corrido, codigo o enfasis.
+ *
+ * Los `?: never` son los de `DefinicionDeAccion`: sin ellos TypeScript admite `{ texto, codigo }`,
+ * porque en una union la comprobacion de propiedades de mas mira todas las ramas a la vez, y un
+ * tramo que fuera las dos cosas no tiene ninguna lectura.
+ */
+export type TramoConMarca<T extends Texto = Texto> =
+  | { readonly texto: T; readonly codigo?: never; readonly fuerte?: never }
+  | { readonly codigo: T; readonly texto?: never; readonly fuerte?: never }
+  | { readonly fuerte: T; readonly texto?: never; readonly codigo?: never };
+
+/**
+ * **Una frase con `code` y `strong` DENTRO** (#86, `texto-con-marcas`, N6 de `normativa`).
+ *
+ * «Lo impide `{restriccion}`: **no se puede deshacer**» es UNA frase. Con el texto como dato, la
+ * marca no puede ser JSX suelto —la definicion no es codigo de React—, y partirla en tres piezas
+ * de la pantalla la dejaria en tres parrafos. Asi que la frase es una lista de tramos, en su orden,
+ * y el interprete dibuja cada uno con su elemento: `texto` tal cual, `codigo` en `<code>` y
+ * `fuerte` en `<strong>`.
+ *
+ * <h2>Que pasa por `traducir`, tramo a tramo</h2>
+ *
+ * Cada tramo es un `Texto`, y se resuelve como cualquiera —una plantilla, un dato, un caso—, con
+ * una diferencia: **el tramo `codigo` no se traduce**, igual que el nombre de un campo del contrato
+ * o una operacion del pie. Es codigo, y traducirlo lo cambia. Se traducen `texto` y `fuerte`, cada
+ * uno por separado: la clave de traduccion es el tramo.
+ *
+ * <h2>Por que no es otra forma de `Texto`</h2>
+ *
+ * Porque `Texto` se resuelve a `string` (`resolverTexto`) y **eso es lo que leen los sistemas**: lo
+ * meten en un `aria-label`, en un `title`, en una lista de claves. Una forma que se dibuja como
+ * elementos no cabe en ninguno de esos sitios, y anadirla a `Texto` ensancharia cada campo que ya
+ * es un `Texto`. Por eso entra solo donde se dibuja como prosa —la nota de un bloque y la de un
+ * acto— y por un campo aparte: ver `DefinicionDeBloque.notaConMarcas`.
+ */
+export type TextoConMarcas<T extends Texto = Texto> = readonly TramoConMarca<T>[];
+
+/**
  * Cuando una pieza **existe** (#44, `pieza-condicional`).
  *
  * Lee `DatosDeLaPantalla.nombrados`. Un dato ausente no cumple `vale`: el aviso de «no esta
@@ -626,6 +664,27 @@ export interface DefinicionDeBloque<
   readonly titulo: T;
   /** Que ES esta parte de la pantalla. Vacia cuando el titulo ya lo dice todo. */
   readonly nota: T;
+  /**
+   * **La nota, con `code` y `strong` dentro de la frase** (#86, `texto-con-marcas`). Gana a `nota`
+   * si el bloque trae las dos, y se escribe con `nota: ''`.
+   *
+   * <h2>Por que es un campo aparte y no `nota: T | TextoConMarcas<T>`</h2>
+   *
+   * **Medido, no supuesto**, por la misma regla que dejo `vacioConSalida` fuera de `vacio`: con la
+   * union, lo que ya lee `nota` como un `Texto` deja de compilar. En este repositorio son los dos
+   * sitios que la dibujan, y son exactamente lo que escribe una pieza del consumidor con el
+   * `resolverTexto` que el indice publica para eso:
+   *
+   * ```
+   * paquetes/ui/interprete/BloqueDeLaPantalla.tsx(101,48): error TS2345: Argument of type
+   *   'Texto | TextoConMarcas<Texto>' is not assignable to parameter of type 'Texto'.
+   * ```
+   *
+   * Con el tipo condicional —`[T] extends [string] ? T : …`— el de por omision seguia siendo
+   * `string` y `rentas` no lo notaba; quien lo notaba era `DefinicionDeBloque<Texto>`, que es la
+   * que recorren los sistemas que usan las piezas. Aparte, no lo nota nadie.
+   */
+  readonly notaConMarcas?: TextoConMarcas<T>;
   /**
    * Los campos del grupo. Vacio en los bloques que solo traen una tabla. En la de hoy sus listas son
    * de cadenas; en la de las piezas admiten `{ valor, rotulo }` (#65).

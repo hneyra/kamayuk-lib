@@ -1,6 +1,6 @@
 import { seEscribe, tipoDe } from '../shadcn/campos.ts';
 import type { TextosDeLaPantalla } from '../textos.tsx';
-import { type Nombrados, resolverTexto, seCumple } from './componer.ts';
+import { datosQueLee, type Nombrados, resolverTexto, seCumple } from './componer.ts';
 import type {
   CampoDelActo,
   DefinicionDeAccion,
@@ -42,16 +42,6 @@ export function motivoDeLosImpedimentos(
 ): string | undefined {
   const primero = impedimentos?.find((impedimento) => seCumple(impedimento.si, nombrados));
   return primero === undefined ? undefined : resolver(primero.motivo, nombrados, traducir, textos);
-}
-
-/** Los nombres de dato que un `Texto` lee: los huecos de una plantilla, `desde` o `segun`. */
-function datosQueLee(texto: Texto): readonly string[] {
-  if (typeof texto === 'string') return [];
-  if ('desde' in texto) return [texto.desde];
-  if ('segun' in texto) return [texto.segun];
-  return [...texto.plantilla.matchAll(/\{([A-Za-z0-9_.-]+)\}/g)].flatMap((hueco) =>
-    hueco[1] === undefined ? [] : [hueco[1]],
-  );
 }
 
 /** Un dato que no esta: ausente, `null` o `''`. Un `false` SI es un dato. */

@@ -10,6 +10,7 @@ import { type Nombrados, resolverTexto } from './componer.ts';
 import type { Ausencia, Coordenada, DatosDeUnaTabla, FilaDeLaTabla } from './datos.ts';
 import { coordenada } from './datos.ts';
 import type { HojaDelMarco } from './hoja.ts';
+import { ProsaConMarcas } from './ProsaConMarcas.tsx';
 import { TablaDelBloque } from './TablaDelBloque.tsx';
 import type { DefinicionDeBloque, DefinicionDeTabla, TonoDeInsignia, Texto } from './tipos.ts';
 
@@ -36,6 +37,9 @@ import type { DefinicionDeBloque, DefinicionDeTabla, TonoDeInsignia, Texto } fro
  *
  * `insignias` y `aLaDerecha` van en el hueco `junto` de `TarjetaCabecera`, fuera del encabezado: el
  * nombre accesible del titulo no cambia. Sin ninguna de las dos, la cabecera es la de siempre.
+ *
+ * Y `notaConMarcas`, que gana a `nota`: la misma `TarjetaNota`, con `code` y `strong` dentro de la
+ * frase (`texto-con-marcas`). Sin ella, la nota es la de siempre.
  */
 
 export interface BloqueDeLaPantallaProps {
@@ -139,7 +143,14 @@ export function BloqueDeLaPantalla({
           {acciones}
         </div>
       )}
-      {nota === '' ? null : <TarjetaNota>{nota}</TarjetaNota>}
+      {bloque.notaConMarcas !== undefined && bloque.notaConMarcas.length > 0 ? (
+        // Gana a `nota` (#86, `texto-con-marcas`): la misma tarjeta, con los tramos dentro.
+        <TarjetaNota>
+          <ProsaConMarcas marcas={bloque.notaConMarcas} nombrados={nombrados} traducir={traducir} ausente={textos.datoAusente} />
+        </TarjetaNota>
+      ) : nota === '' ? null : (
+        <TarjetaNota>{nota}</TarjetaNota>
+      )}
       {enLugarDelCuerpo}
       {enLugarDelCuerpo === undefined ? encimaDelCuerpo : null}
       {enLugarDelCuerpo !== undefined || bloque.campos.length === 0 ? null : (

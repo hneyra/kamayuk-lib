@@ -259,6 +259,22 @@ const LAS_PIEZAS_DE_67: DefinicionDePantalla<PiezaDeLaPantalla> = {
 };
 
 /**
+ * **Y la segunda mitad de #86**: la nota con marcas —el texto y el enfasis por `traducir`, el codigo
+ * como dato—. Ninguna palabra es de la pieza: el elemento de cada tramo no dice nada por su cuenta.
+ */
+const LA_PROSA_DE_86: DefinicionDePantalla<PiezaDeLaPantalla> = {
+  instruccion: 'no la dibuja el interprete',
+  bloques: [
+    {
+      titulo: 'con marcas',
+      nota: '',
+      notaConMarcas: [{ texto: 'lo impide ' }, { codigo: { desde: 'restriccion' } }, { fuerte: 'no se deshace' }],
+      campos: [],
+    },
+  ],
+};
+
+/**
  * Una pantalla que usa los siete tipos, una tabla con filas y otra sin ellas, y una ausencia: todo
  * lo que el interprete sabe dibujar. Sus palabras son de quien la escribe y entran marcadas por
  * `traducir`; lo que el interprete dice por su cuenta, por el saco.
@@ -492,6 +508,21 @@ const PIEZAS: readonly (readonly [string, () => React.ReactElement])[] = [
         traducir={marca}
         textos={{ ...MARCADOS_DEL_INTERPRETE, ...MARCADAS_LAS_PIEZAS }}
         hoja={{ ruta: { sujeto: 'otro', parametros: {} }, moverLaRuta: () => {} }}
+      />
+    ),
+  ],
+  [
+    'Pantalla con la prosa de #86',
+    () => (
+      <Pantalla
+        definicion={LA_PROSA_DE_86}
+        datos={{
+          ausencia: { enElCampo: 'hueco', explicacion: '', tono: 'info' },
+          nombrados: new Map([['restriccion', marca('dato.restriccion')]]),
+        }}
+        tonoDeLaInsignia={() => 'ok'}
+        traducir={marca}
+        textos={{ ...MARCADOS_DEL_INTERPRETE, ...MARCADAS_LAS_PIEZAS }}
       />
     ),
   ],

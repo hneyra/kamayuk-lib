@@ -34,6 +34,7 @@ import { FalloDeUnaLectura } from './EstadoDeLaLectura.tsx';
 import { GrupoDeAcciones } from './GrupoDeAcciones.tsx';
 import type { TecleadoDeUnActo } from './hoja.ts';
 import type { InteraccionDeLaPantalla } from './interaccion.ts';
+import { ProsaConMarcas } from './ProsaConMarcas.tsx';
 import type { CampoDelActo, DefinicionDeActo } from './tipos-de-los-actos.ts';
 
 /**
@@ -82,6 +83,7 @@ import type { CampoDelActo, DefinicionDeActo } from './tipos-de-los-actos.ts';
  *     monta una vez—. No sustituye a lo de siempre: lo hecho y el fallo se siguen dibujando aqui.
  *     Descartar NO avisa por ahi: ya lo dice su propia region viva, y dos regiones diciendo lo mismo
  *     es un anuncio repetido para quien no ve.
+ *   · **`notaConMarcas`**: la nota con `code` y `strong` dentro de la frase. Gana a `nota`.
  */
 
 export interface ActoDeLaPantallaProps {
@@ -251,7 +253,14 @@ export function ActoDeLaPantalla({ acto, datos, traducir, textos, interaccion }:
           {textos.cerrarElActo}
         </BotonConMotivo>
       </div>
-      {acto.nota === undefined || acto.nota === '' ? null : <TarjetaNota>{texto(acto.nota)}</TarjetaNota>}
+      {acto.notaConMarcas !== undefined && acto.notaConMarcas.length > 0 ? (
+        // Gana a `nota` (#86, `texto-con-marcas`), con los datos de la pantalla y los de la fila.
+        <TarjetaNota>
+          <ProsaConMarcas marcas={acto.notaConMarcas} nombrados={nombrados} traducir={traducir} ausente={textos.datoAusente} />
+        </TarjetaNota>
+      ) : acto.nota === undefined || acto.nota === '' ? null : (
+        <TarjetaNota>{texto(acto.nota)}</TarjetaNota>
+      )}
 
       {fase === 'hecho' ? (
         <div data-fase-del-acto="hecho" className="flex flex-col gap-[10px] px-[15px] py-[14px]">

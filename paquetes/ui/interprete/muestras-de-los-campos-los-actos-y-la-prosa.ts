@@ -208,4 +208,43 @@ export const MUESTRAS_DE_LOS_CAMPOS_LOS_ACTOS_Y_LA_PROSA = {
     },
     datos: { ausencia: SIN_FRASE_DE_PANTALLA, nombrados: new Map([['registroId', 'R-00042']]) },
   },
+
+  'texto-con-marcas': {
+    deDonde: 'normativa, HUECOS.md H43 (N6): `code` y `strong` dentro de la misma frase, con la nota como dato',
+    definicion: {
+      instruccion: 'Revise por que no se puede retirar el registro.',
+      bloques: [
+        {
+          titulo: 'La retirada',
+          // Sin marcas, la nota seria esta; con `notaConMarcas`, gana la de las marcas.
+          nota: '',
+          notaConMarcas: [
+            { texto: 'Lo impide ' },
+            { codigo: { desde: 'restriccion' } },
+            { texto: ': ' },
+            { fuerte: 'retirarlo no se deshace' },
+            { texto: ', y el registro sigue citado.' },
+          ],
+          campos: [{ etiqueta: 'Registro', tipo: 'r' }],
+          acciones: [{ rotulo: 'Retirar', abre: 'retirar' }],
+        },
+        {
+          tipo: 'acto',
+          clave: 'retirar',
+          titulo: 'Retirar',
+          // Y en un acto, igual: la frase con su codigo dentro.
+          notaConMarcas: [{ texto: 'Se retira ' }, { codigo: { plantilla: 'R-{registroId}' } }, { texto: '.' }],
+          campos: [],
+          observacion: OBSERVACION,
+        },
+      ],
+    },
+    datos: {
+      ausencia: SIN_FRASE_DE_PANTALLA,
+      nombrados: new Map([
+        ['restriccion', 'fk_cita_registro'],
+        ['registroId', '00042'],
+      ]),
+    },
+  },
 } as const satisfies Record<string, Muestra>;
