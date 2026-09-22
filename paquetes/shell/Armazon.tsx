@@ -366,17 +366,6 @@ function Cascara() {
   }, [claveDelIgnorado, ignoradosDeEstaDireccion, pathname, search]);
 
   /**
-   * El arbol despliega el modulo del DESTINO, y no el que se abrio la ultima vez.
-   *
-   * Va en un efecto sobre el destino y no dentro de la funcion que navega, y la diferencia se ve al
-   * arrancar: una direccion pegada con un destino dentro abre la pantalla sin pasar por el arbol, y
-   * sin esto la hoja actual quedaria marcada dentro de un modulo plegado. O sea: el arbol diria que
-   * no hay nada abierto mientras hay algo abierto.
-   *
-   * Y no se deriva —`moduloDesplegado ?? el del destino`— a proposito: asi, plegar a mano el modulo
-   * de la pantalla en la que uno esta funciona, en vez de volver a abrirse en la siguiente pintada.
-   */
-  /**
    * Al dejar una hoja, **lo tecleado se olvida si no está sucia** (#86, opción C).
    *
    * En un efecto sobre el destino, y no dentro de `irA`, por lo mismo que el módulo desplegado: se
@@ -392,6 +381,17 @@ function Cascara() {
     setTecleadoPorDestino((antes) => sinElDestino(antes, dejada));
   }, [claveAbierta, sucias]);
 
+  /**
+   * El arbol despliega el modulo del DESTINO, y no el que se abrio la ultima vez.
+   *
+   * Va en un efecto sobre el destino y no dentro de la funcion que navega, y la diferencia se ve al
+   * arrancar: una direccion pegada con un destino dentro abre la pantalla sin pasar por el arbol, y
+   * sin esto la hoja actual quedaria marcada dentro de un modulo plegado. O sea: el arbol diria que
+   * no hay nada abierto mientras hay algo abierto.
+   *
+   * Y no se deriva —`moduloDesplegado ?? el del destino`— a proposito: asi, plegar a mano el modulo
+   * de la pantalla en la que uno esta funciona, en vez de volver a abrirse en la siguiente pintada.
+   */
   const moduloDelDestino = hoja?.modulo.clave ?? null;
   useEffect(() => {
     if (moduloDelDestino !== null) {
