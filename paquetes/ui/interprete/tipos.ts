@@ -396,7 +396,11 @@ export interface DefinicionDeTabla<T extends Texto = string> {
  * Cambiar de pagina o de orden **no borra la eleccion**: es otro sitio de la ruta.
  */
 export interface EleccionDeLaFila {
-  /** Donde vive la fila elegida: un parametro, o `EL_SUJETO`. Es tambien como se lee: `ruta.<enLaRuta>`. */
+  /**
+   * Donde vive la fila elegida: un parametro, o `EL_SUJETO`. Es tambien como se lee: `ruta.<enLaRuta>`.
+   * La hoja lo tiene que declarar en su `Destino.enLaRuta`, como la pagina: lo que no declara, el
+   * marco lo ignora con aviso y la eleccion no sobrevive a recargar.
+   */
   readonly enLaRuta: EnLaRuta;
   /**
    * El nombre del dato **de la fila** cuyo valor se escribe: `'codigo'`. Viaja tal cual, sin
@@ -933,10 +937,17 @@ export interface DefinicionDeMaestroDetalle extends ComunDeUnaPieza {
      *
      * <h2>Por que es un campo aparte y no `sinEleccion: Texto | { dibuja, dice }`</h2>
      *
-     * Por la regla que dejo `vacioConSalida` fuera de `vacio` y `notaConMarcas` fuera de `nota`: lo
-     * que ya lee `sinEleccion` como un `Texto` —la propia pieza, y el sistema que recorre sus
-     * definiciones buscando claves de traduccion— deja de compilar con la union. Aparte, no lo nota
-     * nadie.
+     * Por la regla que dejo `vacioConSalida` fuera de `vacio` y `notaConMarcas` fuera de `nota`, y
+     * **medido**: con la union deja de compilar lo que ya lee `sinEleccion` como un `Texto` —la
+     * propia pieza, y lo que escribe un sistema con el `resolverTexto` publicado—:
+     *
+     * ```
+     * paquetes/ui/interprete/MaestroDetalle.tsx(200,25): error TS2345: Argument of type
+     *   'Texto | { readonly dibuja: true; readonly dice: Texto; }' is not assignable to parameter
+     *   of type 'Texto'.
+     * ```
+     *
+     * Aparte, no lo nota nadie.
      */
     readonly sinEleccionSeDibuja?: boolean;
     /** Lo elegido no vino en la lista (otra pagina, otro filtro): se dice, y el detalle sigue. */
