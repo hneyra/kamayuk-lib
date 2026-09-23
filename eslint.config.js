@@ -54,7 +54,8 @@ const bloquesDeExcepcion = EXCEPCIONES.map((directorio) => ({
 export default tseslint.config(
   {
     // Las muestras violan las reglas A PROPOSITO: se lintan desde la prueba, con su texto y una
-    // ruta sintetica. Aqui no tienen nada que hacer.
+    // ruta sintetica —salvo `switch-sin-agotar.ts`, que necesita tipos y se lintea en su ruta de
+    // verdad, con `ignore: false` (#111)—. Aqui no tienen nada que hacer.
     ignores: ['node_modules/**', 'dist/**', 'paquetes/verificaciones/muestras/**'],
   },
   js.configs.recommended,
@@ -94,7 +95,10 @@ export default tseslint.config(
     //
     // A los consumidores los protege otra cosa, que si viaja: los tipos de retorno anotados y los
     // `never` de `CampoDelBloque`, `EstadoDeLaLectura`, `PiezaDeLaPantalla` y `claseDe`, que dan su
-    // rojo con el `tsconfig` de cada uno.
+    // rojo con el `tsconfig` de cada uno. Eso lo vigila `verificaciones/la-exhaustividad-viaja.test.ts`,
+    // que compila el interprete con las opciones minimas de un consumidor y un miembro de mas en cada
+    // union; y que este bloque cubra los `.tsx` y no cuente un `default` como agotado lo vigila
+    // `reglas-de-eslint.test.ts`.
     files: ['paquetes/**/*.{ts,tsx}'],
     languageOptions: {
       parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },

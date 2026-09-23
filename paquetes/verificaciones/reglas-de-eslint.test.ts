@@ -39,7 +39,8 @@ import {
  *
  * Las muestras estan en `ignores` de la configuracion para que `yarn lint` no las senale;
  * aqui se lintan como TEXTO, con una ruta sintetica dentro de `src/`, que es donde la
- * regla tiene que aplicar de verdad.
+ * regla tiene que aplicar de verdad. La excepcion es `switch-sin-agotar` (#111), que necesita tipos
+ * y se lintea en su ruta de verdad: ver su `describe`, al final.
  */
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
@@ -725,6 +726,47 @@ describe('la exhaustividad de un switch la senala el lint (#111)', () => {
     );
     expect(agotada, 'La muestra cambio de forma: el reemplazo no encontro su `case`.').toContain("case 'guarda'");
     expect(await deLaRegla(agotada)).toEqual([]);
+  });
+
+  it('con un `default` que no agota nada, sigue senalada', async () => {
+    // `considerDefaultExhaustiveForUnions: false` es lo que el config fija a proposito, y la muestra
+    // sin `default` no lo vigilaba: medido en la revision de #111, con `true` estas pruebas seguian
+    // verdes y un `default` sin la asignacion a `never` daba por agotada una octava clase de pieza.
+    const conDefault = muestra().replace(
+      "      hechas.push('hace');\n      return;\n  }\n",
+      "      hechas.push('hace');\n      return;\n    default:\n      return;\n  }\n",
+    );
+    expect(conDefault, 'La muestra cambio de forma: el reemplazo no encontro su final.').toContain('default:');
+    expect(
+      (await deLaRegla(conDefault)).join('\n'),
+      'Un `default` dio por agotada la union: `considerDefaultExhaustiveForUnions` ya no es `false`.',
+    ).toMatch(/"guarda"/);
+  });
+
+  /**
+   * Los archivos donde viven los `switch` del interprete, `.ts` y `.tsx`. La muestra es un `.ts`, y
+   * con ella sola un `files` estrechado —a `*.ts`, o a `verificaciones/`— la seguia senalando y dejaba
+   * sin mirar `pulsar`, en `GrupoDeAcciones.tsx`, que es justo el caso que el compilador no ve
+   * (medido en la revision de #111: con `paquetes/**\/*.ts`, las 68 verdes y `yarn lint` RC=0).
+   */
+  const DONDE_HAY_UN_SWITCH = [
+    'paquetes/ui/interprete/GrupoDeAcciones.tsx',
+    'paquetes/ui/interprete/acciones.ts',
+    'paquetes/ui/interprete/CampoDelBloque.tsx',
+    'paquetes/ui/interprete/EstadoDeLaLectura.tsx',
+    'paquetes/ui/interprete/PiezaDeLaPantalla.tsx',
+  ];
+
+  it.each(DONDE_HAY_UN_SWITCH)('el lint del arbol la aplica, con tipos, en %s', async (archivo) => {
+    // El config SIN ningun `overrideConfig`: el mismo que corre `yarn lint`.
+    const config = (await new ESLint({ cwd: RAIZ }).calculateConfigForFile(join(RAIZ, archivo))) as {
+      rules?: Record<string, unknown>;
+      languageOptions?: { parserOptions?: { projectService?: unknown } };
+    };
+    const regla = config.rules?.[REGLA_CON_TIPOS];
+    expect(regla, `${archivo} no esta en el bloque de «${REGLA_CON_TIPOS}».`).toBeDefined();
+    expect([2, 'error']).toContain(Array.isArray(regla) ? regla[0] : regla);
+    expect(config.languageOptions?.parserOptions?.projectService, 'Sin tipos, la regla no ve la union.').toBeTruthy();
   });
 
   it('no es una prohibicion: no se le exige a ningun consumidor', () => {

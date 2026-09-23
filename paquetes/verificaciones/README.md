@@ -22,7 +22,14 @@ navegador, y por eso `sin-suponer-un-sistema` no lo barre.
   sólo caben selectores, y una clave nueva exige muestra en el árbol de los cinco sistemas.
   `reglas-de-eslint.test.ts` la juzga con el config entero sobre la muestra **en su ruta de verdad**
   —el servicio de proyectos no tipa una ruta sintética—, en sus dos mitades: señalada, y limpia con
-  el `case` que le faltaba.
+  el `case` que le faltaba; además, señalada **con un `default`** que no agota nada
+  (`considerDefaultExhaustiveForUnions: false`), y aplicada con tipos en los cinco archivos del
+  intérprete que tienen un `switch`, `.ts` y `.tsx`.
+- **La exhaustividad que viaja** (#111): `la-exhaustividad-viaja.test.ts` compila el intérprete con
+  las opciones mínimas de un consumidor —`strict` y nada de `tsconfig.base.json`— y un miembro de más,
+  en memoria, en cada unión que agota, y exige el rojo **exacto** en su sitio: TS2366 en
+  `CampoDelBloque`, `EstadoDeLaLectura` y la clave de `data-accion`, TS2322 en `PiezaDeLaPantalla` y
+  `claseDe`. Es lo que protege a los consumidores, que no corren el lint de aquí.
 
 ## Las guardas
 
