@@ -93,6 +93,41 @@ export function resolverTodos(
   );
 }
 
+/**
+ * **La clase de una accion, dicha una vez** (#111): `abre`, `va`, `hace` o `guarda`, con la accion
+ * ya estrechada a su rama.
+ *
+ * Las cuatro se distinguen por que propiedad esta presente, y eso se hacia en **tres sitios** —aqui,
+ * en la clave de `data-accion` y al pulsar—, cada uno con una cadena de `if` cuya ultima rama se
+ * quedaba con lo que sobrara. Medido: con una quinta clase en `DefinicionDeAccion`, la clave de
+ * `data-accion` salia `hace:undefined` sin ningun error de compilacion, y los otros dos sitios
+ * rompian por casualidad —TS2538 y TS18048—, lejos de donde estaba el olvido. Es lo que el docblock
+ * de `DefinicionDeAccion` ya registro de #86: anadir `guarda` rompio dos de estos sitios por sorpresa.
+ *
+ * Ahora quien recorre acciones hace `switch (claseDe(accion).clase)`, y lo que falta lo dice el
+ * compilador —o `switch-exhaustiveness-check`, en el lint de este repositorio— en su sitio.
+ */
+export type AccionConClase =
+  | { readonly clase: 'abre'; readonly accion: Extract<DefinicionDeAccion, { readonly abre: string }> }
+  | { readonly clase: 'va'; readonly accion: Extract<DefinicionDeAccion, { readonly va: DestinoDeUnaAccion }> }
+  | { readonly clase: 'hace'; readonly accion: Extract<DefinicionDeAccion, { readonly hace: string }> }
+  | { readonly clase: 'guarda'; readonly accion: Extract<DefinicionDeAccion, { readonly guarda: GuardadoComoArchivo }> };
+
+/**
+ * La clase de `accion`. **Una quinta clase no compila aqui**: tras las cuatro preguntas, lo que
+ * queda es `never` mientras cada rama de `DefinicionDeAccion` tenga la suya, y con una quinta la
+ * asignacion es TS2322 con el `tsconfig` de cada consumidor. Si llega igual —sin tipos, o forzada
+ * con `as`—, revienta diciendolo: tratarla como otra clase la esconderia.
+ */
+export function claseDe(accion: DefinicionDeAccion): AccionConClase {
+  if (accion.abre !== undefined) return { clase: 'abre', accion };
+  if (accion.va !== undefined) return { clase: 'va', accion };
+  if (accion.hace !== undefined) return { clase: 'hace', accion };
+  if (accion.guarda !== undefined) return { clase: 'guarda', accion };
+  const sinClase: never = accion;
+  throw new Error(`${JSON.stringify(sinClase)} no es ninguna de las cuatro clases de accion.`);
+}
+
 /** Lo que una accion necesita para decidir si se puede pulsar. */
 export interface ContextoDeUnaAccion {
   readonly nombrados: Nombrados;
@@ -125,33 +160,42 @@ export function motivoDeLaAccion(accion: DefinicionDeAccion, contexto: ContextoD
   if (contexto.enCurso) return textos.enCurso;
   const declarado = motivoDeLosImpedimentos(accion.impedida, nombrados, traducir, textos);
   if (declarado !== undefined) return declarado;
-  if (accion.abre !== undefined) {
-    // Abrir un formulario que no va a poder enviarse haria rellenarlo para nada: se dice ANTES de
-    // abrirlo. Si llega abierto por la ruta, su primario lo dice tambien, en su sitio.
-    if (!atiende(contexto.actos, accion.abre)) return textos.sinQuienLoAtienda(accion.abre);
-    // Y un acto que se abre sobre una fila no se abre sin la fila: actuaria a ciegas.
-    const ausente = Object.values(accion.con ?? {})
-      .flatMap(datosQueLee)
-      .find((nombre) => falta(nombrados, nombre));
-    return ausente === undefined ? undefined : textos.faltaElDato(ausente);
-  }
-  if (accion.hace !== undefined) {
-    return atiende(contexto.alHacer, accion.hace) ? undefined : textos.sinQuienLoAtienda(accion.hace);
-  }
-  if (accion.guarda !== undefined) {
-    // Primero el navegador: si no sabe descargar, esperar a que llegue el texto no arregla nada.
-    if (contexto.ofreceDescarga === false) {
-      return accion.sinDescarga === undefined ? textos.sinDescarga : resolver(accion.sinDescarga, nombrados, traducir, textos);
+  const clase = claseDe(accion);
+  switch (clase.clase) {
+    case 'abre': {
+      const { abre, con } = clase.accion;
+      // Abrir un formulario que no va a poder enviarse haria rellenarlo para nada: se dice ANTES de
+      // abrirlo. Si llega abierto por la ruta, su primario lo dice tambien, en su sitio.
+      if (!atiende(contexto.actos, abre)) return textos.sinQuienLoAtienda(abre);
+      // Y un acto que se abre sobre una fila no se abre sin la fila: actuaria a ciegas.
+      const ausente = Object.values(con ?? {})
+        .flatMap(datosQueLee)
+        .find((nombre) => falta(nombrados, nombre));
+      return ausente === undefined ? undefined : textos.faltaElDato(ausente);
     }
-    if (textoQueSeGuarda(accion.guarda, nombrados) === undefined) return textos.faltaParaGuardar(accion.guarda.texto.desde);
-    // Y el nombre: con un dato ausente se guardaria un archivo llamado «—».
-    const ausente = datosQueLee(accion.guarda.nombre).find((nombre) => falta(nombrados, nombre));
-    return ausente === undefined ? undefined : textos.faltaParaGuardar(ausente);
+    case 'hace': {
+      const { hace } = clase.accion;
+      return atiende(contexto.alHacer, hace) ? undefined : textos.sinQuienLoAtienda(hace);
+    }
+    case 'guarda': {
+      const { guarda, sinDescarga } = clase.accion;
+      // Primero el navegador: si no sabe descargar, esperar a que llegue el texto no arregla nada.
+      if (contexto.ofreceDescarga === false) {
+        return sinDescarga === undefined ? textos.sinDescarga : resolver(sinDescarga, nombrados, traducir, textos);
+      }
+      if (textoQueSeGuarda(guarda, nombrados) === undefined) return textos.faltaParaGuardar(guarda.texto.desde);
+      // Y el nombre: con un dato ausente se guardaria un archivo llamado «—».
+      const ausente = datosQueLee(guarda.nombre).find((nombre) => falta(nombrados, nombre));
+      return ausente === undefined ? undefined : textos.faltaParaGuardar(ausente);
+    }
+    case 'va': {
+      const { va } = clase.accion;
+      if (contexto.navegacion === undefined) return textos.sinNavegacion;
+      if (!contexto.navegacion.ofrece(va.hoja)) return textos.hojaNoOfrecida;
+      const resuelta = peticionDe(va, nombrados, traducir, textos);
+      return 'faltaElDato' in resuelta ? textos.faltaElDato(resuelta.faltaElDato) : undefined;
+    }
   }
-  if (contexto.navegacion === undefined) return textos.sinNavegacion;
-  if (!contexto.navegacion.ofrece(accion.va.hoja)) return textos.hojaNoOfrecida;
-  const resuelta = peticionDe(accion.va, nombrados, traducir, textos);
-  return 'faltaElDato' in resuelta ? textos.faltaElDato(resuelta.faltaElDato) : undefined;
 }
 
 /**

@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { Alerta } from '../shadcn/alerta.tsx';
 import { Boton } from '../shadcn/boton.tsx';
 import type { TextosDeLaPantalla } from '../textos.tsx';
@@ -20,6 +22,13 @@ import type { EstadoDeUnaLectura } from './datos.ts';
  *
  * `data-estado-de-la-lectura` no es decoracion: es lo que deja a una guarda contar estados sin
  * leer el texto, que cambia con quien la monta.
+ *
+ * <h2>Un quinto estado no compila aqui (#111)</h2>
+ *
+ * El `switch` no lleva `default` y la funcion **declara que devuelve `ReactElement`**: con un estado
+ * nuevo en `EstadoDeUnaLectura`, la rama que falta sale como TS2366 en este archivo, con el
+ * `tsconfig` de cada consumidor. Sin el tipo de retorno —hasta #111— compilaba, devolvia `undefined`
+ * y la pieza se quedaba en blanco: justo el desenlace que este archivo existe para impedir.
  */
 
 export interface EstadoDeLaLecturaProps {
@@ -30,7 +39,7 @@ export interface EstadoDeLaLecturaProps {
   readonly textos: TextosDeLaPantalla;
 }
 
-export function EstadoDeLaLectura({ estado, espera, textos }: EstadoDeLaLecturaProps) {
+export function EstadoDeLaLectura({ estado, espera, textos }: EstadoDeLaLecturaProps): ReactElement {
   switch (estado.estado) {
     case 'en-espera':
       return (

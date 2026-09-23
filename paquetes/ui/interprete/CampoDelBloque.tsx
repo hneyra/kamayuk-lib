@@ -1,4 +1,4 @@
-import type { KeyboardEvent } from 'react';
+import type { KeyboardEvent, ReactElement } from 'react';
 
 import { Calendario } from '../shadcn/calendario.tsx';
 import { Area, Campo, Dato } from '../shadcn/campo.tsx';
@@ -27,10 +27,21 @@ import type { DefinicionDeCampo, OpcionDelCampo } from './tipos.ts';
  * texto se ve perfecta, y lo que era un desplegable de lista cerrada pasa a ser un cuadro donde se
  * teclea cualquier cosa.
  *
- * <h2>Por que el `switch` es exhaustivo y no lleva `default`</h2>
+ * <h2>Por que el `switch` es exhaustivo y no lleva `default` — y que lo hace cierto (#111)</h2>
  *
- * Sin `default`, anadir un octavo tipo a `TipoDeCampo` deja este archivo **sin compilar**, que es
- * donde se quiere que salte. Con `default`, compilaria y dibujaria el tipo nuevo como texto.
+ * Anadir un octavo tipo a `TipoDeCampo` deja este archivo **sin compilar**, que es donde se quiere
+ * que salte, **porque la funcion declara que devuelve `ReactElement`**. El `switch` sin `default` no
+ * bastaba: hasta #111 este parrafo lo afirmaba sin el tipo de retorno, y era falso. Medido: con `'x'`
+ * en `TipoDeCampo` y en `PIEZA_POR_TIPO`, `tsc` daba RC=0 —ni `strict` ni este `tsconfig` llevan
+ * `noImplicitReturns`—, la funcion devolvia `undefined` y el campo no se dibujaba, sin ningun aviso.
+ *
+ * Con el retorno anotado, la rama que falta sale como **TS2366** («Function lacks ending return
+ * statement and return type does not include 'undefined'»), y sale **con el `tsconfig` de cada
+ * consumidor**, que compila esta fuente con el suyo: basta `strictNullChecks`, que trae `strict`. Un
+ * flag en el `tsconfig` de aqui no protegeria a nadie mas. Ademas, `switch-exhaustiveness-check`
+ * lo senala en el lint de este repositorio (ver `eslint.config.js`).
+ *
+ * Con `default`, compilaria y dibujaria el tipo nuevo como texto.
  *
  * <h2>El de solo lectura NO se dibuja como campo desactivado</h2>
  *
@@ -108,7 +119,7 @@ export function CampoDelBloque({
   textos,
   nombrados,
   error,
-}: CampoDelBloqueProps) {
+}: CampoDelBloqueProps): ReactElement {
   const tipo = tipoDe(campo.tipo);
   const ancho = anchoCompleto(campo.tipo);
   const ayuda = 'ayuda' in campo ? campo.ayuda : undefined;

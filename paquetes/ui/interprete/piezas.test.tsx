@@ -107,6 +107,17 @@ describe('EL AC-2: el punto de extension', () => {
     expect(container.querySelectorAll('[data-pieza-sin-registrar]')).toHaveLength(2);
   });
 
+  it('una clase de pieza que no existe REVIENTA diciendo cual, y no se dibuja como pieza del consumidor (#111)', () => {
+    // Hasta #111 el ultimo `else` se quedaba con cualquier clase: esta salia como un aviso de
+    // «pieza sin registrar» —o, con su clave registrada, como el componente de otro—. El compilador
+    // ya no la deja escribir; lo que se prueba aqui es la que llega igual, forzada con `as`.
+    const rara = { tipo: 'otra', clave: 'registrada' } as unknown as PiezaDeLaPantalla;
+    const Nunca = () => <p data-pieza-de-prueba="nunca" />;
+    expect(() => monta({ instruccion: '', bloques: [rara] }, {}, { piezas: { registrada: Nunca } })).toThrow(
+      /«otra» no es una clase de pieza del interprete/,
+    );
+  });
+
   it('una clave heredada de `Object.prototype` no cuenta como registrada', () => {
     const { container } = monta({ instruccion: '', bloques: [{ tipo: 'delConsumidor', clave: 'toString' }] }, {}, { piezas: {} });
     expect(container.querySelector('[data-pieza-sin-registrar="toString"]')).not.toBeNull();

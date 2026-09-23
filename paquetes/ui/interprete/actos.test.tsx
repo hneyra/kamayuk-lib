@@ -3,11 +3,11 @@ import userEvent from '@testing-library/user-event';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { TEXTOS_DE_LAS_PIEZAS, TEXTOS_DEL_INTERPRETE } from '../textos.tsx';
-import { motivoDelActo, peticionDe, valoresQueViajan } from './acciones.ts';
+import { claseDe, motivoDelActo, peticionDe, valoresQueViajan } from './acciones.ts';
 import type { DatosDeLaPantalla, EstadoDeUnaLectura } from './datos.ts';
 import { MUESTRAS_DE_LOS_ACTOS } from './muestras.ts';
 import { Pantalla, type PantallaProps } from './Pantalla.tsx';
-import type { DefinicionDeActo, EnvioDeUnActo, NavegacionDeLaPantalla } from './tipos-de-los-actos.ts';
+import type { DefinicionDeAccion, DefinicionDeActo, EnvioDeUnActo, NavegacionDeLaPantalla } from './tipos-de-los-actos.ts';
 import type { DefinicionDePantalla, PiezaDeLaPantalla } from './tipos.ts';
 
 /**
@@ -586,6 +586,20 @@ describe('las reglas puras', () => {
         { a: 'uno', b: '  ', c: false, r: 'no viaja' },
       ),
     ).toEqual({ a: 'uno', c: false });
+  });
+
+  it('`claseDe` dice la clase de las cuatro, y revienta con una que no es ninguna (#111)', () => {
+    const rotulo = 'r';
+    expect(claseDe({ rotulo, abre: 'a' }).clase).toBe('abre');
+    expect(claseDe({ rotulo, va: { hoja: 'h' } }).clase).toBe('va');
+    expect(claseDe({ rotulo, hace: 'h' }).clase).toBe('hace');
+    expect(claseDe({ rotulo, guarda: { texto: { desde: 't' }, nombre: 'n', tipoDeMedio: 'text/plain' } }).clase).toBe(
+      'guarda',
+    );
+    // La que llega sin tipos: antes caia al final de cada cadena de `if` como si fuera otra.
+    expect(() => claseDe({ rotulo, imprime: 'x' } as unknown as DefinicionDeAccion)).toThrow(
+      /no es ninguna de las cuatro clases de accion/,
+    );
   });
 
   it('`peticionDe` nombra el primer dato que falta, y un `false` SI es un dato', () => {
