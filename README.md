@@ -29,7 +29,7 @@ muestra que la viola.
 | [`@kamayuk/sesion`](paquetes/sesion) | OIDC con PKCE S256, la sonda del emisor, la consola de la cuenta, quién entró según el `id_token` y la escalera de peldaños | **Existe.** <!-- cifras:sesion -->**117 pruebas** en 3 archivos<!-- /cifras --> |
 | [`@kamayuk/ui`](paquetes/ui) | los 42 tokens, cuatro identidades por dos modos, las piezas de shadcn y el intérprete de pantallas | **Existe.** <!-- cifras:ui -->**533 pruebas** en 25 archivos, más las **3** de capa<!-- /cifras --> |
 | [`@kamayuk/shell`](paquetes/shell) | barra, árbol de módulos, paleta de mando, enrutado por hash, miga, acciones y el aviso de cambios sin guardar | **Existe.** <!-- cifras:shell -->**124 pruebas** en 10 archivos<!-- /cifras --> |
-| [`@kamayuk/verificaciones`](paquetes/verificaciones) | las barreras, sus muestras y el **arnés del `Request`** que los cinco necesitan para correr con Node 24 | **Existe.** <!-- cifras:verificaciones -->**208 pruebas** en 13 archivos<!-- /cifras --> |
+| [`@kamayuk/verificaciones`](paquetes/verificaciones) | las barreras, sus muestras y el **arnés del `Request`** que los cinco necesitan para correr con Node 24 | **Existe.** <!-- cifras:verificaciones -->**212 pruebas** en 14 archivos<!-- /cifras --> |
 
 ## Cómo se consume
 
@@ -141,7 +141,8 @@ Con `normativa` la lista queda **completa**: los cuatro sistemas de Kamayuk, `ci
 
 ```bash
 yarn install
-yarn verificar     # lint, tipos y pruebas
+yarn verificar     # lint, tipos y pruebas, y que las cifras de pruebas sean las medidas
+yarn cifras        # reescribe esas cifras, aquí y en CLAUDE.md, midiéndolas (#128)
 yarn registro      # la guarda de la fila del registro
 yarn arnes:copias  # que nadie haya vuelto a escribir a mano el arnés del `Request` (#92)
 ```
