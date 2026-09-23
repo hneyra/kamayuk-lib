@@ -3,9 +3,9 @@
  *
  * Toda guarda de texto de este repositorio hace lo mismo con otro patron: recorre un arbol, aparta
  * lo que no es fuente, lee cada archivo sin comentarios, lo parte en lineas y junta un `Hallazgo`
- * por cada linea que casa. Hasta #126 cada una se lo escribia: **seis recorredores recursivos**,
+ * por cada linea que casa. Hasta #126 cada una se lo escribia: **ocho recorredores recursivos**,
  * `APARTADAS` **definida cinco veces con tres contenidos distintos**, **cinco copias** del escaner
- * de lineas, cuatro `interface Hallazgo` y tres formas de normalizar una ruta. Es el defecto que
+ * de lineas, cinco `Hallazgo` y cinco formas de escribir una ruta relativa. Es el defecto que
  * `comentarios.mjs` ya advertia en su cabecera —«la copia que se queda vieja es la que vigila»— un
  * piso mas arriba.
  *
@@ -95,9 +95,10 @@ export function archivosDe(raiz, { extensiones, apartadas = APARTADAS, pruebas =
  * **La unica normalizacion de rutas de las guardas**: relativa a `raiz`, con `/` en cualquier
  * sistema.
  *
- * Habia tres —`replace(PAQUETES, 'paquetes')`, lo mismo con `replaceAll('\\', '/')` detras, y
- * `relative(RAIZ, …)` a secas— y solo una de ellas daba la misma cadena en Windows. Es la que se
- * escribe en el rojo y la que se compara con un sitio declarado (`'paquetes/api/subir.ts'`).
+ * Habia cinco —`replace(PAQUETES, 'paquetes')`, lo mismo con `replaceAll('\\', '/')` detras,
+ * `relative(RAIZ, …)` a secas, `relative` partido por `sep` y juntado con `/`, y el `slice` de
+ * `foco.test.ts`— y solo dos daban la misma cadena en Windows. Es la que se escribe en el rojo y
+ * la que se compara con un sitio declarado (`'paquetes/api/subir.ts'`).
  *
  * @param {string} raiz
  * @param {string} archivo

@@ -19,6 +19,15 @@ navegador, y por eso `sin-suponer-un-sistema` no lo barre.
 
 ## Las guardas
 
+- **Sus herramientas son unas** (#126): `archivos.mjs` —en JavaScript, porque el guion del arnés lo
+  corre un consumidor con `node`— tiene el único recorredor (`archivosDe`), la única `APARTADAS`
+  (`node_modules`, `dist`, `muestras`), la única normalización de rutas (`rutaDesde`, con `/`), el
+  escáner de líneas sin comentarios (`lineasQueCasan`) y el único `Hallazgo`; `texto.ts` los
+  reexporta. Lo mide `el-recorrido-es-uno` sobre un árbol fabricado de cuatro niveles, con una
+  carpeta apartada en cada uno. El guion del arnés extiende `APARTADAS` con `build` y `coverage` y
+  salta los directorios ocultos, y lo mide un árbol de consumidor fabricado en
+  `el-arnes-del-request-se-publica`. El quitador de comentarios de CSS es `sinComentariosCss`, en
+  `ui/temas/base.ts`.
 - `sin-suponer-un-sistema`, `sin-nombre-publico-entre-paquetes`, `las-capas-corren` y
   `los-consumidores-se-miran`.
 - `el-texto-visible-es-dato`: el barrido con el analizador de TypeScript, que desde #52 tiene una
