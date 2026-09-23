@@ -11,6 +11,11 @@
 
 name: Paquetes
 
+# `CLAUDE.md` y `README.md` estan aqui desde #128, y no por ser documentacion: `yarn verificar`
+# corre `yarn cifras --comprobar`, que LEE esos dos archivos y sale en rojo si una cifra de pruebas
+# escrita no es la medida. Sin ellos en la lista, un PR que solo tocara una cifra a mano no dispararia
+# la comprobacion que existe para cazarlo. Lo vigila `las-cifras-las-escribe-un-guion.test.ts`,
+# que lee la lista de archivos de `cifras.mjs` y no una copia.
 on:
   push:
     branches: [main]
@@ -20,6 +25,8 @@ on:
       - "*.ts"
       - "eslint.config.js"
       - ".github/workflows/paquetes.yml"
+      - "CLAUDE.md"
+      - "README.md"
   pull_request:
     paths:
       - "paquetes/**"
@@ -27,6 +34,8 @@ on:
       - "*.ts"
       - "eslint.config.js"
       - ".github/workflows/paquetes.yml"
+      - "CLAUDE.md"
+      - "README.md"
 
 permissions:
   contents: read
