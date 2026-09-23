@@ -448,6 +448,12 @@ export function describir(diferencia) {
  * por `> 1` y tocar a mano una sola cifra dejaba `yarn cifras --comprobar` diciendo «Las cifras
  * escritas son las medidas» con RC=0, y las pruebas en verde. Aqui se le pasan entradas fabricadas.
  *
+ * **Y que `principal()` la obedezca tambien se prueba**, porque la segunda revision midio el mismo
+ * hueco un eslabon mas abajo: `if (codigo > 1) process.exit(codigo)` en `principal()` imprimia
+ * `FALLO` y salia con RC=0, con `decidir` y sus pruebas intactas. Lo caza
+ * `el-guion-de-las-cifras-obedece.test.ts`, que corre ESTE archivo como proceso, copiado en una raiz
+ * fabricada y con un `vitest` falso, y exige el codigo, lo dicho y lo que queda en el disco.
+ *
  * Los codigos: **2** si la medida viene vacia —escribirla seria escribir ceros—; **1** si hay una
  * cifra que no se puede leer, en los dos modos, o si con `--comprobar` alguna escrita no es la
  * medida; **0** en lo demas. Con `--comprobar`, o con algo ilegible, `porEscribir` va vacio.
@@ -562,6 +568,11 @@ function listar(argumentos) {
   }
 }
 
+/**
+ * Lee, mide, llama a `decidir()` y hace lo que dice: escribe `porEscribir`, dice `informe` y sale con
+ * `codigo`. No decide nada; si decidiera, lo decidiria donde no lo mira `decidir` y sus muestras.
+ * Lo corre como proceso `el-guion-de-las-cifras-obedece.test.ts`.
+ */
 function principal() {
   const argumentos = process.argv.slice(2);
   const desconocidos = argumentos.filter((a) => a !== '--comprobar');

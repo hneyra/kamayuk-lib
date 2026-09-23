@@ -186,12 +186,31 @@ describe('el registro se mezcla solo', () => {
     ]);
   });
 
-  it('y la CI se dispara cuando cambia `.gitattributes`, en `push` y en `pull_request`', () => {
-    // Sin esto, un PR que sólo borrara la línea del atributo no correría la prueba que lo vigila.
+  it('y en el árbol de verdad, con TODOS sus `.gitattributes`, el registro sigue en `union` y nada más lo está', () => {
+    // Lo de arriba monta la mezcla con el `.gitattributes` de la RAÍZ, y uno anidado lo anula sin
+    // tocarla: medido en la segunda revisión de #128, `docs/agent/.gitattributes` con
+    // `HISTORY.md -merge` daba `docs/agent/HISTORY.md: merge: unset` en el árbol y dejaba estas
+    // pruebas en verde. Aquí se le pregunta a git por el árbol entero —con los anidados, que es como
+    // decide la mezcla—, dejando fuera, como en los ensayos, lo que no es del árbol: la configuración
+    // global y `core.attributesFile`.
+    const salida = gitQueNoFalla(RAIZ, 'check-attr', 'merge', '--', REGISTRO, 'CLAUDE.md', 'README.md');
+    expect(salida.trim().split('\n')).toEqual([
+      `${REGISTRO}: merge: union`,
+      'CLAUDE.md: merge: unspecified',
+      'README.md: merge: unspecified',
+    ]);
+  });
+
+  it('y la CI se dispara cuando cambia CUALQUIER `.gitattributes`, en `push` y en `pull_request`', () => {
+    // Sin esto, un PR que sólo borrara la línea del atributo no correría la prueba que lo vigila. Y
+    // el de la raíz no basta: uno anidado lo anula, y `docs/**` no está en los `paths`.
     const listas = listasDeRutas(leerElWorkflow());
     expect(listas, 'el workflow dejó de tener sus dos listas de `paths`').toHaveLength(2);
     for (const lista of listas) {
       expect(lista, '«.gitattributes» no dispara la CI').toContain('.gitattributes');
+      expect(lista, '«**/.gitattributes» no dispara la CI: uno anidado anula el de la raíz').toContain(
+        '**/.gitattributes',
+      );
     }
   });
 });

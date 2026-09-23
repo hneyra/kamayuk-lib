@@ -19,7 +19,9 @@ name: Paquetes
 #
 # Y `.gitattributes`, por lo mismo: `el-registro-se-mezcla-solo.test.ts` monta la mezcla del
 # registro con ESE archivo y exige que salga limpia. Un PR que solo borrara la linea de
-# `merge=union` no dispararia, sin esto, la prueba que existe para pararlo.
+# `merge=union` no dispararia, sin esto, la prueba que existe para pararlo. Y `**/.gitattributes`
+# tambien: uno ANIDADO —`docs/agent/.gitattributes` con `HISTORY.md -merge`— anula el de la raiz
+# sin tocarlo, y `docs/**` no esta en la lista (medido en la segunda revision de #128).
 on:
   push:
     branches: [main]
@@ -32,6 +34,7 @@ on:
       - "CLAUDE.md"
       - "README.md"
       - ".gitattributes"
+      - "**/.gitattributes"
   pull_request:
     paths:
       - "paquetes/**"
@@ -42,6 +45,7 @@ on:
       - "CLAUDE.md"
       - "README.md"
       - ".gitattributes"
+      - "**/.gitattributes"
 
 permissions:
   contents: read

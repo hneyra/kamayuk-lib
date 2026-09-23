@@ -41,13 +41,19 @@ navegador, y por eso `sin-suponer-un-sistema` no lo barre.
   en la lista y lleven un marcador por paquete, que ningún otro `.md` lleve uno sin estar en ella,
   que `yarn verificar` corra la comprobación como un eslabón propio y que la CI se dispare cuando
   esos dos archivos cambian.
+- `el-guion-de-las-cifras-obedece` (#128): corre `cifras.mjs` **como proceso**, copiado en una raíz
+  fabricada y con un `vitest` falso, y exige que el código de salida, lo dicho y lo escrito en el
+  disco sean lo que `decidir` dice —una cifra tocada con `--comprobar` es RC=1 y no escribe; sin él,
+  reescribe; una cifra ilegible es RC=1 y una medida vacía, RC=2—.
 - `el-estado-cabe-en-una-linea` (#128), sobre `tabla-de-estado.ts` y con sus muestras: que ninguna
   línea de la tabla de estado de `CLAUDE.md` pase de 400 bytes, y que cada `README.md` de
   `paquetes/**` —el del intérprete incluido— tenga una fila que lo enlace.
 - `el-registro-se-mezcla-solo` (#128): monta dos ramas que añaden fila al registro y las mezcla con
   el `.gitattributes` del árbol, que tiene que salir limpio; la muestra es la misma mezcla sin el
   atributo, que choca. Y ensaya el precio: dos ramas que editan la misma fila, que la guarda del
-  registro tiene que cazar.
+  registro tiene que cazar. Además le pregunta a git por el árbol **entero** —con los
+  `.gitattributes` anidados, que anulan el de la raíz sin tocarlo— que el registro siga en `union`,
+  y exige que la CI se dispare con cualquier `.gitattributes`.
 
 ## Los guiones
 

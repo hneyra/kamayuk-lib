@@ -11,7 +11,9 @@
 # dos filas, con su muestra en la autoprueba.
 #
 # QUIEN VIGILA ESTA LINEA: `paquetes/verificaciones/el-registro-se-mezcla-solo.test.ts`, que monta
-# la mezcla con ESTE archivo, leido tal cual, y exige que salga limpia. Borrarla la pone roja.
+# la mezcla con ESTE archivo, leido tal cual, y exige que salga limpia. Borrarla la pone roja. Y le
+# pregunta a git por el arbol ENTERO: un `.gitattributes` anidado —`docs/agent/.gitattributes` con
+# `HISTORY.md -merge`— anularia esta linea sin tocarla, y tambien sale rojo.
 #
 # SOLO este archivo. `CLAUDE.md` NO: alli las lineas se editan, no se anaden, y la union
 # duplicaria cada linea tocada por los dos lados. Sus cifras las reescribe `yarn cifras`.
