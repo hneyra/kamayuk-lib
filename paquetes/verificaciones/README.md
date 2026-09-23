@@ -36,11 +36,18 @@ navegador, y por eso `sin-suponer-un-sistema` no lo barre.
   lado. No baja el `action.yml` porque eso exige red, y una guarda que necesita red es una que se
   salta el día que la red falla; lo que la tabla no conoce y lo que no es `@vN` salen **en rojo
   diciéndolo**.
-- `las-cifras-las-escribe-un-guion` (#128): las muestras de `cifras.mjs`, y que `CLAUDE.md` y el
-  `README.md` de la raíz lleven un marcador por paquete, que `yarn verificar` corra la comprobación
-  y que la CI se dispare cuando esos dos archivos cambian.
-- `el-estado-cabe-en-una-linea` (#128): que ninguna fila de la tabla de estado de `CLAUDE.md` pase
-  de 400 bytes, y que cada paquete tenga la suya enlazando su `README.md`.
+- `las-cifras-las-escribe-un-guion` (#128): las muestras de `cifras.mjs` —la de `decidir`, que es
+  lo que decide el código de salida, incluida—, y que `CLAUDE.md` y el `README.md` de la raíz estén
+  en la lista y lleven un marcador por paquete, que ningún otro `.md` lleve uno sin estar en ella,
+  que `yarn verificar` corra la comprobación como un eslabón propio y que la CI se dispare cuando
+  esos dos archivos cambian.
+- `el-estado-cabe-en-una-linea` (#128), sobre `tabla-de-estado.ts` y con sus muestras: que ninguna
+  línea de la tabla de estado de `CLAUDE.md` pase de 400 bytes, y que cada `README.md` de
+  `paquetes/**` —el del intérprete incluido— tenga una fila que lo enlace.
+- `el-registro-se-mezcla-solo` (#128): monta dos ramas que añaden fila al registro y las mezcla con
+  el `.gitattributes` del árbol, que tiene que salir limpio; la muestra es la misma mezcla sin el
+  atributo, que choca. Y ensaya el precio: dos ramas que editan la misma fila, que la guarda del
+  registro tiene que cazar.
 
 ## Los guiones
 

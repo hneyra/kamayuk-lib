@@ -31,10 +31,10 @@ se repite. **Y las cifras de pruebas no se escriben a mano**: las escribe `yarn 
 | [`paquetes/ui`](paquetes/ui/README.md) — `@kamayuk/ui` | **Existe.** Los 42 tokens, cuatro identidades × dos modos, las piezas de shadcn y el `ProveedorDeTema`; no escribe ni una palabra. <!-- cifras:ui -->**533 pruebas** en 25 archivos, más las **3** de capa<!-- /cifras --> y las barreras de tipo. Le faltan los tokens contra el artboard y el contraste |
 | [`paquetes/ui/interprete`](paquetes/ui/interprete/README.md) — el intérprete de pantallas | **Existe**, y dibuja una hoja entera como **dato**: bloques, avisos, pie, actos, maestro-detalle, pestañas y piezas del consumidor, con lo elegido en la ruta. Sus pruebas cuentan en `paquetes/ui` |
 | [`paquetes/shell`](paquetes/shell/README.md) — `@kamayuk/shell` | **Existe.** El armazón de V8, con el catálogo por parámetro y el estado de la hoja en la ruta; no decide permisos ni escribe una palabra. <!-- cifras:shell -->**124 pruebas** en 10 archivos<!-- /cifras --> |
-| [`paquetes/verificaciones`](paquetes/verificaciones/README.md) — `@kamayuk/verificaciones` | **Existe.** Las prohibiciones de ESLint con sus muestras, las guardas del árbol, los guiones de la CI y el arnés del `Request`. <!-- cifras:verificaciones -->**212 pruebas** en 14 archivos<!-- /cifras -->. Le faltan los tokens contra el artboard y el contraste |
-| La guarda de la fila del registro | **Existe**, con su autoprueba de **once muestras**, adaptada a la forma de este repositorio; desde #128 exige además una fila por issue |
+| [`paquetes/verificaciones`](paquetes/verificaciones/README.md) — `@kamayuk/verificaciones` | **Existe.** Las prohibiciones de ESLint con sus muestras, las guardas del árbol, los guiones de la CI y el arnés del `Request`. <!-- cifras:verificaciones -->**232 pruebas** en 15 archivos<!-- /cifras -->. Le faltan los tokens contra el artboard y el contraste |
+| La guarda de la fila del registro | **Existe**, con su autoprueba de **catorce muestras**, adaptada a la forma de este repositorio; desde #128 exige además una fila por issue |
 
-<!-- cifras:total -->**En total: 1177 pruebas en 60 archivos, más las 3 de capa.**<!-- /cifras -->
+<!-- cifras:total -->**En total: 1197 pruebas en 61 archivos, más las 3 de capa.**<!-- /cifras -->
 
 ## La regla que gobierna este repositorio
 
@@ -78,7 +78,8 @@ paquetes/
   verificaciones/  texto.ts, comentarios.mjs, suposiciones.ts, marcas.ts, rama-del-consumidor.mjs,
                    las-acciones-corren-en-node-24.test.ts, arnes-del-request.ts (el arnes que se
                    publica) y el-arnes-del-request-no-se-copia.mjs (el guion que el consumidor corre
-                   contra su arbol), cifras.mjs (yarn cifras), sus pruebas y sus muestras/
+                   contra su arbol), cifras.mjs (yarn cifras), tabla-de-estado.ts (lo que mide
+                   la guarda de la tabla), rutas-de-la-ci.ts, sus pruebas y sus muestras/
   */README.md      lo que hace cada paquete, contado entero (y ui/interprete/README.md, el interprete)
 docs/
   agent/HISTORY.md            el registro «Verificar antes de afirmar», que se mezcla con merge=union
@@ -128,9 +129,10 @@ peticiones sin ninguna de las cuatro prohibiciones de importes.
 | — | **Ninguna entrada de `exports` promete un archivo que no está** | `lo-que-exports-promete-existe`, que lee los seis manifiestos tal cual y sale en rojo también ante una forma de `exports` que no sepa leer (#24) |
 | 5 | **Ninguna cifra tributaria literal en el código** | `cifra-tributaria-literal`, con su muestra de **cinco formas**. **OPCIONAL**: vive en `PROHIBICIONES_OPCIONALES` y la enciende el sistema que publica las cifras. Está medido por qué no puede ser obligatoria — `export const alicuotaPredial = '0.006';` es, a la vez, el ejemplo de código CORRECTO de `rentas` y lo que esta regla prohíbe (#58) |
 | — | **El marco no decide permisos** | `el-marco-no-decide-permisos.test.ts`: `paquetes/shell` no importa `../sesion/`, no importa `../api/` y no llama a `fetch`. El catálogo lleva `acceso`/`tambien` y `accesosDe` los da; **filtrar es del sistema**, antes de pasarle el catálogo al `Armazon` (#67) |
-| — | **Las cifras de pruebas las escribe un guion** | `yarn cifras --comprobar`, dentro de `yarn verificar`, con las muestras de `las-cifras-las-escribe-un-guion.test.ts`: una cifra tocada a mano, un paquete sin marcador, una clave que no existe o un marcador sin cerrar salen en rojo (#128) |
-| — | **El registro, una fila por issue** | la guarda del registro, con su muestra de dos filas en la autoprueba: `merge=union` no avisa cuando dos ramas editan la misma fila (#128) |
-| — | **La tabla de estado, una línea por pieza** | `el-estado-cabe-en-una-linea.test.ts`: ninguna fila pasa de 400 bytes, y cada paquete enlaza su `README.md` (#128) |
+| — | **Las cifras de pruebas las escribe un guion** | `yarn cifras --comprobar`, en `yarn verificar`, con las muestras de `las-cifras-las-escribe-un-guion.test.ts`: una cifra a mano, un marcador que falta, sobra o no cierra, y un `.md` con marcador fuera de la lista (#128) |
+| — | **El registro se mezcla solo** | `el-registro-se-mezcla-solo.test.ts`: dos ramas que añaden fila, mezcladas con el `.gitattributes` del árbol, sin conflicto; y su muestra sin el atributo, que choca (#128) |
+| — | **El registro, una fila por issue** | la guarda del registro, con sus muestras en la autoprueba: `merge=union` no avisa cuando dos ramas editan la misma fila (#128) |
+| — | **La tabla de estado, una línea por pieza** | `el-estado-cabe-en-una-linea.test.ts`, con sus muestras: ninguna fila pasa de 400 bytes y cada `README.md` de `paquetes/**` tiene su fila (#128) |
 | — | **Ninguna acción de la CI baja de la mayor que declara `node24`** | `las-acciones-corren-en-node-24.test.ts`, con sus muestras. Lee el **directorio** `.github/workflows/` y fija la mayor **medida**, con el `runs.using` literal al lado; lo que decide es ese `runs.using` y **no el número** —`caja` midió un `@v5` que aún declaraba `node20`—. **Sin red al correr**, y lo que no conoce sale en rojo diciéndolo (#93) |
 
 **`fetch` tiene DOS sitios legítimos, y la lista se comprueba entera, no se cuenta.** Uno es el
@@ -143,6 +145,20 @@ el mismo `src/api/` de un sistema, una sola excepción las cubría y esto no se 
 
 **Si agregas una regla, agrega también la muestra que la viola.** Una regla que no puede fallar no
 protege nada.
+
+**Y lo que no se toca**, que desde #128 vive entero en el `README.md` de su pieza. Aquí va una línea
+por cosa, porque es regla y no historia, y este archivo es el que se carga:
+
+- [`ui/interprete`](paquetes/ui/interprete/README.md): lo impedido sale con `BotonConMotivo`, **nunca
+  `disabled`**; `TextosDelInterprete` no gana claves y `DefinicionDePantalla` sigue genérica —medido:
+  las dos rompen `rentas`—; y **`@kamayuk/ui` no importa `@kamayuk/shell`**, que hoy no vigila
+  ninguna guarda de este árbol.
+- [`ui`](paquetes/ui/README.md): `estilos/temas.css` es **generado** (`KAMAYUK_REGENERAR=1`); los
+  bloques oscuros declaran `color-scheme: dark` por sus dos caminos; no escribe ni una palabra.
+- [`api`](paquetes/api/README.md): el `Content-Type` del multipart no se fija a mano, y el
+  `XMLHttpRequest` vive sólo en `subir.ts`.
+- [`sesion`](paquetes/sesion/README.md): la sonda sube con `credentials: 'omit'`.
+- [`shell`](paquetes/shell/README.md): no decide permisos ni escribe una palabra.
 
 ## Idioma
 
@@ -157,7 +173,7 @@ yarn verificar               # lint, tipos y pruebas, mas las de capa y la compr
 yarn test                    # solo las pruebas (SIN las de capa)
 yarn test:capas              # las que abren una capa con posicionador. Ver `las-capas-corren.test.ts`
 yarn registro                # la guarda de la fila del registro
-yarn registro:autoprueba     # sus once muestras
+yarn registro:autoprueba     # sus catorce muestras
 yarn cifras                  # reescribe las cifras de pruebas de CLAUDE.md y del README (#128)
 yarn cifras --comprobar      # sale en rojo si alguna cifra escrita no es la medida
 yarn consumidor:rama --consumidor duenno/sistema [--comprobar]   # contra que rama se mide (#26)
@@ -184,9 +200,12 @@ siguiente. Que la fila **exista** lo comprueba `docs/00-gobierno/verificar-fila-
 cada PR que cierre un issue y toque código de producción. Lo que la fila **diga** lo lee la revisión.
 
 **El registro se mezcla solo** (#128): `.gitattributes` le pone `merge=union`, así que dos PR que
-añaden cada uno su fila al final de la tabla ya no chocan. Lo que la unión no avisa —dos ramas que
-**editan** la misma fila dejan las dos versiones— lo caza la misma guarda, que en cada PR exige **una
-fila por issue**: la que lo cita en su título, la primera negrita de la primera celda.
+añaden cada uno su fila al final de la tabla ya no chocan —lo ensaya `el-registro-se-mezcla-solo`
+con el `.gitattributes` del árbol—. Lo que la unión no avisa —dos ramas que **editan** la misma fila
+dejan las dos versiones— lo caza la misma guarda, que en cada PR exige **una fila por issue**: la
+que lo cita en su título, la primera negrita de la primera celda; la que no cita ninguno cuenta por
+su título entero. **Lo que hace GitHub al actualizar la rama no está medido todavía**: ver la fila
+de #128.
 
 **Y las cifras de pruebas no se escriben a mano** (#128). Las de la tabla de arriba y las del
 `README.md` de la raíz viven entre dos marcadores de una misma línea —`<!-- cifras:<paquete> -->`, o
