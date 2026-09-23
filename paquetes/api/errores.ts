@@ -173,8 +173,8 @@ export class ErrorDeLaApi extends Error {
  * Un 200 que no trae un documento, sino datos.
  *
  * **Es un `ErrorDeLaApi`**, y a proposito: la pantalla que baja un documento atrapa UNA clase de
- * error, la misma que atrapa en una lectura, y `peldanoDe()` lo sigue clasificando sin saber que
- * existe. Va en su propia subclase —y no con un `codigo` inventado aqui— porque `codigo` es la
+ * error, la misma que atrapa en una lectura. `peldanoDe()` lo reconoce por su clase —desde #109;
+ * antes lo clasificaba por su estado 200 y lo mandaba a soporte—. Va en su propia subclase —y no con un `codigo` inventado aqui— porque `codigo` es la
  * extension del contrato que escribe el backend: meter ahi una cadena del cliente mezclaria lo que
  * el servidor dijo con lo que el cliente dedujo.
  *
@@ -200,7 +200,8 @@ export type MotivoDelRechazo = 'demasiado-grande' | 'tipo-no-admitido';
  * El archivo no se admitio: pesa mas de lo permitido, o no es de un tipo que se acepte.
  *
  * **Es un `ErrorDeLaApi`**, por lo mismo que `NoEsUnDocumento`: la pantalla atrapa UNA clase, y
- * `peldanoDe()` sigue clasificando lo que no reconozca. Lo que esta subclase anade es **poder
+ * `peldanoDe()` la reconoce por su clase y no por su estado —desde #109: antes caia en «averia ·
+ * avise a soporte», con 0, 413 o 415—. Lo que esta subclase anade es **poder
  * distinguirlo sin leer una frase**: `motivo` dice cual de las dos cosas paso, y `bytes`,
  * `limiteDeBytes` y `tipo` traen las cifras con las que se escribe el aviso.
  *

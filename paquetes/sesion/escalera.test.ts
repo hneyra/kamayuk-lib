@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ErrorDeLaApi } from '../api/index.ts';
+import { ArchivoRechazado, ErrorDeLaApi, NoEsUnDocumento } from '../api/index.ts';
 import { ABRE, marcarElSaco } from '../verificaciones/marcas.ts';
 import { peldanoDe, type Peldano } from './escalera.ts';
 import { TEXTOS_DE_LA_ESCALERA } from './textos.ts';
@@ -528,5 +528,90 @@ describe('#52 AC4 — los textos de la escalera son DATO', () => {
     // EL CENTINELA de este recorrido: si el saco gana una quinta funcion, la lista de arriba deja
     // de cubrirlo y hay que anadirla. Un conteo de las sueltas no lo diria.
     expect(Object.values(TEXTOS_DE_LA_ESCALERA).length - sueltas.length).toBe(4);
+  });
+});
+
+/**
+ * **Un archivo rechazado no es una averia, ni se arregla reintentando** (#109).
+ *
+ * `ArchivoRechazado` y `NoEsUnDocumento` son subclases de `ErrorDeLaApi` a proposito —la pantalla
+ * atrapa UNA clase— y por eso pasaban el unico `instanceof` de la escalera y caian a la
+ * clasificacion por `estado`. Ninguno de sus estados —0 del rechazo local, 413/415 del servidor,
+ * 200 del documento que no lo es— lo nombra esa clasificacion, asi que los tres acababan en la
+ * ultima rama: «averia», reintentable y «avise a soporte». Reintentar con el mismo archivo no
+ * puede funcionar nunca, y soporte no puede hacer nada con un archivo que pesa de mas.
+ *
+ * Los tres casos van aparte de `LA_ESCALERA` porque esa tabla mide **peldanos**: dos rechazos del
+ * mismo motivo son la misma cara a proposito, y el centinela de caras la contaria como repetida.
+ */
+describe('#109 — un archivo rechazado no manda a soporte, ni ofrece reintentar', () => {
+  const MARCADOS = marcarElSaco(TEXTOS_DE_LA_ESCALERA);
+
+  /** Lo que las tres afirman: ni averia, ni boton de reintentar, ni soporte, y palabras del saco. */
+  function noEsUnaAveria(elFallo: unknown): Peldano {
+    const peldano = peldanoDe(elFallo);
+
+    expect(peldano.esAveria, 'se ensena como una averia').toBe(false);
+    expect(peldano.reintentable, 'ofrece reintentar').toBe(false);
+    expect(peldano.pideIdentidad).toBe(false);
+    expect(peldano.incidencia).toBeNull();
+    expect(peldano.remedio.toLowerCase(), `remedio: «${peldano.remedio}»`).not.toContain('soporte');
+    expect(peldano.remedio.startsWith('Reintente')).toBe(false);
+
+    // Y lo que dice sale del saco: con el saco marcado, titulo y remedio salen marcados.
+    const marcado = peldanoDe(elFallo, MARCADOS);
+    expect(marcado.titulo.startsWith(ABRE), `titulo: «${marcado.titulo}»`).toBe(true);
+    expect(marcado.remedio.startsWith(ABRE), `remedio: «${marcado.remedio}»`).toBe(true);
+    return peldano;
+  }
+
+  it('ArchivoRechazado LOCAL (estado 0): no salio ni un byte, y el remedio nombra el motivo', () => {
+    // Es lo que lanza `subir()` antes de mandar nada (`paquetes/api/subir.ts`), con `estado: 0`.
+    const rechazo = (motivo: 'demasiado-grande' | 'tipo-no-admitido'): ArchivoRechazado =>
+      new ArchivoRechazado(0, 'POST /documentos', {
+        motivo,
+        bytes: 5_000_000,
+        limiteDeBytes: 1_000_000,
+        tipo: 'application/x-msdownload',
+      });
+
+    const grande = noEsUnaAveria(rechazo('demasiado-grande'));
+    const tipo = noEsUnaAveria(rechazo('tipo-no-admitido'));
+
+    // Sin ensanchar la union: la clave es una de las nueve que ya existen.
+    expect(grande.clave).toBe('no-valido');
+    expect(tipo.clave).toBe('no-valido');
+    // Y los dos motivos no se dicen igual: el remedio de uno no arregla el otro.
+    expect(grande.titulo).not.toBe(tipo.titulo);
+    expect(grande.remedio).toBe(TEXTOS_DE_LA_ESCALERA.elijaUnArchivoMasLiviano);
+    expect(tipo.remedio).toBe(TEXTOS_DE_LA_ESCALERA.elijaUnArchivoDeOtroTipo);
+    expect(grande.remedio).not.toBe(tipo.remedio);
+  });
+
+  it('ArchivoRechazado del SERVIDOR (413): el backend contesto, y lo que dijo se conserva', () => {
+    const dijo = 'El archivo supera el limite de 1 MB';
+    const peldano = noEsUnaAveria(
+      new ArchivoRechazado(
+        413,
+        'POST /documentos',
+        { motivo: 'demasiado-grande', bytes: 5_000_000, limiteDeBytes: null, tipo: 'text/csv' },
+        { mensaje: dijo },
+      ),
+    );
+
+    expect(peldano.clave).toBe('no-valido');
+    // Es lo unico que puede nombrar el limite del servidor, que no viaja en ningun campo.
+    expect(peldano.detalle).toBe(dijo);
+    expect(peldano.remedio).toBe(TEXTOS_DE_LA_ESCALERA.elijaUnArchivoMasLiviano);
+  });
+
+  it('NoEsUnDocumento (200 con JSON): lo arregla quien hizo la pantalla, no quien la usa', () => {
+    const peldano = noEsUnaAveria(new NoEsUnDocumento(200, 'GET /documentos/7', 'application/json'));
+
+    // Como `ORDEN_NO_ADMITIDO`: la peticion la compuso la pantalla, y quien la usa no puede
+    // corregir nada.
+    expect(peldano.clave).toBe('orden-no-admitido');
+    expect(peldano.remedio.toLowerCase()).not.toContain('corrija');
+    expect(peldano.remedio).toBe(TEXTOS_DE_LA_ESCALERA.loArreglaQuienHizoLaDescarga);
   });
 });

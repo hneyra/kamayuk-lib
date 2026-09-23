@@ -56,6 +56,17 @@
  *     Medido desde `normativa` al dibujar sus siete situaciones de error: le salieron **seis
  *     pantallas distintas, no siete** (`normativa`#63, PR `normativa`#84).
  *
+ * <h2>Y dos subclases que se miran por su clase, no por su estado (#109)</h2>
+ *
+ * `ArchivoRechazado` y `NoEsUnDocumento` son `ErrorDeLaApi` a proposito —la pantalla atrapa UNA
+ * clase—, y por eso pasaban el `instanceof` de arriba y caian a la clasificacion por estado. Pero
+ * su estado no dice lo que paso: 0 es un rechazo local que no mando ni un byte
+ * (`api/subir.ts`), 413 y 415 hablan del archivo y no de quien lo manda, y 200 es un servidor que
+ * contesto bien a una peticion mal compuesta (`api/cliente.ts`). Ninguno lo nombra la escalera,
+ * asi que los tres acababan en la ultima rama: «averia», reintentable y «avise a soporte». Ahora
+ * se reconocen **antes** que el estado, con claves que ya existen —`no-valido` y
+ * `orden-no-admitido`— y lo propio en el titulo, el detalle y el remedio.
+ *
  * <h2>`esAveria` y `reintentable` son DOS preguntas, y ninguna es el estado</h2>
  *
  * `esAveria` dice si esto es el sistema roto o el sistema funcionando, y decide el tono.
@@ -80,7 +91,7 @@
  * contesta lo de siempre.
  */
 
-import { ErrorDeLaApi } from '../api/index.ts';
+import { ArchivoRechazado, ErrorDeLaApi, NoEsUnDocumento } from '../api/index.ts';
 import { TEXTOS_DE_LA_ESCALERA, type TextosDeLaEscalera } from './textos.ts';
 
 /** Que decir, y que ofrecer, ante un fallo de la API. */
@@ -108,8 +119,9 @@ export interface Peldano {
    *
    * `false` en **todos** los peldanos que esta escalera nombra por su estado —401, los tres 403,
    * el 404, el 409 y los dos 422—: en todos ellos el backend leyo la peticion, la entendio y
-   * contesto exactamente lo que tenia que contestar. Solo un fallo de transporte o un estado que
-   * esta escalera no nombra —que en la practica son los 5xx— son una averia.
+   * contesto exactamente lo que tenia que contestar. Tampoco en un `ArchivoRechazado` ni en un
+   * `NoEsUnDocumento`, que se miran por su clase (#109). Solo un fallo de transporte o un estado
+   * que esta escalera no nombra —que en la practica son los 5xx— son una averia.
    */
   readonly esAveria: boolean;
   /**
@@ -160,6 +172,42 @@ export function peldanoDe(
       esAveria: true,
       // Nadie contesto: no hay nada escrito en el registro de ningun servidor que buscar.
       reintentable: true,
+      incidencia: null,
+    };
+  }
+
+  // Las dos subclases van ANTES que el estado, porque su estado no dice lo que paso: 0 es «no hubo
+  // peticion», 413/415 hablan del archivo y no de quien lo manda, y 200 es un servidor que contesto
+  // bien. Clasificadas por estado caian las tres en la ultima rama —«averia», reintentable y
+  // «avise a soporte»—, y reintentar con el mismo archivo no puede funcionar nunca (#109).
+  if (fallo instanceof ArchivoRechazado) {
+    const demasiadoGrande = fallo.motivo === 'demasiado-grande';
+    return {
+      // Sin ensanchar la union (`LAS_NUEVE_CLAVES`): es lo mismo que un 422 —lo que se mando no
+      // se admite, y lo corrige quien lo mando—, y el motivo va en el titulo y el remedio.
+      clave: 'no-valido',
+      titulo: demasiadoGrande ? t.elArchivoPesaDeMas : t.elArchivoNoEsDeUnTipoAdmitido,
+      // Si el servidor explico el 413/415, lo que dijo es lo unico que nombra SU limite.
+      detalle: loQueDijo(fallo, demasiadoGrande ? t.superaElTamanoAdmitido : t.esteTipoNoSeAdmite),
+      remedio: demasiadoGrande ? t.elijaUnArchivoMasLiviano : t.elijaUnArchivoDeOtroTipo,
+      pideIdentidad: false,
+      esAveria: false,
+      reintentable: false,
+      incidencia: null,
+    };
+  }
+
+  if (fallo instanceof NoEsUnDocumento) {
+    return {
+      // Como `ORDEN_NO_ADMITIDO`: la peticion la compuso la pantalla, y quien la usa no tiene
+      // nada que corregir.
+      clave: 'orden-no-admitido',
+      titulo: t.noLlegoUnDocumento,
+      detalle: loQueDijo(fallo, t.llegaronDatosEnVezDeUnDocumento),
+      remedio: t.loArreglaQuienHizoLaDescarga,
+      pideIdentidad: false,
+      esAveria: false,
+      reintentable: false,
       incidencia: null,
     };
   }
