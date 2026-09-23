@@ -309,6 +309,20 @@ describe('«solicitarRespuesta» devuelve los bytes que llegaron, y no una reser
     });
   });
 
+  it('#121 — y «solicitar» con un 204 SI revienta: rechaza con el SyntaxError, y no se cambia aqui', async () => {
+    // Es la inconsistencia que #121 midio y deja escrita en el docblock de `solicitar()`: `subir()`
+    // resuelve `undefined` ante un 2xx vacio y esta rechaza. Igualarlas es un cambio de conducta
+    // publico y se decide aparte; hasta entonces esta prueba dice lo que pasa HOY, para que nadie
+    // lo cambie de paso ni lo documente al reves.
+    fetchQueContesta(new Response(null, { status: 204 }));
+
+    const fallo = await solicitar('/recursos/42', { metodo: 'DELETE' }).catch((e: unknown) => e);
+
+    expect(fallo).toBeInstanceOf(SyntaxError);
+    expect(fallo).not.toBeInstanceOf(ErrorDeLaApi);
+    expect((fallo as SyntaxError).message).toBe('Unexpected end of JSON input');
+  });
+
   it('comparte el prefijo y el token con «solicitar», porque es la misma peticion', async () => {
     elToken = 'un-token-de-prueba';
     const espia = fetchQueContesta(unRecursoFirmado());

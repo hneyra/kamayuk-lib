@@ -488,6 +488,24 @@ describe('LOS TRES DESENLACES QUE LA PANTALLA TIENE QUE DISTINGUIR', () => {
       limiteDeBytes: null,
     });
   });
+
+  it.each(['mensaje', 'detail', 'title'])(
+    '#121 — un 413 con «%s: null» no dijo nada, igual para ArchivoRechazado que para ErrorDeLaApi',
+    async (miembro) => {
+      const subida = cliente.subir('/cargas', { archivo: unArchivo() });
+      laPeticion().contesta(413, JSON.stringify({ status: 413, [miembro]: null }));
+
+      // Hasta #121 el orden `mensaje ?? detail ?? title` se escribia dos veces en `errores.ts` y
+      // las dos no coincidian aqui: `ErrorDeLaApi` tomaba el `null` por «no dijo nada» y
+      // `ArchivoRechazado` por «dijo algo», y su `message` se quedaba en «POST /cargas», sin el
+      // motivo que es lo unico con lo que se entiende en un registro.
+      await expect(subida).rejects.toMatchObject({
+        name: 'ArchivoRechazado',
+        motivo: 'demasiado-grande',
+        message: 'POST /cargas -> demasiado-grande',
+      });
+    },
+  );
 });
 
 describe('«admite» usa la gramatica del atributo accept de HTML', () => {
