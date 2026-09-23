@@ -2,12 +2,13 @@
 //
 // Lee `CLAUDE.md` y mira que existan los `README.md` que enlaza. No es un DOM lo que necesita.
 
-import { existsSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, relative, sep } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
 import { paquetesDe } from './cifras.mjs';
+import { CABECERA, faltasDeLaTabla } from './tabla-de-estado.ts';
 import { RAIZ } from './texto.ts';
 
 /**
@@ -27,69 +28,125 @@ import { RAIZ } from './texto.ts';
  *
  * <h2>Qué exige</h2>
  *
- *   - ninguna línea de la tabla pasa de **400 bytes** —bytes y no caracteres, que es como se midió
- *     la de 10 445—;
- *   - cada paquete de `paquetes/` tiene su fila, y la fila enlaza su `README.md`;
- *   - cada `README.md` que la tabla enlaza existe y es un archivo: lo movido sigue enlazado.
+ * Lo dice `faltasDeLaTabla` (`tabla-de-estado.ts`): ninguna línea pasa de **400 bytes**, cada
+ * `README.md` de lo movido lo enlaza una fila —el del intérprete incluido, que no es un paquete— y
+ * cada `README.md` enlazado existe.
+ *
+ * <h2>Y sus muestras</h2>
+ *
+ * Hasta la revisión de #128 esto sólo miraba el `CLAUDE.md` real, y con el límite subido a
+ * `400 * 100` o la fila del intérprete borrada seguía en verde. Ahora recibe también un
+ * `CLAUDE.md` fabricado que la viola por cada puerta, y el límite se fija por los dos lados: 400
+ * bytes pasan y 401 no, y 401 **bytes** en menos de 400 caracteres tampoco.
  */
 
-const LIMITE_EN_BYTES = 400;
-
-/** La cabecera que abre la tabla de estado. Si cambia, la guarda sale roja diciéndolo. */
-const CABECERA = '| Pieza | Estado |';
-
-const claude = readFileSync(join(RAIZ, 'CLAUDE.md'), 'utf8').split('\n');
-
-/** Las líneas de la tabla de estado: desde su cabecera hasta la primera que no empieza por `|`. */
-function tablaDeEstado(lineas: readonly string[]): { numero: number; texto: string }[] {
-  const desde = lineas.indexOf(CABECERA);
-  if (desde < 0) return [];
-  const tabla: { numero: number; texto: string }[] = [];
-  for (let i = desde; i < lineas.length && (lineas[i] ?? '').startsWith('|'); i += 1) {
-    tabla.push({ numero: i + 1, texto: lineas[i] ?? '' });
-  }
-  return tabla;
+/** Cada `README.md` de `paquetes/**`, como ruta desde la raíz, sin `node_modules` ni muestras. */
+function readmesDeLosPaquetes(): string[] {
+  const salida: string[] = [];
+  const recorrer = (directorio: string): void => {
+    for (const entrada of readdirSync(directorio)) {
+      if (entrada === 'node_modules' || entrada === 'dist' || entrada === 'muestras') continue;
+      const completa = join(directorio, entrada);
+      if (statSync(completa).isDirectory()) {
+        recorrer(completa);
+      } else if (entrada === 'README.md') {
+        salida.push(relative(RAIZ, completa).split(sep).join('/'));
+      }
+    }
+  };
+  recorrer(join(RAIZ, 'paquetes'));
+  return salida.sort();
 }
 
-/** Los `README.md` que enlaza una línea, tal como los escribe: rutas desde la raíz. */
-function readmesQueEnlaza(linea: string): string[] {
-  return [...linea.matchAll(/\]\(([^)\s]*README\.md)\)/g)].map((enlace) => enlace[1] ?? '');
-}
+/** Lo movido: el README de cada paquete —esté o no— y cualquier otro README de `paquetes/**`. */
+const MOVIDOS = [
+  ...new Set([...paquetesDe(RAIZ).map((paquete) => `paquetes/${paquete}/README.md`), ...readmesDeLosPaquetes()]),
+].sort();
 
-const TABLA = tablaDeEstado(claude);
-const FILAS = TABLA.slice(2);
+const existeEnElArbol = (ruta: string): boolean => existsSync(join(RAIZ, ruta)) && statSync(join(RAIZ, ruta)).isFile();
 
 describe('la tabla de estado de `CLAUDE.md` cabe en una línea por pieza', () => {
-  it('EL CENTINELA: la tabla está, con una fila por paquete como mínimo', () => {
-    // Sin esto, cambiar la cabecera o borrar la tabla dejaría las comprobaciones de abajo
-    // recorriendo la lista vacía y pasando en verde.
-    expect(TABLA.length, `no se encontró «${CABECERA}» en CLAUDE.md`).toBeGreaterThan(0);
-    expect(FILAS.length).toBeGreaterThanOrEqual(paquetesDe(RAIZ).length);
+  it('EL CENTINELA: lo movido es más que los paquetes, porque el intérprete no es uno', () => {
+    // Sin esto, un barrido roto dejaría `MOVIDOS` en los seis paquetes, y la fila del intérprete
+    // se podría borrar en verde, que es lo que la revisión midió.
+    expect(MOVIDOS.length).toBeGreaterThan(paquetesDe(RAIZ).length);
+    expect(MOVIDOS).toContain('paquetes/ui/interprete/README.md');
   });
 
-  it(`ninguna línea de la tabla pasa de ${String(LIMITE_EN_BYTES)} bytes`, () => {
-    const largas = TABLA.filter(({ texto }) => Buffer.byteLength(texto, 'utf8') > LIMITE_EN_BYTES).map(
-      ({ numero, texto }) => `CLAUDE.md:${String(numero)} mide ${String(Buffer.byteLength(texto, 'utf8'))} bytes`,
-    );
-    expect(
-      largas,
-      'Lo narrativo de un paquete va en su README.md, no en la tabla: la tabla dice el estado en una ' +
-        'línea, y cada añadido que la alarga es el conflicto del siguiente PR.',
-    ).toEqual([]);
+  it('el `CLAUDE.md` de verdad no tiene ninguna falta', () => {
+    const faltas = faltasDeLaTabla({
+      claude: readFileSync(join(RAIZ, 'CLAUDE.md'), 'utf8'),
+      movidos: MOVIDOS,
+      existe: existeEnElArbol,
+    });
+    expect(faltas, `la tabla de estado:\n  ${faltas.join('\n  ')}`).toEqual([]);
+  });
+});
+
+describe('las muestras que la violan', () => {
+  const MOVIDOS_DE_LA_MUESTRA = ['paquetes/a/README.md', 'paquetes/a/sub/README.md'];
+  const todoExiste = (): boolean => true;
+
+  /** Una fila que enlaza el README de `ruta`, rellena hasta medir `bytes` bytes exactos. */
+  function fila(ruta: string, bytes?: number, relleno = 'x'): string {
+    const base = `| [\`${ruta}\`](${ruta}/README.md) | **Existe.** `;
+    if (bytes === undefined) return `${base}Algo |`;
+    const falta = bytes - Buffer.byteLength(`${base} |`, 'utf8');
+    const unidad = Buffer.byteLength(relleno, 'utf8');
+    const linea = `${base}${relleno.repeat(Math.floor(falta / unidad))}${'x'.repeat(falta % unidad)} |`;
+    expect(Buffer.byteLength(linea, 'utf8')).toBe(bytes);
+    return linea;
+  }
+
+  const claude = (...filas: string[]): string =>
+    ['# Algo', '', CABECERA, '|---|---|', ...filas, '', 'Y lo demás.'].join('\n');
+
+  const faltas = (texto: string, existe: (ruta: string) => boolean = todoExiste): string[] =>
+    faltasDeLaTabla({ claude: texto, movidos: MOVIDOS_DE_LA_MUESTRA, existe });
+
+  it('la muestra bien no tiene faltas', () => {
+    expect(faltas(claude(fila('paquetes/a'), fila('paquetes/a/sub')))).toEqual([]);
   });
 
-  it('cada paquete tiene su fila, y la fila enlaza su README.md', () => {
-    const enlazados = new Set(FILAS.flatMap(({ texto }) => readmesQueEnlaza(texto)));
-    const sinFila = paquetesDe(RAIZ).filter((paquete) => !enlazados.has(`paquetes/${paquete}/README.md`));
-    expect(sinFila, 'estos paquetes no tienen una fila que enlace su README.md').toEqual([]);
+  // Los 400 van escritos, y no derivados de `LIMITE_EN_BYTES`: son la cifra de AC-5, y una muestra
+  // que se estirase con la constante seguiría en verde con el límite subido a cien veces más.
+  it('una línea de 400 bytes cabe, y una de 401 no', () => {
+    expect(faltas(claude(fila('paquetes/a', 400), fila('paquetes/a/sub')))).toEqual([]);
+    expect(faltas(claude(fila('paquetes/a', 401), fila('paquetes/a/sub')))).toEqual([
+      `CLAUDE.md:5 mide 401 bytes, y el límite es 400: lo narrativo va en el README.md de su pieza, no en la tabla.`,
+    ]);
   });
 
-  it('lo movido sigue enlazado: cada README.md que la tabla enlaza existe', () => {
-    const enlaces = FILAS.flatMap(({ numero, texto }) => readmesQueEnlaza(texto).map((ruta) => ({ numero, ruta })));
-    expect(enlaces.length).toBeGreaterThanOrEqual(paquetesDe(RAIZ).length);
-    const rotos = enlaces
-      .filter(({ ruta }) => !existsSync(join(RAIZ, ruta)) || !statSync(join(RAIZ, ruta)).isFile())
-      .map(({ numero, ruta }) => `CLAUDE.md:${String(numero)} enlaza ${ruta}, y no está`);
-    expect(rotos, `lo movido dejó de estar enlazado:\n  ${rotos.join('\n  ')}`).toEqual([]);
+  it('el límite es de bytes y no de caracteres: 401 bytes en menos de 400 caracteres no caben', () => {
+    const larga = fila('paquetes/a', 401, 'ó');
+    expect(larga.length).toBeLessThan(400);
+    expect(faltas(claude(larga, fila('paquetes/a/sub')))).toEqual([
+      expect.stringContaining('CLAUDE.md:5 mide 401 bytes'),
+    ]);
+  });
+
+  it('LA DE LA REVISIÓN: la fila del intérprete borrada sale roja, aunque no sea un paquete', () => {
+    expect(faltas(claude(fila('paquetes/a')))).toEqual([
+      'paquetes/a/sub/README.md no lo enlaza ninguna fila de la tabla: lo movido tiene que seguir enlazado desde ella.',
+    ]);
+  });
+
+  it('una fila sin el enlace a su README sale roja', () => {
+    expect(faltas(claude('| `paquetes/a` | **Existe.** Algo |', fila('paquetes/a/sub')))).toEqual([
+      expect.stringContaining('paquetes/a/README.md no lo enlaza ninguna fila'),
+    ]);
+  });
+
+  it('un README enlazado que no está sale rojo, con su línea', () => {
+    const sinSub = (ruta: string): boolean => ruta !== 'paquetes/a/sub/README.md';
+    expect(faltas(claude(fila('paquetes/a'), fila('paquetes/a/sub')), sinSub)).toEqual([
+      'CLAUDE.md:6 enlaza paquetes/a/sub/README.md, y no está.',
+    ]);
+  });
+
+  it('sin la tabla no hay nada que medir, y eso sale rojo', () => {
+    expect(faltas('# Algo\n\n| Otra | Tabla |\n|---|---|\n')).toEqual([
+      expect.stringContaining(`no se encontró «${CABECERA}»`),
+    ]);
   });
 });

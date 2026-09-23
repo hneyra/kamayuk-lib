@@ -16,6 +16,10 @@ name: Paquetes
 # escrita no es la medida. Sin ellos en la lista, un PR que solo tocara una cifra a mano no dispararia
 # la comprobacion que existe para cazarlo. Lo vigila `las-cifras-las-escribe-un-guion.test.ts`,
 # que lee la lista de archivos de `cifras.mjs` y no una copia.
+#
+# Y `.gitattributes`, por lo mismo: `el-registro-se-mezcla-solo.test.ts` monta la mezcla del
+# registro con ESE archivo y exige que salga limpia. Un PR que solo borrara la linea de
+# `merge=union` no dispararia, sin esto, la prueba que existe para pararlo.
 on:
   push:
     branches: [main]
@@ -27,6 +31,7 @@ on:
       - ".github/workflows/paquetes.yml"
       - "CLAUDE.md"
       - "README.md"
+      - ".gitattributes"
   pull_request:
     paths:
       - "paquetes/**"
@@ -36,6 +41,7 @@ on:
       - ".github/workflows/paquetes.yml"
       - "CLAUDE.md"
       - "README.md"
+      - ".gitattributes"
 
 permissions:
   contents: read

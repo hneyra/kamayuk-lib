@@ -4,8 +4,8 @@
    esquivada, que en una convencion de proceso es peor todavia — el peaje se aprende a
    rodear y la tabla se queda igual de vacia.
 
-   Asi que se corre la comprobacion contra once situaciones fabricadas, seis que tiene
-   que rechazar y cinco que tiene que dejar pasar, y se exige que el rechazo **nombre el
+   Asi que se corre la comprobacion contra catorce situaciones fabricadas, ocho que tiene
+   que rechazar y seis que tiene que dejar pasar, y se exige que el rechazo **nombre el
    issue**: rechazar por el motivo equivocado seria pasar por casualidad.
 
    La ultima en llegar es del tercer tiempo de `infrastructure`#114 y fija lo que la mudanza
@@ -26,6 +26,12 @@
    y tiene que pasar: las filas citan otros issues a docenas, y una guarda que contara esas
    citas daria rojo a todas. Las nueve de antes no cambian: el registro que se les pasa es uno
    limpio, con una fila.
+
+   Y las tres ultimas son de la revision de #128, que midio dos huecos en esa pareja. Una fila
+   cuyo titulo no cita ningun issue —hoy hay dos— se podia duplicar en verde, porque solo se
+   contaban numeros: ahora se cuenta por el titulo entero, con su contraste de dos titulos
+   distintos que tienen que pasar. Y una fila sin negrita, que para existir cuenta, para
+   repetirse no contaba: ahora su titulo es la primera celda.
 
    Uso: node docs/00-gobierno/verificar-las-muestras-del-registro.mjs
 */
@@ -158,6 +164,47 @@ const CASOS = [
       '| **Lo que se verifico (#711).** Algo | La rotura | El rojo |\n' +
       '| **Lo siguiente (#712).** Sale de #711 | La rotura | El rojo |\n',
     esperado: 'verde',
+  },
+  {
+    // De la revision de #128: una fila sin issue en el titulo —como la de `subir()`— duplicada
+    // por la union. Contando solo numeros, salia verde.
+    nombre: 'dos filas sin issue en el titulo, con el mismo titulo',
+    cuerpo: 'Un arreglo suelto, sin issue.',
+    archivos: ['paquetes/ui/Boton.tsx'],
+    anadido: '',
+    registro:
+      `${CABECERA}\n` +
+      '| **Lo que se verifico sin issue.** La version de main | La rotura | El rojo |\n' +
+      '| **Lo que se verifico sin issue.** La version de la rama | La rotura | El rojo |\n',
+    esperado: 'rojo',
+    dice: '«Lo que se verifico sin issue.» tiene 2 filas',
+  },
+  {
+    // Su contraste: dos filas sin numero, y distintas, no son la misma fila. Sin esta, contar
+    // todas las filas sin numero como una sola saldria rojo en el registro de verdad y aqui no.
+    nombre: 'dos filas sin issue en el titulo, con titulos distintos, son dos filas',
+    cuerpo: 'Un arreglo suelto, sin issue.',
+    archivos: ['paquetes/ui/Boton.tsx'],
+    anadido: '',
+    registro:
+      `${CABECERA}\n` +
+      '| **Lo que se verifico sin issue.** Algo | La rotura | El rojo |\n' +
+      '| **Otra cosa sin issue.** Algo | La rotura | El rojo |\n',
+    esperado: 'verde',
+  },
+  {
+    // Y la fila sin negrita, que es la forma de `FILA` de arriba: la guarda de existencia la da
+    // por buena, asi que la de repetidas tiene que verla.
+    nombre: 'dos filas sin negrita con el mismo issue en la primera celda',
+    cuerpo: 'Un arreglo suelto, sin issue.',
+    archivos: ['paquetes/ui/Boton.tsx'],
+    anadido: '',
+    registro:
+      `${CABECERA}\n` +
+      '| Lo que se verifico (#711, 3 pruebas) | La version de main | El rojo |\n' +
+      '| Lo que se verifico (#711, 3 pruebas) | La version de la rama | El rojo |\n',
+    esperado: 'rojo',
+    dice: '#711 tiene 2 filas',
   },
 ];
 

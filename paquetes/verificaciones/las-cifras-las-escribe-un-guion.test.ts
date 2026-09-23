@@ -4,23 +4,27 @@
 // NO corre `vitest list`: eso es lo que hace el guion, y un vitest dentro de vitest no mide nada
 // que el guion no mida ya en `yarn verificar`.
 
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, relative, sep } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
 import {
+  CITAN_SIN_MEDIR,
   DONDE_HAY_CIFRAS,
   TOTAL,
   agrupar,
   argumentosDeVitest,
+  decidir,
   describir,
+  marcadoresSinMedir,
   medir,
   paquetesDe,
   partirOrden,
   reescribir,
   textoDe,
 } from './cifras.mjs';
+import { leerElWorkflow, listasDeRutas } from './rutas-de-la-ci.ts';
 import { RAIZ } from './texto.ts';
 
 /**
@@ -32,9 +36,13 @@ import { RAIZ } from './texto.ts';
  * correr `vitest list`: la medida entra fabricada, que es lo que permite decir exactamente que
  * tiene que salir.
  *
- * Y dos cosas del arbol de verdad, que sin esto dejarian el guion sin sujeto EN VERDE: que los
- * archivos que declara lleven un marcador por paquete, y que la CI lo corra cuando esos archivos
- * cambian.
+ * Y lo que decide el codigo de salida, `decidir`, con entradas fabricadas: hasta la revision de
+ * #128 vivia dentro de `principal()` y no lo llamaba nadie, y `> 0` cambiado por `> 1` dejaba una
+ * cifra tocada a mano en verde.
+ *
+ * Y cosas del arbol de verdad, que sin esto dejarian el guion sin sujeto EN VERDE: que los archivos
+ * que declara lleven un marcador por paquete, que la lista lleve los dos que tiene que llevar, que
+ * ningun `.md` lleve un marcador fuera de ella, y que la CI lo corra cuando esos archivos cambian.
  */
 
 const manifiesto = JSON.parse(readFileSync(join(RAIZ, 'package.json'), 'utf8')) as {
@@ -200,6 +208,73 @@ describe('reescribe solo entre marcadores, y dice lo que cambio', () => {
   });
 });
 
+describe('`decidir`: lo que decide el codigo de salida', () => {
+  const archivos = (texto: string) => [{ donde: EN_CLAUDE, texto }];
+  const tocado = BIEN.replace('En total: 4 pruebas', 'En total: 5 pruebas');
+
+  it('LA DE LA REVISION: con `--comprobar`, UNA sola cifra tocada a mano ya es RC=1, y no se escribe nada', () => {
+    const { codigo, informe, porEscribir } = decidir({ comprobar: true, medidas: MEDIDAS, archivos: archivos(tocado) });
+    expect(codigo).toBe(1);
+    expect(porEscribir).toEqual([]);
+    expect(informe).toContain('FALLO: las cifras escritas no son las medidas.');
+    expect(informe.join('\n')).toContain('CLAUDE.md:6, «cifras:total»: escrito 5, medido 4');
+  });
+
+  it('con `--comprobar` y las cifras bien, RC=0 diciendo el total', () => {
+    expect(decidir({ comprobar: true, medidas: MEDIDAS, archivos: archivos(BIEN) })).toEqual({
+      codigo: 0,
+      informe: ['Las cifras escritas son las medidas: **En total: 4 pruebas en 3 archivos, más la 1 de capa.**'],
+      porEscribir: [],
+    });
+  });
+
+  it('sin `--comprobar`, reescribe lo que difiere y sale RC=0', () => {
+    const { codigo, porEscribir } = decidir({ comprobar: false, medidas: MEDIDAS, archivos: archivos(tocado) });
+    expect(codigo).toBe(0);
+    expect(porEscribir).toEqual([{ archivo: 'CLAUDE.md', texto: BIEN }]);
+  });
+
+  it('una cifra que no se puede leer es RC=1 en los dos modos, y no escribe nada aunque otra difiera', () => {
+    const sinFormato = tocado.replace('<!-- cifras:formato -->**3 pruebas** en 2 archivos<!-- /cifras -->', '3');
+    for (const comprobar of [true, false]) {
+      const { codigo, informe, porEscribir } = decidir({ comprobar, medidas: MEDIDAS, archivos: archivos(sinFormato) });
+      expect(codigo).toBe(1);
+      expect(porEscribir).toEqual([]);
+      expect(informe.join('\n')).toContain('falta el marcador «cifras:formato»');
+    }
+  });
+
+  it('una medida vacia es RC=2 y no escribe: reescribir seria escribir ceros', () => {
+    const vacia = medir({ paquetes: PAQUETES, normales: [], deCapa: [], raiz: RAIZ });
+    for (const comprobar of [true, false]) {
+      const { codigo, porEscribir } = decidir({ comprobar, medidas: vacia, archivos: archivos(BIEN) });
+      expect(codigo).toBe(2);
+      expect(porEscribir).toEqual([]);
+    }
+  });
+});
+
+describe('un marcador fuera de la lista parece medido y no lo mide nadie', () => {
+  const MARCADO = 'Algo\n| x | <!-- cifras:ui -->**1 prueba** en 1 archivo<!-- /cifras --> |\n';
+
+  it('LA MUESTRA: un `.md` con un marcador que no esta en la lista sale, con su linea', () => {
+    expect(marcadoresSinMedir([{ archivo: 'paquetes/ui/README.md', texto: MARCADO }], DONDE_HAY_CIFRAS)).toEqual([
+      'paquetes/ui/README.md:2',
+    ]);
+  });
+
+  it('el mismo marcador en un archivo de la lista, o en el registro, no', () => {
+    expect(marcadoresSinMedir([{ archivo: 'README.md', texto: MARCADO }], DONDE_HAY_CIFRAS)).toEqual([]);
+    expect(CITAN_SIN_MEDIR).toEqual(['docs/agent/HISTORY.md']);
+    expect(marcadoresSinMedir([{ archivo: 'docs/agent/HISTORY.md', texto: MARCADO }], DONDE_HAY_CIFRAS)).toEqual([]);
+  });
+
+  it('y la explicacion con palabras de `CLAUDE.md` no es un marcador', () => {
+    const explicacion = 'viven entre `<!-- cifras:<paquete> -->` y `<!-- /cifras -->`';
+    expect(marcadoresSinMedir([{ archivo: 'otro.md', texto: explicacion }], DONDE_HAY_CIFRAS)).toEqual([]);
+  });
+});
+
 describe('el arbol de verdad', () => {
   it('cada archivo que declara cifras lleva un marcador por paquete, y `CLAUDE.md` el total', () => {
     // La medida es fabricada —aqui no se corre `vitest list`—, pero la LISTA de paquetes es la del
@@ -214,8 +289,36 @@ describe('el arbol de verdad', () => {
     }
   });
 
-  it('`yarn verificar` corre la comprobacion, y es lo que corre la CI', () => {
-    expect(manifiesto.scripts.verificar).toContain('yarn cifras --comprobar');
+  it('LA DE LA REVISION: la lista lleva `CLAUDE.md` con el total y el `README.md` de la raiz', () => {
+    // El `README.md` es donde el defecto estaba vivo —cinco de sus seis cifras, mal—. Sacarlo de
+    // la lista y quitarle los marcadores lo dejaria fuera en verde, y lo de abajo no lo veria.
+    expect(DONDE_HAY_CIFRAS).toEqual(
+      expect.arrayContaining([
+        { archivo: 'CLAUDE.md', conElTotal: true },
+        { archivo: 'README.md', conElTotal: false },
+      ]),
+    );
+  });
+
+  it('ningun `.md` del arbol lleva un marcador sin estar en la lista', () => {
+    const markdowns = markdownsDelArbol();
+    // EL CENTINELA: sin esto, un barrido roto recorreria la lista vacia en verde.
+    expect(markdowns.map(({ archivo }) => archivo)).toEqual(expect.arrayContaining(['CLAUDE.md', 'README.md']));
+    expect(
+      marcadoresSinMedir(markdowns, DONDE_HAY_CIFRAS),
+      'estos archivos llevan un marcador de cifras que `yarn cifras` no lee: o entran en DONDE_HAY_CIFRAS, ' +
+        'o el marcador se escribe sin `<!--` si es una cita',
+    ).toEqual([]);
+  });
+
+  it('`yarn verificar` corre la comprobacion como un eslabon propio, y es lo que corre la CI', () => {
+    // Por eslabones y no por subcadena: `(yarn cifras --comprobar || true)` contiene el texto y no
+    // para nada, y la revision de #128 lo midio en verde con `toContain`.
+    const eslabones = (manifiesto.scripts.verificar ?? '').split(' && ');
+    for (const eslabon of eslabones) {
+      expect(() => partirOrden(eslabon), `«${eslabon}» no es una orden simple`).not.toThrow();
+    }
+    expect(eslabones).toContain('yarn cifras --comprobar');
     expect(manifiesto.scripts.cifras).toBe('node paquetes/verificaciones/cifras.mjs');
     const ordenes = leerElWorkflow()
       .split('\n')
@@ -235,26 +338,24 @@ describe('el arbol de verdad', () => {
   });
 });
 
-function leerElWorkflow(): string {
-  return readFileSync(join(RAIZ, '.github/workflows/paquetes.yml'), 'utf8');
-}
-
-/** Cada lista `paths:` del workflow, con las comillas quitadas. */
-function listasDeRutas(workflow: string): string[][] {
-  const listas: string[][] = [];
-  let actual: string[] | null = null;
-  for (const linea of workflow.split('\n')) {
-    const recortada = linea.trim();
-    if (recortada === 'paths:') {
-      actual = [];
-      listas.push(actual);
-      continue;
+/**
+ * Cada `.md` del arbol, como ruta desde la raiz, con su texto. Sin `node_modules`, `dist` ni los
+ * directorios que empiezan por punto —`.git`, y `.claude`, donde viven los worktrees, que son
+ * copias del arbol entero—.
+ */
+function markdownsDelArbol(): { archivo: string; texto: string }[] {
+  const salida: { archivo: string; texto: string }[] = [];
+  const recorrer = (directorio: string): void => {
+    for (const entrada of readdirSync(directorio)) {
+      if (entrada.startsWith('.') || entrada === 'node_modules' || entrada === 'dist') continue;
+      const completa = join(directorio, entrada);
+      if (statSync(completa).isDirectory()) {
+        recorrer(completa);
+      } else if (entrada.endsWith('.md')) {
+        salida.push({ archivo: relative(RAIZ, completa).split(sep).join('/'), texto: readFileSync(completa, 'utf8') });
+      }
     }
-    if (actual !== null && recortada.startsWith('- ')) {
-      actual.push(recortada.slice(2).replace(/^"|"$/g, ''));
-      continue;
-    }
-    actual = null;
-  }
-  return listas;
+  };
+  recorrer(RAIZ);
+  return salida;
 }

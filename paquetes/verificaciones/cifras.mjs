@@ -59,12 +59,28 @@ const RAIZ = fileURLToPath(new URL('../..', import.meta.url));
  * cita cifras de su dia —son historia, y reescribirlas seria falsificar el registro— y el propio
  * `CLAUDE.md` explica los marcadores con palabras.
  *
+ * **Y que sea una lista escrita no la deja sin vigilar**, que es lo que la revision de #128 midio:
+ * sacar el `README.md` de aqui, con su cifra de `api` devuelta a mano a la vieja, dejaba las
+ * pruebas y `yarn cifras --comprobar` en verde. Ahora lo cazan dos cosas en
+ * `las-cifras-las-escribe-un-guion.test.ts`: que la lista lleve los dos archivos —el `README.md`,
+ * por ser donde el defecto estaba vivo— y que ningun `.md` del arbol lleve un marcador sin estar
+ * en ella (`marcadoresSinMedir`), porque un marcador que no mide nadie parece una cifra medida.
+ *
  * @type {readonly { archivo: string, conElTotal: boolean }[]}
  */
 export const DONDE_HAY_CIFRAS = [
   { archivo: 'CLAUDE.md', conElTotal: true },
   { archivo: 'README.md', conElTotal: false },
 ];
+
+/**
+ * Los `.md` que pueden llevar un marcador sin que nadie lo mida: **solo el registro**. Sus filas
+ * copian rojos literales —y un rojo de este guion lleva el marcador dentro—, y lo que dicen es
+ * historia de su dia: medirlo y reescribirlo seria falsificarlo.
+ *
+ * @type {readonly string[]}
+ */
+export const CITAN_SIN_MEDIR = ['docs/agent/HISTORY.md'];
 
 /** La clave del total. Ningun paquete puede llamarse asi. */
 export const TOTAL = 'total';
@@ -74,6 +90,32 @@ const MARCADOR = /<!-- cifras:([a-z0-9-]+) -->(.*?)<!-- \/cifras -->/g;
 
 /** Solo la apertura: sirve para contar las que no cierran. */
 const APERTURA = /<!-- cifras:([a-z0-9-]+) -->/g;
+
+/**
+ * Los `.md` que llevan un marcador de cifras y no estan en la lista de los que se miden, cada uno
+ * con la linea de su primer marcador.
+ *
+ * Un marcador asi **parece una cifra medida y no lo es**: `yarn cifras` no lo lee, se queda viejo y
+ * nada se pone rojo. Es el mismo defecto que el guion viene a cerrar, por la puerta de la lista.
+ * Una explicacion con palabras —`<!-- cifras:<paquete> -->`, como la de `CLAUDE.md`— no cuenta:
+ * su clave no es una clave.
+ *
+ * @param {readonly { archivo: string, texto: string }[]} archivos  Rutas desde la raiz, con `/`.
+ * @param {readonly { archivo: string }[]} lista
+ * @returns {string[]}  `archivo:linea`
+ */
+export function marcadoresSinMedir(archivos, lista) {
+  const medidos = new Set([...lista.map(({ archivo }) => archivo), ...CITAN_SIN_MEDIR]);
+  const unMarcador = new RegExp(APERTURA.source);
+  /** @type {string[]} */
+  const sueltos = [];
+  for (const { archivo, texto } of archivos) {
+    if (medidos.has(archivo)) continue;
+    const indice = texto.split('\n').findIndex((linea) => unMarcador.test(linea));
+    if (indice >= 0) sueltos.push(`${archivo}:${String(indice + 1)}`);
+  }
+  return sueltos;
+}
 
 /**
  * @typedef {{ name: string, file: string }} PruebaListada
@@ -396,6 +438,94 @@ export function describir(diferencia) {
   );
 }
 
+/**
+ * **Lo que decide el guion**: con la medida y el texto de cada archivo, que codigo de salida, que se
+ * dice y que se escribe. No toca el disco ni corre `vitest`; eso es de `principal()`, que solo lee,
+ * llama a esto y hace lo que esto dice.
+ *
+ * Es la puerta que decide el RC de la CI, y hasta la revision de #128 vivia dentro de
+ * `principal()`, donde **no la llamaba ninguna prueba**: medido, cambiar `diferencias.length > 0`
+ * por `> 1` y tocar a mano una sola cifra dejaba `yarn cifras --comprobar` diciendo «Las cifras
+ * escritas son las medidas» con RC=0, y las pruebas en verde. Aqui se le pasan entradas fabricadas.
+ *
+ * Los codigos: **2** si la medida viene vacia —escribirla seria escribir ceros—; **1** si hay una
+ * cifra que no se puede leer, en los dos modos, o si con `--comprobar` alguna escrita no es la
+ * medida; **0** en lo demas. Con `--comprobar`, o con algo ilegible, `porEscribir` va vacio.
+ *
+ * @param {{
+ *   comprobar: boolean,
+ *   medidas: ReadonlyMap<string, Medida>,
+ *   archivos: readonly { donde: { archivo: string, conElTotal: boolean }, texto: string }[],
+ * }} entrada
+ * @returns {{ codigo: 0 | 1 | 2, informe: string[], porEscribir: { archivo: string, texto: string }[] }}
+ */
+export function decidir({ comprobar, medidas, archivos }) {
+  if (sumar(medidas).pruebas === 0) {
+    return {
+      codigo: 2,
+      informe: ['MAL: `vitest list` no devolvio ni una prueba. Escribir eso seria escribir ceros.'],
+      porEscribir: [],
+    };
+  }
+
+  /** @type {string[]} */
+  const problemas = [];
+  /** @type {Diferencia[]} */
+  const diferencias = [];
+  /** @type {{ archivo: string, texto: string }[]} */
+  const porEscribir = [];
+  for (const { donde, texto } of archivos) {
+    const resultado = reescribir(texto, medidas, donde);
+    problemas.push(...resultado.problemas);
+    diferencias.push(...resultado.diferencias);
+    if (resultado.texto !== texto) porEscribir.push({ archivo: donde.archivo, texto: resultado.texto });
+  }
+
+  if (problemas.length > 0) {
+    return {
+      codigo: 1,
+      informe: [
+        '',
+        'FALLO: hay cifras que no se pueden leer, y no se ha escrito nada.',
+        '',
+        ...problemas.map((problema) => `  · ${problema}`),
+        '',
+      ],
+      porEscribir: [],
+    };
+  }
+
+  const suma = textoDe(TOTAL, medidas);
+  if (comprobar) {
+    if (diferencias.length > 0) {
+      return {
+        codigo: 1,
+        informe: [
+          '',
+          'FALLO: las cifras escritas no son las medidas.',
+          '',
+          ...diferencias.map(describir),
+          '',
+          '  Una cifra no se corrige sumando a mano: se ejecuta `yarn cifras`, que la vuelve',
+          '  a medir con `vitest list` y reescribe solo el texto entre sus marcadores.',
+          '',
+        ],
+        porEscribir: [],
+      };
+    }
+    return { codigo: 0, informe: [`Las cifras escritas son las medidas: ${suma}`], porEscribir: [] };
+  }
+
+  if (diferencias.length === 0) {
+    return { codigo: 0, informe: [`Las cifras ya eran las medidas: ${suma}`], porEscribir };
+  }
+  return {
+    codigo: 0,
+    informe: ['Cifras reescritas con lo medido:', ...diferencias.map(describir)],
+    porEscribir,
+  };
+}
+
 // ---------------------------------------------------------------------------------------------
 // El guion
 // ---------------------------------------------------------------------------------------------
@@ -439,7 +569,6 @@ function principal() {
     console.error(`Opcion desconocida: ${desconocidos.join(' ')}. La unica es --comprobar.`);
     process.exit(2);
   }
-  const comprobar = argumentos.includes('--comprobar');
 
   const manifiesto = /** @type {{ scripts: Record<string, string> }} */ (
     JSON.parse(readFileSync(join(RAIZ, 'package.json'), 'utf8'))
@@ -447,59 +576,16 @@ function principal() {
   const normales = listar(argumentosDeVitest('test', manifiesto.scripts.test));
   const deCapa = listar(argumentosDeVitest('test:capas', manifiesto.scripts['test:capas']));
 
-  if (normales.length === 0) {
-    console.error('MAL: `vitest list` no devolvio ni una prueba. Escribir eso seria escribir ceros.');
-    process.exit(2);
-  }
+  const { codigo, informe, porEscribir } = decidir({
+    comprobar: argumentos.includes('--comprobar'),
+    medidas: medir({ paquetes: paquetesDe(RAIZ), normales, deCapa, raiz: RAIZ }),
+    archivos: DONDE_HAY_CIFRAS.map((donde) => ({
+      donde,
+      texto: readFileSync(join(RAIZ, donde.archivo), 'utf8'),
+    })),
+  });
 
-  const medidas = medir({ paquetes: paquetesDe(RAIZ), normales, deCapa, raiz: RAIZ });
-
-  /** @type {string[]} */
-  const problemas = [];
-  /** @type {Diferencia[]} */
-  const diferencias = [];
-  /** @type {{ ruta: string, texto: string }[]} */
-  const porEscribir = [];
-  for (const donde of DONDE_HAY_CIFRAS) {
-    const ruta = join(RAIZ, donde.archivo);
-    const antes = readFileSync(ruta, 'utf8');
-    const resultado = reescribir(antes, medidas, donde);
-    problemas.push(...resultado.problemas);
-    diferencias.push(...resultado.diferencias);
-    if (resultado.texto !== antes) porEscribir.push({ ruta, texto: resultado.texto });
-  }
-
-  if (problemas.length > 0) {
-    console.error('');
-    console.error('FALLO: hay cifras que no se pueden leer, y no se ha escrito nada.');
-    console.error('');
-    for (const problema of problemas) console.error(`  · ${problema}`);
-    console.error('');
-    process.exit(1);
-  }
-
-  const suma = textoDe(TOTAL, medidas);
-  if (comprobar) {
-    if (diferencias.length > 0) {
-      console.error('');
-      console.error('FALLO: las cifras escritas no son las medidas.');
-      console.error('');
-      for (const diferencia of diferencias) console.error(describir(diferencia));
-      console.error('');
-      console.error('  Una cifra no se corrige sumando a mano: se ejecuta `yarn cifras`, que la vuelve');
-      console.error('  a medir con `vitest list` y reescribe solo el texto entre sus marcadores.');
-      console.error('');
-      process.exit(1);
-    }
-    console.log(`Las cifras escritas son las medidas: ${suma}`);
-    return;
-  }
-
-  for (const { ruta, texto } of porEscribir) writeFileSync(ruta, texto);
-  if (diferencias.length === 0) {
-    console.log(`Las cifras ya eran las medidas: ${suma}`);
-    return;
-  }
-  console.log('Cifras reescritas con lo medido:');
-  for (const diferencia of diferencias) console.log(describir(diferencia));
+  for (const { archivo, texto } of porEscribir) writeFileSync(join(RAIZ, archivo), texto);
+  for (const linea of informe) (codigo === 0 ? console.log : console.error)(linea);
+  if (codigo !== 0) process.exit(codigo);
 }
