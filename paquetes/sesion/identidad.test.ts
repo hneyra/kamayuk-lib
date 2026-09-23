@@ -882,6 +882,13 @@ describe('#118 AC4 — lo que la puerta dice al no poder entrar sale del saco', 
     }
 
     const esperadas = Object.keys(TEXTOS_DE_LA_PUERTA).map((clave) => `${ABRE}${clave}${CIERRA}`);
+    const sinCamino = esperadas.filter((marca) => !vistas.has(marca));
+    expect(
+      sinCamino,
+      `Hay frases de la puerta que ningun camino de este bloque ensena: ${sinCamino.join(', ')}. ` +
+        'Si la puerta las dice, falta su camino en LOS_CAMINOS; si no las dice, sobran en el saco.',
+    ).toEqual([]);
+    // Y al reves: nada salio sin marcar, ni marcado con una clave que el saco no tiene.
     expect([...vistas].sort()).toEqual([...esperadas].sort());
   });
 
