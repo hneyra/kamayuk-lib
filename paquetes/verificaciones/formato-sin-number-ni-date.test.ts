@@ -71,8 +71,10 @@ describe('en @kamayuk/formato no hay ni un Number ni un Date (regla 1)', () => {
     // Sin esto, lo de abajo pasaria sobre la lista vacia —si alguien moviera `paquetes/formato/` o
     // el recorrido dejara de bajar— y la guarda seguiria en verde sin sujeto. Se nombran uno a uno,
     // y no se cuentan: un conteo seguiria cuadrando con uno renombrado y otro nuevo.
-    expect(PRODUCCION.length, 'no se leyo ni un archivo de formato: la guarda no mide nada').toBeGreaterThanOrEqual(5);
-    for (const archivo of ['formato.ts', 'aritmetica.ts', 'documento.ts', 'valores.ts', 'index.ts']) {
+    // `partir.ts` va con nombre: es donde vive el analisis de lo servido, y el primer sitio donde
+    // alguien pensaria en «convertir el mes a numero».
+    expect(PRODUCCION.length, 'no se leyo ni un archivo de formato: la guarda no mide nada').toBeGreaterThanOrEqual(6);
+    for (const archivo of ['formato.ts', 'aritmetica.ts', 'partir.ts', 'documento.ts', 'valores.ts', 'index.ts']) {
       expect(
         PRODUCCION.some((a) => a.endsWith(join('formato', archivo))),
         `no se leyo «formato/${archivo}»`,
