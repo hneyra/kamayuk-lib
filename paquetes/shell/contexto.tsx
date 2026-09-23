@@ -127,7 +127,7 @@ export interface HojaAbierta {
    * **Lo tecleado en esta hoja, guardado por el marco** (#86, `lo-tecleado-y-la-negativa-sobreviven`).
    *
    * El marco no lo lee: lo guarda con la misma clave que la marca de sucia —el destino— y lo devuelve.
-   * Sobrevive a irse y volver **solo si la hoja sigue sucia**; ver `Armazon.tsx`. `undefined`: nada.
+   * Sobrevive a irse y volver **solo si la hoja sigue sucia**; ver `registro-de-hojas.ts`. `undefined`: nada.
    */
   readonly tecleado: LoTecleado | undefined;
   /** Cambia lo que el marco guarda de esta hoja. Lo llama `<Pantalla hoja>`, no el sistema. */
