@@ -41,7 +41,9 @@ export const MUESTRAS_DE_LOS_CAMPOS_EN_LA_RUTA = {
               etiqueta: 'Buscar',
               tipo: 't1',
               marcador: 'parte del nombre',
-              ayuda: 'opcional. Acota en el servidor, no aqui.',
+              ayuda: 'Acota en el servidor, no aqui.',
+              // Opcional por el dato, desde #86: la ayuda ya no decide la marca.
+              opcional: true,
               eleccion: { enLaRuta: 'descripcion', cuando: 'alSalir' },
             },
           ],

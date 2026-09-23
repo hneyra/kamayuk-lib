@@ -259,6 +259,37 @@ const LAS_PIEZAS_DE_67: DefinicionDePantalla<PiezaDeLaPantalla> = {
 };
 
 /**
+ * **Y la segunda mitad de #86**: la nota con marcas —el texto y el enfasis por `traducir`, el codigo
+ * como dato—. Ninguna palabra es de la pieza: el elemento de cada tramo no dice nada por su cuenta.
+ */
+const LA_PROSA_DE_86: DefinicionDePantalla<PiezaDeLaPantalla> = {
+  instruccion: 'no la dibuja el interprete',
+  bloques: [
+    {
+      titulo: 'con marcas',
+      nota: '',
+      notaConMarcas: [{ texto: 'lo impide ' }, { codigo: { desde: 'restriccion' } }, { fuerte: 'no se deshace' }],
+      campos: [],
+      // Un texto que no llego: el motivo sale del saco (`faltaParaGuardar`).
+      acciones: [{ rotulo: 'guardar', guarda: { texto: { desde: 'no-llego' }, tipoDeMedio: 'text/plain', nombre: 'nombre' } }],
+      tablas: [
+        {
+          clave: 'filtrable',
+          titulo: 'filtrable',
+          columnas: [{ rotulo: 'columna', alineadoDerecha: false }],
+          vacio: 'vacio',
+          filtroLocal: {
+            buscador: { rotulo: 'buscar', marcador: 'marcador del buscador' },
+            chips: [{ rotulo: 'chip', si: { dato: 'estado', vale: 'UNO' } }],
+            total: 'total',
+          },
+        },
+      ],
+    },
+  ],
+};
+
+/**
  * Una pantalla que usa los siete tipos, una tabla con filas y otra sin ellas, y una ausencia: todo
  * lo que el interprete sabe dibujar. Sus palabras son de quien la escribe y entran marcadas por
  * `traducir`; lo que el interprete dice por su cuenta, por el saco.
@@ -270,7 +301,8 @@ const PANTALLA_ENTERA: DefinicionDePantalla = {
       titulo: 'bloque',
       nota: 'nota',
       campos: [
-        { etiqueta: 'texto', tipo: '', ayuda: 'ayuda, opcional' },
+        // Opcional por el DATO (#86): la ayuda ya no decide la marca, y por eso no la nombra.
+        { etiqueta: 'texto', tipo: '', ayuda: 'ayuda', opcional: true },
         { etiqueta: 'otro', tipo: 't' },
         { etiqueta: 'lista', tipo: 's', opciones: ['una', 'dos'] },
         { etiqueta: 'fecha', tipo: 'd' },
@@ -494,6 +526,25 @@ const PIEZAS: readonly (readonly [string, () => React.ReactElement])[] = [
       />
     ),
   ],
+  [
+    'Pantalla con la prosa de #86',
+    () => (
+      <Pantalla
+        definicion={LA_PROSA_DE_86}
+        datos={{
+          ausencia: { enElCampo: 'hueco', explicacion: '', tono: 'info' },
+          nombrados: new Map([
+            ['restriccion', marca('dato.restriccion')],
+            ['total', marca('dato.total')],
+          ]),
+          tablas: new Map([['filtrable', { filas: [{ celdas: [marca('celda')], datos: new Map([['estado', 'UNO']]) }] }]]),
+        }}
+        tonoDeLaInsignia={() => 'ok'}
+        traducir={marca}
+        textos={{ ...MARCADOS_DEL_INTERPRETE, ...MARCADAS_LAS_PIEZAS }}
+      />
+    ),
+  ],
 ];
 
 describe('EL CENTINELA: la lista tiene sujeto, y el arnes ve un literal cuando lo hay', () => {
@@ -654,5 +705,73 @@ describe('EL AC1 en las piezas de #66: cada paso de una escritura saca sus palab
     });
     expect(document.querySelector('[data-fase-del-acto="hecho"]')).not.toBeNull();
     rojo('con el acto hecho');
+  });
+
+  it('#86: el error de un obligatorio y lo descartado tambien salen del saco', () => {
+    const rojo = (paso: string) => {
+      const fuera = loQueNoPasoPorElSaco(document.body, DATOS_QUE_NO_SE_TRADUCEN);
+      expect(fuera, elRojo(fuera, `«Pantalla con los actos de #86», ${paso}`)).toEqual([]);
+    };
+    render(
+      <Pantalla
+        definicion={{
+          instruccion: 'no la dibuja el interprete',
+          bloques: [
+            {
+              tipo: 'acto',
+              clave: 'escribir',
+              titulo: 'escribir',
+              campos: [
+                { nombre: 'uno', etiqueta: 'uno', tipo: '' },
+                { nombre: 'dos', etiqueta: 'dos', tipo: '', opcional: true },
+              ],
+              observacion: { etiqueta: 'observacion', largo: { minimo: 3, maximo: 9 } },
+              errores: 'trasElPrimerIntento',
+              // Sin `dicho`: lo que se anuncia es la frase del saco.
+              descartar: { rotulo: 'descartar' },
+            },
+          ],
+        }}
+        datos={{ ausencia: { enElCampo: 'hueco', explicacion: '', tono: 'info' } }}
+        tonoDeLaInsignia={() => 'ok'}
+        traducir={marca}
+        textos={{ ...MARCADOS_DEL_INTERPRETE, ...MARCADAS_LAS_PIEZAS }}
+        actos={{ escribir: () => {} }}
+        actoAbierto={{ clave: 'escribir' }}
+      />,
+    );
+    rojo('con el campo opcional marcado');
+    fireEvent.click(screen.getByRole('button', { name: marca('escribir') }));
+    expect(screen.getByText(MARCADAS_LAS_PIEZAS.campoObligatorio)).toBeTruthy();
+    rojo('con el error de un obligatorio tras el primer intento');
+    fireEvent.click(screen.getByRole('button', { name: marca('descartar') }));
+    expect(screen.getByRole('status').textContent).toBe(MARCADAS_LAS_PIEZAS.loEscritoSeDescarto);
+    rojo('con lo escrito descartado');
+  });
+
+  it('#86, segunda mitad: el conteo del filtro y lo que dice cuando no deja ninguna, del saco', () => {
+    const rojo = (paso: string) => {
+      const fuera = loQueNoPasoPorElSaco(document.body, DATOS_QUE_NO_SE_TRADUCEN);
+      expect(fuera, elRojo(fuera, `«Pantalla con el filtro local de #86», ${paso}`)).toEqual([]);
+    };
+    render(
+      <Pantalla
+        definicion={LA_PROSA_DE_86}
+        datos={{
+          ausencia: { enElCampo: 'hueco', explicacion: '', tono: 'info' },
+          nombrados: new Map([['total', marca('dato.total')]]),
+          tablas: new Map([['filtrable', { filas: [{ celdas: [marca('celda')], datos: new Map([['estado', 'UNO']]) }] }]]),
+        }}
+        tonoDeLaInsignia={() => 'ok'}
+        traducir={marca}
+        textos={{ ...MARCADOS_DEL_INTERPRETE, ...MARCADAS_LAS_PIEZAS }}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: marca('chip') }));
+    expect(document.querySelector('[data-slot="conteo-del-filtro"]')?.textContent).not.toBe('');
+    rojo('con un chip pulsado y su conteo');
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: marca('no casa') } });
+    expect(document.querySelector('[data-sin-coincidencias]')).not.toBeNull();
+    rojo('con el filtro que no deja ninguna');
   });
 });

@@ -29,19 +29,47 @@ export function Tarjeta({ className, ...resto }: HTMLAttributes<HTMLElement>) {
   );
 }
 
-/** La cabecera azul maciza. El titulo va dentro, a 14.5 px y en negrita. */
+/**
+ * La cabecera azul maciza. El titulo va dentro, a 14.5 px y en negrita.
+ *
+ * <h2>`junto`: lo que acompana al titulo, FUERA del encabezado (#86)</h2>
+ *
+ * Las insignias fijas y el codigo de lo que se mira (`insignias-fijas-en-la-cabecera`). Van en un
+ * hueco hermano del `<h2>` y no dentro, porque dentro pasarian a ser **el nombre accesible del
+ * encabezado**: quien recorre la hoja de encabezado en encabezado oiria «Detalle del registro Vigente
+ * R-00042» en cada salto. Es el mismo error que `Etiqueta` cuenta del `<label>` que envolvia al
+ * control.
+ *
+ * **Sin `junto`, el DOM es el de antes byte a byte** —ni el hueco vacio, ni la clase de la fila—: hay
+ * sistemas que miran esta cabecera, y lo que no se pide no se paga.
+ */
 export function TarjetaCabecera({
   children,
   className,
+  junto,
   ...resto
-}: HTMLAttributes<HTMLDivElement> & { readonly children: ReactNode }) {
+}: HTMLAttributes<HTMLDivElement> & { readonly children: ReactNode; readonly junto?: ReactNode }) {
+  if (junto === undefined) {
+    return (
+      <div
+        data-slot="tarjeta-cabecera"
+        className={cn('px-[15px] py-[11px] bg-azul text-sobre-azul', className)}
+        {...resto}
+      >
+        <h2 className="m-0 text-[14.5px] font-bold">{children}</h2>
+      </div>
+    );
+  }
   return (
     <div
       data-slot="tarjeta-cabecera"
-      className={cn('px-[15px] py-[11px] bg-azul text-sobre-azul', className)}
+      className={cn('flex flex-wrap items-center gap-x-[10px] gap-y-1 px-[15px] py-[11px] bg-azul text-sobre-azul', className)}
       {...resto}
     >
       <h2 className="m-0 text-[14.5px] font-bold">{children}</h2>
+      <div data-slot="tarjeta-cabecera-junto" className="flex flex-1 flex-wrap items-center gap-[6px]">
+        {junto}
+      </div>
     </div>
   );
 }

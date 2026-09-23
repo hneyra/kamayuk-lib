@@ -37,7 +37,56 @@ export interface CambioDeLaRuta {
   readonly parametros?: Readonly<Record<string, string | null>>;
 }
 
-/** Lo que `<Pantalla hoja>` lee del marco. `useHoja()` de `@kamayuk/shell` ya lo cumple. */
+/**
+ * Lo tecleado en un acto abierto (#86, `lo-tecleado-y-la-negativa-sobreviven`): sus valores por
+ * `nombre`, la observacion y si ya se intento enviar —que es lo que decide si sus errores se ven—.
+ *
+ * **La negativa del servidor NO va aqui**: esta en `datos.lecturas` con la clave del acto, y es del
+ * sistema, que es quien la guarda y quien sabe cuando deja de valer.
+ */
+export interface TecleadoDeUnActo {
+  readonly valores: Readonly<Record<string, string | boolean>>;
+  readonly observacion: string;
+  readonly intentado: boolean;
+}
+
+/**
+ * **Lo tecleado en una hoja, tal como el interprete lo guarda** (#86).
+ *
+ * El marco no lo lee ni lo compone: lo guarda por destino y lo devuelve. Por eso la forma vive aqui
+ * y no en `@kamayuk/shell`, igual que `RutaDeLaHoja`: el grafo va en un solo sentido.
+ */
+export interface LoTecleado {
+  /** `bloque|campo` -> lo tecleado en un campo de un bloque. Los filtros de #94 no: viven en la ruta. */
+  readonly campos: Readonly<Record<string, string | boolean>>;
+  /** `clave|apertura` -> lo tecleado en un acto. La apertura son los parametros con que se abrio. */
+  readonly actos: Readonly<Record<string, TecleadoDeUnActo>>;
+}
+
+/**
+ * Un cambio de lo tecleado, **como funcion de lo que habia** y no como el valor nuevo entero.
+ *
+ * A proposito: dos cambios en el mismo gesto —un campo y la marca de sucia— se aplican sobre lo que
+ * el otro dejo, y con un valor entero el segundo pisaria al primero con una copia vieja.
+ */
+export type CambioDeLoTecleado = (antes: LoTecleado | undefined) => LoTecleado;
+
+/**
+ * Lo que `<Pantalla hoja>` lee del marco. `useHoja()` de `@kamayuk/shell` ya lo cumple.
+ *
+ * <h2>Desde #86, tambien la marca de sucia y lo tecleado, y todos OPCIONALES</h2>
+ *
+ * `marcarSucia` y `marcarGuardada` existian en `useHoja()` desde #13, pero esta forma no los nombraba
+ * y nadie los conectaba desde el interprete: una hoja dibujada por definicion solo se ensuciaba si el
+ * sistema cableaba `alEnsuciar` a mano. Entran como opcionales porque una hoja escrita a mano en una
+ * prueba —o la de un sistema que aun no los da— tiene que seguir cabiendo.
+ *
+ * **`tecleado` y `alTeclear` son la opcion C de `lo-tecleado-y-la-negativa-sobreviven`**: la `key`
+ * por destino (normativa#58) vacia el formulario al volver, y conservar lo tecleado (V6) lo exige
+ * lleno. Las dos cosas chocaban solo porque lo tecleado vivia DENTRO de la pantalla que la `key`
+ * desmonta. Subido al marco junto a `sucias`, **con la misma clave** —el destino—, sobrevive a irse y
+ * volver **solo si la hoja sigue sucia**: que es exactamente lo que el arbol dice con «SIN GUARDAR».
+ */
 export interface HojaDelMarco {
   readonly ruta: RutaDeLaHoja;
   /**
@@ -46,6 +95,14 @@ export interface HojaDelMarco {
    */
   readonly marco?: Readonly<Record<string, string>>;
   readonly moverLaRuta: (cambio: CambioDeLaRuta) => void;
+  /** Hay cambios sin guardar. Idempotente (#86, `la-hoja-se-marca-sucia-al-teclear`). */
+  readonly marcarSucia?: () => void;
+  /** Ya no los hay: la marca se va, y el marco olvida lo tecleado de la hoja (#86). */
+  readonly marcarGuardada?: () => void;
+  /** Lo tecleado que el marco guarda para esta hoja; `undefined` si nada (#86). */
+  readonly tecleado?: LoTecleado | undefined;
+  /** Cambia lo que el marco guarda. Sin el, la pantalla guarda lo tecleado en su estado, como hasta #86. */
+  readonly alTeclear?: (cambio: CambioDeLoTecleado) => void;
 }
 
 /**

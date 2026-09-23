@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 
+import { Insignia } from '../Insignia.tsx';
 import { Tarjeta, TarjetaCabecera, TarjetaCampos, TarjetaNota, TarjetaPie } from '../shadcn/tarjeta.tsx';
 import type { TextosDeLaPantalla } from '../textos.tsx';
 import { CampoDelBloque } from './CampoDelBloque.tsx';
@@ -9,6 +10,7 @@ import { type Nombrados, resolverTexto } from './componer.ts';
 import type { Ausencia, Coordenada, DatosDeUnaTabla, FilaDeLaTabla } from './datos.ts';
 import { coordenada } from './datos.ts';
 import type { HojaDelMarco } from './hoja.ts';
+import { ProsaConMarcas } from './ProsaConMarcas.tsx';
 import { TablaDelBloque } from './TablaDelBloque.tsx';
 import type { DefinicionDeBloque, DefinicionDeTabla, TonoDeInsignia, Texto } from './tipos.ts';
 
@@ -30,6 +32,14 @@ import type { DefinicionDeBloque, DefinicionDeTabla, TonoDeInsignia, Texto } fro
  *
  * `tabla` y despues cada una de `tablas`, en su orden. Una tabla con `clave` toma sus filas de
  * `DatosDeLaPantalla.tablas`; una sin ella, las del bloque por su indice, como en #27.
+ *
+ * <h2>Desde #86, insignias fijas y un codigo en la cabecera</h2>
+ *
+ * `insignias` y `aLaDerecha` van en el hueco `junto` de `TarjetaCabecera`, fuera del encabezado: el
+ * nombre accesible del titulo no cambia. Sin ninguna de las dos, la cabecera es la de siempre.
+ *
+ * Y `notaConMarcas`, que gana a `nota`: la misma `TarjetaNota`, con `code` y `strong` dentro de la
+ * frase (`texto-con-marcas`). Sin ella, la nota es la de siempre.
  */
 
 export interface BloqueDeLaPantallaProps {
@@ -106,15 +116,41 @@ export function BloqueDeLaPantalla({
   // Una tabla de cabecera fija se desplaza dentro de su marco, y ese marco solo tiene alto si cada
   // contenedor hasta la hoja lo cede: la tarjeta tambien se estira y se deja encoger (#65).
   const cedeElAlto = lasTablas.some((tabla) => tabla.cabeceraFija === true);
+  const insignias = bloque.insignias ?? [];
+  const codigo = bloque.aLaDerecha === undefined ? '' : texto(bloque.aLaDerecha.codigo);
+  // Solo si hay algo que poner: sin ello, la cabecera no gana ni el hueco (#86).
+  const junto =
+    insignias.length === 0 && codigo === '' ? undefined : (
+      <>
+        {insignias.map((insignia, i) => (
+          // El tono es DATO de la definicion, como en toda insignia desde #65: nunca sale del texto.
+          <Insignia key={i} tono={insignia.tono}>
+            {texto(insignia.texto)}
+          </Insignia>
+        ))}
+        {codigo === '' ? null : (
+          <span data-slot="codigo-de-la-cabecera" className="ml-auto font-mono text-[12.5px] font-bold">
+            {codigo}
+          </span>
+        )}
+      </>
+    );
   return (
     <Tarjeta className={cedeElAlto ? 'flex min-h-0 flex-1 flex-col' : undefined}>
-      <TarjetaCabecera>{texto(bloque.titulo)}</TarjetaCabecera>
+      <TarjetaCabecera junto={junto}>{texto(bloque.titulo)}</TarjetaCabecera>
       {acciones === undefined ? null : (
         <div data-slot="acciones-del-bloque" className="border-b border-linea-2 px-[15px] py-[10px]">
           {acciones}
         </div>
       )}
-      {nota === '' ? null : <TarjetaNota>{nota}</TarjetaNota>}
+      {bloque.notaConMarcas !== undefined && bloque.notaConMarcas.length > 0 ? (
+        // Gana a `nota` (#86, `texto-con-marcas`): la misma tarjeta, con los tramos dentro.
+        <TarjetaNota>
+          <ProsaConMarcas marcas={bloque.notaConMarcas} nombrados={nombrados} traducir={traducir} ausente={textos.datoAusente} />
+        </TarjetaNota>
+      ) : nota === '' ? null : (
+        <TarjetaNota>{nota}</TarjetaNota>
+      )}
       {enLugarDelCuerpo}
       {enLugarDelCuerpo === undefined ? encimaDelCuerpo : null}
       {enLugarDelCuerpo !== undefined || bloque.campos.length === 0 ? null : (

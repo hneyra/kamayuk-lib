@@ -1,6 +1,6 @@
 import { createContext, useContext, type ReactNode } from 'react';
 
-import type { CambioDeLaRuta, RutaDeLaHoja } from '../ui/index.ts';
+import type { CambioDeLaRuta, CambioDeLoTecleado, LoTecleado, RutaDeLaHoja } from '../ui/index.ts';
 
 import type { Catalogo, HojaDelCatalogo } from './catalogo.ts';
 import type { ActoDelPie } from './acciones.ts';
@@ -121,8 +121,17 @@ export interface HojaAbierta {
   readonly sucia: boolean;
   /** Hay cambios sin guardar. Idempotente: llamarla en cada tecleo es lo esperado. */
   readonly marcarSucia: () => void;
-  /** Ya no los hay. La llama la pantalla cuando guarda por su cuenta. */
+  /** Ya no los hay. La llama la pantalla cuando guarda por su cuenta. Olvida tambien lo tecleado (#86). */
   readonly marcarGuardada: () => void;
+  /**
+   * **Lo tecleado en esta hoja, guardado por el marco** (#86, `lo-tecleado-y-la-negativa-sobreviven`).
+   *
+   * El marco no lo lee: lo guarda con la misma clave que la marca de sucia —el destino— y lo devuelve.
+   * Sobrevive a irse y volver **solo si la hoja sigue sucia**; ver `Armazon.tsx`. `undefined`: nada.
+   */
+  readonly tecleado: LoTecleado | undefined;
+  /** Cambia lo que el marco guarda de esta hoja. Lo llama `<Pantalla hoja>`, no el sistema. */
+  readonly alTeclear: (cambio: CambioDeLoTecleado) => void;
   /**
    * **Lo que la ruta guarda de esta hoja** (#67): su sujeto y sus parámetros, **solo los
    * declarados** en `Destino.enLaRuta`. Recargar o compartir el enlace da lo mismo.

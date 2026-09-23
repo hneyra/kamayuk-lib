@@ -1,12 +1,14 @@
 import type {
   CampoDeLista,
   DatosDeLaPantalla,
+  DefinicionDeActo,
   DefinicionDeBloque,
   DefinicionDeCampo,
   DefinicionDeTabla,
   OpcionDelCampo,
   PiezaDeLaPantalla,
   Texto,
+  TextoConMarcas,
 } from '../../ui/index.ts';
 
 /**
@@ -104,4 +106,36 @@ export const barrerasDeLaEleccion: readonly DefinicionDeCampo[] = [
   { etiqueta: 'Buscar', tipo: 't', eleccion: { cuando: 'alSalir' } },
   // @ts-expect-error los momentos son DOS, y un tercero no lo dibuja nadie
   { etiqueta: 'Buscar', tipo: 't', eleccion: { enLaRuta: 'q', cuando: 'conRetardo' } },
+];
+
+/**
+ * **LAS BARRERAS DE #86, `texto-con-marcas`: la nota que ya se lee no cambia de tipo.**
+ *
+ * La frase con marcas entra por `notaConMarcas`, un campo APARTE, porque ensanchar `nota` rompia lo
+ * que ya la lee como `Texto` (el rojo esta en su docblock y en `HISTORY.md`). Estas tres funciones
+ * son esa lectura, escrita como la escribe un sistema: si alguien metiera las marcas en `nota`,
+ * dejan de compilar aqui primero. Sin `@ts-expect-error`: esto TIENE que compilar.
+ */
+export const laNotaDeHoySigueSiendoCadena = (bloque: DefinicionDeBloque): string => bloque.nota;
+export const laNotaDeLasPiezasSigueSiendoUnTexto = (bloque: DefinicionDeBloque<Texto>): Texto => bloque.nota;
+export const laNotaDelActoSigueSiendoUnTexto = (acto: DefinicionDeActo): Texto | undefined => acto.nota;
+
+/** Un tramo es UNA cosa: texto, codigo o enfasis. Los `?: never` son los que lo impiden. */
+export const barrerasDeLasMarcas: TextoConMarcas = [
+  // @ts-expect-error un tramo que fuera texto Y codigo no tiene ninguna lectura
+  { texto: 'Lo impide ', codigo: 'fk' },
+  // @ts-expect-error y uno sin marca no dice nada
+  {},
+];
+
+/**
+ * **LAS BARRERAS DE #86, `filtro-en-el-cliente-con-conteo`**: un buscador sin nombre accesible no se
+ * encuentra, y un chip sin condicion no tiene que dejar. Ninguna de las dos tiene valor por omision
+ * que no mintiera.
+ */
+export const barrerasDelFiltroLocal: readonly DefinicionDeTabla<Texto>[] = [
+  // @ts-expect-error el buscador no dibuja rotulo a la vista: sin `rotulo` no tendria nombre
+  { titulo: 'T', columnas: [], filtroLocal: { buscador: { marcador: 'Buscar' } } },
+  // @ts-expect-error un chip lee los DATOS de la fila con una `Condicion`: sin ella no filtra nada
+  { titulo: 'T', columnas: [], filtroLocal: { chips: [{ rotulo: 'Vigentes' }] } },
 ];

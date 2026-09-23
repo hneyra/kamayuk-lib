@@ -12,10 +12,10 @@ import type { DatosDeLaPantalla } from './datos.ts';
 import { coordenada } from './datos.ts';
 import { esBloque } from './componer.ts';
 import { hijasDe, indicesDeLasPiezas, nombradosConLaHoja } from './composicion.ts';
-import type { HojaDelMarco } from './hoja.ts';
+import type { CambioDeLoTecleado, HojaDelMarco, LoTecleado, TecleadoDeUnActo } from './hoja.ts';
 import { PiezaDeLaPantalla, type PiezasDelConsumidor } from './PiezaDeLaPantalla.tsx';
 import { GrupoDeAcciones } from './GrupoDeAcciones.tsx';
-import type { ActoAbierto, InteraccionDeLaPantalla } from './interaccion.ts';
+import type { ActoAbierto, InteraccionDeLaPantalla, TecleadoDeLosActos } from './interaccion.ts';
 import type {
   ManejadoresDeLasAcciones,
   ManejadoresDeLosActos,
@@ -118,13 +118,24 @@ export interface PantallaProps {
   readonly hoja?: HojaDelMarco;
 }
 
-/** `bloque|campo` -> lo tecleado. Plano a proposito: una pantalla no anida mas. */
-type Tecleado = Record<string, string | boolean>;
-
 /** `bloque|campo` -> lo que se esta escribiendo en un campo que aun no lo ha llevado a la ruta (#94). */
 type EnCurso = Record<string, string>;
 
 const TAL_CUAL = (texto: string): string => texto;
+
+/**
+ * Nada tecleado. Uno solo, para no cambiar en cada pintada. Lo tecleado en los campos va por
+ * `bloque|campo`, plano a proposito: una pantalla no anida mas.
+ */
+const NADA_TECLEADO: LoTecleado = { campos: {}, actos: {} };
+
+/** Lo tecleado sin lo de una apertura de un acto. */
+function sinElActo(tecleado: LoTecleado, apertura: string): LoTecleado {
+  if (!Object.hasOwn(tecleado.actos, apertura)) return tecleado;
+  const actos = { ...tecleado.actos };
+  delete actos[apertura];
+  return { ...tecleado, actos };
+}
 
 export function Pantalla({
   definicion,
@@ -142,7 +153,30 @@ export function Pantalla({
   alQuedarGuardada = () => {},
   hoja,
 }: PantallaProps) {
-  const [tecleado, setTecleado] = useState<Tecleado>({});
+  /**
+   * **Donde vive lo tecleado** (#86, `lo-tecleado-y-la-negativa-sobreviven`).
+   *
+   * En el estado de la pantalla, como desde #27, salvo que la definicion pida conservarlo y la hoja
+   * traiga donde: entonces vive en el marco, junto a la marca de sucia y con la misma clave, y la
+   * `key` por destino ya no lo vacia mientras la hoja siga sucia. Ver `hoja.ts`.
+   */
+  const [tecleadoAqui, setTecleadoAqui] = useState<LoTecleado>(NADA_TECLEADO);
+  const alTeclearEnLaHoja = hoja?.alTeclear;
+  const enLaHoja = definicion.hoja?.conservaLoTecleado === 'soloSiSucia' ? alTeclearEnLaHoja : undefined;
+  const tecleado: LoTecleado = enLaHoja === undefined ? tecleadoAqui : (hoja?.tecleado ?? NADA_TECLEADO);
+  const teclear = (cambio: (antes: LoTecleado) => LoTecleado): void => {
+    if (enLaHoja === undefined) {
+      setTecleadoAqui(cambio);
+      return;
+    }
+    const enElMarco: CambioDeLoTecleado = (antes) => cambio(antes ?? NADA_TECLEADO);
+    enLaHoja(enElMarco);
+  };
+  const suciaAlTeclear = definicion.hoja?.suciaAlTeclear === true;
+  /** Cada cambio que ensucia, con `suciaAlTeclear` (#86). Idempotente en el marco: no cuesta pintar. */
+  const marcarSucia = (): void => {
+    if (suciaAlTeclear) hoja?.marcarSucia?.();
+  };
   // Aparte de `tecleado` a proposito (#94): lo que se escribe en un campo que va a la ruta NO
   // ensucia la hoja —no es trabajo sin guardar, es un filtro—, y mezclarlo con lo demas habria
   // dejado a `alEnsuciar` sin avisar nunca despues de tocar un filtro, porque solo avisa la
@@ -162,16 +196,45 @@ export function Pantalla({
       alAbrirActo?.(clave, parametros);
     },
     alEnsuciar,
-    alQuedarGuardada,
+    alQuedarGuardada: () => {
+      alQuedarGuardada();
+      // Guardado, la hoja vuelve a estar limpia y lo tecleado se vacia: asi PUEDE volver a
+      // ensuciarse (#86). Sin `suciaAlTeclear`, lo de siempre: avisar y nada mas.
+      if (!suciaAlTeclear) return;
+      teclear(() => NADA_TECLEADO);
+      hoja?.marcarGuardada?.();
+    },
+    marcarSucia,
+    alDescartar: (apertura) => {
+      // Limpia solo si lo del acto era lo unico tecleado: descartar un acto no puede dar por
+      // guardados los campos de un bloque que siguen escritos.
+      const queda = sinElActo(tecleado, apertura);
+      if (Object.keys(queda.campos).length === 0 && Object.keys(queda.actos).length === 0) {
+        hoja?.marcarGuardada?.();
+      }
+    },
+    tecleadoDeLosActos: enLaHoja === undefined ? undefined : tecleadoDeLosActos(tecleado, teclear),
   };
   const palabras: TextosDeLaPantalla = { ...TEXTOS_DEL_INTERPRETE, ...TEXTOS_DE_LAS_PIEZAS, ...textos };
 
   const cambiar = (bloque: number, campo: number, valor: string | boolean) => {
-    setTecleado((antes) => {
+    const clave = `${String(bloque)}|${String(campo)}`;
+    // Con `suciaAlTeclear`, CADA cambio (#86): el aviso de la primera tecla no vuelve a salir si lo
+    // tecleado no se vacia, y una hoja que alguien marco guardada por su cuenta quedaba limpia con
+    // cambios dentro. En el marco es idempotente, y no cuesta un renderizado por tecla.
+    marcarSucia();
+    if (enLaHoja !== undefined) {
+      // Fuera del cambio, y no dentro: el cambio lo aplica el marco en SU estado, y avisar desde
+      // ahi seria cambiar otro estado mientras se calcula el suyo.
+      if (Object.keys(tecleado.campos).length === 0) alEnsuciar();
+      teclear((antes) => ({ ...antes, campos: { ...antes.campos, [clave]: valor } }));
+      return;
+    }
+    setTecleadoAqui((antes) => {
       // El aviso va UNA vez, en la primera tecla, y no en cada pulsacion: quien escucha esto
       // marca la hoja como sucia, y marcarla cuarenta veces seguidas es cuarenta renderizados.
-      if (Object.keys(antes).length === 0) alEnsuciar();
-      return { ...antes, [`${String(bloque)}|${String(campo)}`]: valor };
+      if (Object.keys(antes.campos).length === 0) alEnsuciar();
+      return { ...antes, campos: { ...antes.campos, [clave]: valor } };
     });
   };
 
@@ -244,7 +307,7 @@ export function Pantalla({
       const enLaRuta = hoja === undefined ? undefined : valorElegido(campo, hoja.ruta);
       if (enLaRuta !== undefined) salida[i] = enLaRuta;
     });
-    for (const [clave, valor] of Object.entries({ ...tecleado, ...enCurso })) {
+    for (const [clave, valor] of Object.entries({ ...tecleado.campos, ...enCurso })) {
       const [b, c] = clave.split('|');
       if (b === String(bloque) && c !== undefined) salida[Number(c)] = valor;
     }
@@ -342,6 +405,25 @@ export function Pantalla({
       {definicion.bloques.map((pieza, i) => dibujar(pieza, String(i)))}
     </div>
   );
+}
+
+/** Lo tecleado en los actos, leido y cambiado dentro de lo tecleado de la hoja (#86). */
+function tecleadoDeLosActos(
+  tecleado: LoTecleado,
+  teclear: (cambio: (antes: LoTecleado) => LoTecleado) => void,
+): TecleadoDeLosActos {
+  return {
+    leer: (apertura) => (Object.hasOwn(tecleado.actos, apertura) ? tecleado.actos[apertura] : undefined),
+    cambiar: (apertura, cambio) => {
+      teclear((antes) => {
+        const previo: TecleadoDeUnActo | undefined = Object.hasOwn(antes.actos, apertura)
+          ? antes.actos[apertura]
+          : undefined;
+        const nuevo = cambio(previo);
+        return nuevo === undefined ? sinElActo(antes, apertura) : { ...antes, actos: { ...antes.actos, [apertura]: nuevo } };
+      });
+    },
+  };
 }
 
 /** Si alguna tabla de la pantalla tiene la cabecera fija: su marco necesita el alto de la hoja (#65). */

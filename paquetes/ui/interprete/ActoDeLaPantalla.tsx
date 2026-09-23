@@ -1,6 +1,7 @@
 import { useId, useRef, useState, type FormEvent } from 'react';
 
 import { Alerta } from '../shadcn/alerta.tsx';
+import { avisar } from '../shadcn/avisos.tsx';
 import { BotonConMotivo } from '../shadcn/boton-con-motivo.tsx';
 import { Area } from '../shadcn/campo.tsx';
 import { tipoDe } from '../shadcn/campos.ts';
@@ -19,6 +20,7 @@ import { Tarjeta, TarjetaCabecera, TarjetaCampos, TarjetaNota } from '../shadcn/
 import type { TextosDeLaPantalla } from '../textos.tsx';
 import {
   atiende,
+  camposQueFaltan,
   motivoDelActo,
   motivoDeLaObservacion,
   seEscribeElCampo,
@@ -30,7 +32,9 @@ import { type Nombrados, resolverTexto } from './componer.ts';
 import type { DatosDeLaPantalla } from './datos.ts';
 import { FalloDeUnaLectura } from './EstadoDeLaLectura.tsx';
 import { GrupoDeAcciones } from './GrupoDeAcciones.tsx';
+import type { TecleadoDeUnActo } from './hoja.ts';
 import type { InteraccionDeLaPantalla } from './interaccion.ts';
+import { ProsaConMarcas } from './ProsaConMarcas.tsx';
 import type { CampoDelActo, DefinicionDeActo } from './tipos-de-los-actos.ts';
 
 /**
@@ -63,6 +67,23 @@ import type { CampoDelActo, DefinicionDeActo } from './tipos-de-los-actos.ts';
  * Con `advertencia`, el primario abre la `Confirmacion` que ya existe —la de `AvisoDeCambios`—, que
  * enfoca «Cancelar» al abrir y cierra con `Esc` sin enviar. Nunca un `confirm()` del navegador:
  * bloquea el hilo, no lo lee un lector de pantalla y deja colgado a quien lo prueba.
+ *
+ * <h2>Desde #86, mas cosas, y cada una solo si la definicion la pide</h2>
+ *
+ *   · **Lo tecleado puede vivir fuera** (`lo-tecleado-y-la-negativa-sobreviven`): con
+ *     `interaccion.tecleadoDeLosActos`, los valores, la observacion y el intento se guardan en el
+ *     marco por apertura, y volver a la hoja sucia los encuentra. Sin el, en el estado, como en #66.
+ *     Lo que NO sube es la fase, el vuelo ni el rechazo: son de este envio, y la negativa del
+ *     servidor ya vive en `datos.lecturas`, que es del sistema.
+ *   · **`descartar`**: un secundario que vacia lo escrito y lo dice en una region viva. Impedido solo
+ *     mientras la escritura viaja: vaciar un formulario cuyo envio aun puede aceptarse deja a quien
+ *     mira sin saber que se guardo.
+ *   · **`errores: 'trasElPrimerIntento'`**: el error de cada obligatorio vacio, bajo su campo.
+ *   · **`alTerminar` y `alFallar`**: un aviso de `sonner` —`avisar`, el de `<Avisos>`, que el marco
+ *     monta una vez—. No sustituye a lo de siempre: lo hecho y el fallo se siguen dibujando aqui.
+ *     Descartar NO avisa por ahi: ya lo dice su propia region viva, y dos regiones diciendo lo mismo
+ *     es un anuncio repetido para quien no ve.
+ *   · **`notaConMarcas`**: la nota con `code` y `strong` dentro de la frase. Gana a `nota`.
  */
 
 export interface ActoDeLaPantallaProps {
@@ -89,15 +110,39 @@ function valoresIniciales(campos: readonly CampoDelActo[]): ValoresDelActo {
   return salida;
 }
 
+/** Lo que un acto trae al abrirse por primera vez: nada escrito, y nada intentado. */
+const inicialDe = (campos: readonly CampoDelActo[]): TecleadoDeUnActo => ({
+  valores: valoresIniciales(campos),
+  observacion: '',
+  intentado: false,
+});
+
 export function ActoDeLaPantalla({ acto, datos, traducir, textos, interaccion }: ActoDeLaPantallaProps) {
   const raiz = useId();
-  const [valores, setValores] = useState<ValoresDelActo>(() => valoresIniciales(acto.campos));
-  const [observacion, setObservacion] = useState('');
-  const [intentado, setIntentado] = useState(false);
+  // Lo que se lleva lo tecleado es la APERTURA: el mismo acto abierto sobre otra fila es otro
+  // formulario, por lo mismo que `PiezaDeLaPantalla` lo remonta con esa `key`.
+  const apertura = `${acto.clave}|${JSON.stringify(interaccion.abierto?.parametros ?? {})}`;
+  const [aqui, setAqui] = useState<TecleadoDeUnActo>(() => inicialDe(acto.campos));
+  const fuera = interaccion.tecleadoDeLosActos;
+  const tecleado: TecleadoDeUnActo = fuera === undefined ? aqui : (fuera.leer(apertura) ?? inicialDe(acto.campos));
+  const { valores, observacion, intentado } = tecleado;
+  /** `undefined` es «nada escrito»: fuera, quita la apertura; aqui, vuelve al inicial. */
+  const cambiarLoTecleado = (cambio: (antes: TecleadoDeUnActo) => TecleadoDeUnActo | undefined): void => {
+    if (fuera === undefined) {
+      setAqui((antes) => cambio(antes) ?? inicialDe(acto.campos));
+      return;
+    }
+    fuera.cambiar(apertura, (antes) => cambio(antes ?? inicialDe(acto.campos)));
+  };
+  const marcarIntentado = (): void => {
+    cambiarLoTecleado((antes) => (antes.intentado ? antes : { ...antes, intentado: true }));
+  };
   const [enCurso, setEnCurso] = useState(false);
   const [rechazado, setRechazado] = useState(false);
   const [fase, setFase] = useState<Fase>('escribiendo');
   const [confirmando, setConfirmando] = useState(false);
+  /** Se acaba de descartar: la region viva lo dice hasta el siguiente cambio (#86). */
+  const [descartado, setDescartado] = useState(false);
   // La segunda pulsacion de un doble clic llega antes de que se pinte «en curso»: la referencia no
   // espera a pintar. Sin ella, dos pulsaciones son dos altas, y la segunda contesta «ya existe».
   const enVuelo = useRef(false);
@@ -111,11 +156,33 @@ export function ActoDeLaPantalla({ acto, datos, traducir, textos, interaccion }:
   const atendido = atiende(interaccion.actos, acto.clave);
   const motivo = motivoDelActo(acto, { valores, observacion, enCurso, nombrados, traducir, textos, atendido });
   const errorDeLaObservacion = intentado ? motivoDeLaObservacion(acto, observacion, textos) : undefined;
+  // Los de los campos, solo si la definicion los pide y tras el primer intento (#86, H07). Son los
+  // MISMOS que el motivo del primario enumera: la regla es `camposQueFaltan`, y no una segunda.
+  const faltan =
+    acto.errores === 'trasElPrimerIntento' && intentado ? camposQueFaltan(acto.campos, valores) : [];
+  const errorDelCampo = (campo: CampoDelActo): string | undefined => {
+    if (!faltan.includes(campo)) return undefined;
+    const propio = 'mensajes' in campo ? campo.mensajes?.obligatorio : undefined;
+    return propio === undefined ? textos.campoObligatorio : texto(propio);
+  };
 
   const ensuciar = () => {
+    // CADA cambio marca, si la definicion lo pide (#86); el aviso de siempre, una vez por apertura.
+    interaccion.marcarSucia();
+    if (descartado) setDescartado(false);
     if (ensuciada.current) return;
     ensuciada.current = true;
     interaccion.alEnsuciar();
+  };
+
+  /** Vacia lo escrito, el intento y el rechazo, y lo dice (#86, `descartar-lo-escrito`). */
+  const descartar = () => {
+    cambiarLoTecleado(() => undefined);
+    setRechazado(false);
+    // Vacio, el acto esta como recien abierto: la siguiente tecla vuelve a ensuciar.
+    ensuciada.current = false;
+    setDescartado(true);
+    interaccion.alDescartar(apertura);
   };
 
   const enviar = () => {
@@ -130,8 +197,10 @@ export function ActoDeLaPantalla({ acto, datos, traducir, textos, interaccion }:
       if (bien) {
         setFase('hecho');
         interaccion.alQuedarGuardada();
+        if (acto.alTerminar !== undefined) avisar(texto(acto.alTerminar.aviso));
       } else {
         setRechazado(true);
+        if (acto.alFallar !== undefined) avisar.error(texto(acto.alFallar.aviso));
       }
     };
     let resultado: unknown;
@@ -161,7 +230,7 @@ export function ActoDeLaPantalla({ acto, datos, traducir, textos, interaccion }:
 
   const alEnviar = (evento: FormEvent<HTMLFormElement>) => {
     evento.preventDefault();
-    setIntentado(true);
+    marcarIntentado();
     if (motivo !== undefined) return;
     if (acto.advertencia === undefined) enviar();
     else setConfirmando(true);
@@ -184,7 +253,14 @@ export function ActoDeLaPantalla({ acto, datos, traducir, textos, interaccion }:
           {textos.cerrarElActo}
         </BotonConMotivo>
       </div>
-      {acto.nota === undefined || acto.nota === '' ? null : <TarjetaNota>{texto(acto.nota)}</TarjetaNota>}
+      {acto.notaConMarcas !== undefined && acto.notaConMarcas.length > 0 ? (
+        // Gana a `nota` (#86, `texto-con-marcas`), con los datos de la pantalla y los de la fila.
+        <TarjetaNota>
+          <ProsaConMarcas marcas={acto.notaConMarcas} nombrados={nombrados} traducir={traducir} ausente={textos.datoAusente} />
+        </TarjetaNota>
+      ) : acto.nota === undefined || acto.nota === '' ? null : (
+        <TarjetaNota>{texto(acto.nota)}</TarjetaNota>
+      )}
 
       {fase === 'hecho' ? (
         <div data-fase-del-acto="hecho" className="flex flex-col gap-[10px] px-[15px] py-[14px]">
@@ -232,9 +308,10 @@ export function ActoDeLaPantalla({ acto, datos, traducir, textos, interaccion }:
                       })()
                 }
                 ausencia={datos.ausencia}
+                error={errorDelCampo(campo)}
                 alCambiar={(valor) => {
                   ensuciar();
-                  setValores((antes) => ({ ...antes, [campo.nombre]: valor }));
+                  cambiarLoTecleado((antes) => ({ ...antes, valores: { ...antes.valores, [campo.nombre]: valor } }));
                 }}
                 traducir={traducir}
                 textos={textos}
@@ -251,7 +328,8 @@ export function ActoDeLaPantalla({ acto, datos, traducir, textos, interaccion }:
                 value={observacion}
                 onChange={(evento) => {
                   ensuciar();
-                  setObservacion(evento.target.value);
+                  const escrita = evento.target.value;
+                  cambiarLoTecleado((antes) => ({ ...antes, observacion: escrita }));
                 }}
               />
             </Etiqueta>
@@ -264,17 +342,45 @@ export function ActoDeLaPantalla({ acto, datos, traducir, textos, interaccion }:
               idDelMotivo={idDelMotivo}
               enCurso={enCurso}
               alPulsarImpedido={() => {
-                setIntentado(true);
+                marcarIntentado();
               }}
             >
               {texto(acto.titulo)}
             </BotonConMotivo>
+            {acto.descartar === undefined ? null : (
+              <BotonConMotivo
+                type="button"
+                variante="secundario"
+                data-descartar={acto.clave}
+                // Solo mientras viaja, y con el MISMO parrafo que el primario: los dos dicen lo mismo.
+                motivo={enCurso ? textos.escribiendo : undefined}
+                idDelMotivo={idDelMotivo}
+                onClick={descartar}
+              >
+                {texto(acto.descartar.rotulo)}
+              </BotonConMotivo>
+            )}
             {motivo === undefined ? null : (
               <p id={idDelMotivo} data-slot="motivo" className="m-0 min-w-[180px] flex-1 text-[12.5px] leading-[1.5] text-tinta-3 text-pretty">
                 {motivo}
               </p>
             )}
           </div>
+          {/* La region viva existe desde que el acto se abre, vacia: un `role="status"` que aparece
+              ya con el texto dentro no lo anuncian todos los lectores de pantalla. */}
+          {acto.descartar === undefined ? null : (
+            <p
+              role="status"
+              data-slot="lo-descartado"
+              className={descartado ? 'm-0 px-[15px] pb-3 text-[12.5px] leading-[1.5] text-tinta-2 text-pretty' : 'm-0'}
+            >
+              {descartado
+                ? acto.descartar.dicho === undefined
+                  ? textos.loEscritoSeDescarto
+                  : texto(acto.descartar.dicho)
+                : null}
+            </p>
+          )}
         </form>
       )}
 

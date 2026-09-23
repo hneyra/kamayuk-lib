@@ -1,9 +1,11 @@
-import type { Nombrados } from './componer.ts';
-import type { CeldaDeLaTabla, DatoConNombre } from './datos.ts';
+import { type Nombrados, seCumple } from './componer.ts';
+import type { CeldaDeLaTabla, DatoConNombre, FilaDeLaTabla } from './datos.ts';
 import type {
   AccionDeFila,
   AccionesPorFila,
+  ChipDelFiltro,
   DefinicionDePantalla,
+  FiltroLocalDeLaTabla,
   PaginacionDeLaTabla,
   PiezaDeLaPantalla,
   ReglaDeLaInsignia,
@@ -22,6 +24,9 @@ import type {
  * **Desde #61 son cinco**: ademas, que pagina se ve (`paginaDeLaTabla`) y que dice una celda
  * (`textoDeLaCelda`, `notaDeLaCelda`). La de la pagina es la que mas gana con ser pura: se prueba
  * con 54 129 filas sin montar ni una.
+ *
+ * **Y desde #86, siete**: que filas deja el filtro local (`filtrarLasFilas`) y que dice su conteo
+ * (`conteoDelFiltro`).
  */
 
 /**
@@ -223,4 +228,83 @@ function enteroNoNegativo(texto: string | null): number | undefined {
 function enteroPositivo(texto: string | null): number | undefined {
   const entero = enteroNoNegativo(texto);
   return entero === undefined || entero === 0 ? undefined : entero;
+}
+
+/**
+ * **Lo que se ha elegido en el filtro local de una tabla** (#86, `filtro-en-el-cliente-con-conteo`):
+ * lo tecleado en el buscador y los indices de los chips pulsados. Vive en el estado de la tabla, y
+ * nunca en la ruta: ver `FiltroLocalDeLaTabla`.
+ */
+export interface FiltroElegido {
+  readonly busqueda: string;
+  readonly chips: readonly number[];
+}
+
+/** Nada elegido: la tabla ensena todo lo que llego. */
+export const SIN_FILTRO: FiltroElegido = { busqueda: '', chips: [] };
+
+/** Si hay algo elegido. Unos blancos en el buscador no son una busqueda. */
+export const filtroPuesto = (elegido: FiltroElegido): boolean => elegido.busqueda.trim() !== '' || elegido.chips.length > 0;
+
+/** Sin mayusculas y sin tildes: «bodega» encuentra «Bódega», y «ANULADO» encuentra «anulado». */
+const comparable = (texto: string): string => texto.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+
+/**
+ * **Las filas que deja el filtro local**, en su orden (#86, `filtro-en-el-cliente-con-conteo`).
+ *
+ * Pura y aparte de la pieza por lo mismo que `paginaDeLaTabla`: la regla de que fila pasa es la que
+ * hay que poder recorrer entera, y se prueba sin montar. Recibe **las filas que llegaron** —la pagina
+ * del servidor, o todas en la paginacion de cliente, antes de cortar— y no pide nada: no hay nada
+ * aqui que pueda llegar a una ruta ni a un servidor.
+ *
+ *   · El buscador busca lo tecleado —recortado— en el texto de las celdas de `columnas`, o de todas.
+ *     Una celda sin dato (`null`) no casa con nada: no hay texto en el que buscar.
+ *   · Los chips pulsados leen los `datos` de la fila con `seCumple`, nunca el texto de la celda. Los
+ *     del mismo dato se suman; los de datos distintos se cruzan.
+ */
+export function filtrarLasFilas(
+  filtro: FiltroLocalDeLaTabla<Texto>,
+  filas: readonly FilaDeLaTabla[],
+  elegido: FiltroElegido,
+): readonly FilaDeLaTabla[] {
+  const buscado = comparable(elegido.busqueda.trim());
+  const columnas = filtro.buscador?.columnas;
+  const porDato = new Map<string, ChipDelFiltro<Texto>[]>();
+  for (const indice of elegido.chips) {
+    const chip = filtro.chips?.[indice];
+    if (chip !== undefined) porDato.set(chip.si.dato, [...(porDato.get(chip.si.dato) ?? []), chip]);
+  }
+
+  return filas.filter((fila) => {
+    if (buscado !== '') {
+      const celdas = columnas === undefined ? fila.celdas : columnas.flatMap((j) => fila.celdas.slice(j, j + 1));
+      const casa = celdas.some((celda) => {
+        const leido = textoDeLaCelda(celda);
+        return leido !== null && comparable(leido).includes(buscado);
+      });
+      if (!casa) return false;
+    }
+    for (const delMismoDato of porDato.values()) {
+      if (!delMismoDato.some((chip) => seCumple(chip.si, fila.datos))) return false;
+    }
+    return true;
+  });
+}
+
+/** Lo que el conteo del filtro dice: las que deja, las que llegaron y, solo si el sistema lo dio, el total. */
+export interface ConteoDelFiltro {
+  readonly visibles: number;
+  readonly recibidas: number;
+  /** Tal como lo dio el sistema. Ausente si no lo dio: **no se deduce de las filas que llegaron**. */
+  readonly total?: string;
+}
+
+/**
+ * **El conteo de un filtro puesto** (#86). `total` es el valor del dato que la definicion nombra en
+ * `filtroLocal.total`, tal como llego; un dato ausente, `null`, `''` o un booleano no es un total, y
+ * entonces el conteo no escribe ninguno. Contar las filas recibidas y llamarlo total afirmaria que no
+ * hay mas justo en la paginacion de servidor, donde las hay.
+ */
+export function conteoDelFiltro(visibles: number, recibidas: number, total: DatoConNombre | undefined): ConteoDelFiltro {
+  return typeof total === 'string' && total !== '' ? { visibles, recibidas, total } : { visibles, recibidas };
 }

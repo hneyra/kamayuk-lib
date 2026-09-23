@@ -124,6 +124,10 @@ export interface CampoDeLista<O extends OpcionDelCampo = string> {
   readonly ayuda?: string;
   /** Donde vive lo elegido en la ruta de la hoja (#94). Sin ella, se queda en la pantalla. */
   readonly eleccion?: EleccionDelCampo;
+  /** Se puede dejar sin elegir, y se marca asi (#86, `obligatorio-u-opcional-por-campo`). */
+  readonly opcional?: boolean;
+  /** Lo que se dice bajo el campo cuando falta y es obligatorio (#86). Ver `MensajesDelCampo`. */
+  readonly mensajes?: MensajesDelCampo;
 }
 
 /**
@@ -144,6 +148,12 @@ export interface CampoDeSoloLectura {
    * el valor del campo o, con `segun`, un dato de `DatosDeLaPantalla.nombrados`.
    */
   readonly insignia?: ReglaDeLaInsignia;
+  /**
+   * La linea de debajo (#86, `ayuda-en-un-campo-de-solo-lectura`): de donde sale el dato, o por que
+   * aqui no se corrige —«lo calcula el servidor con la tabla vigente»—. Es una frase, y pasa por
+   * `traducir`. Hasta #86 un campo de solo lectura la callaba aunque la definicion la trajera.
+   */
+  readonly ayuda?: string;
   // **Aqui no hay `eleccion` (#94)**: un campo de solo lectura muestra lo que otro decidio, y no
   // hay nada que elegir. No hace falta un `eleccion?: never` para impedirlo —se escribio, se midio
   // y sobraba—: `DefinicionDeCampo` esta discriminada por `tipo`, asi que TypeScript estrecha a
@@ -177,7 +187,12 @@ export interface CampoDeEntrada {
   /** El nombre del campo del contrato, junto a la etiqueta (#61, `cabecera-con-campo-y-dominio`). */
   readonly campo?: string;
   readonly tipo: TipoDeEntrada;
-  /** La linea de ayuda. La mayoria no la lleva. Si dice «opcional», el campo se marca como tal. */
+  /**
+   * La linea de ayuda. La mayoria no la lleva. **Ya no decide si el campo es opcional** (#86): hasta
+   * aqui una ayuda que dijera «opcional» marcaba el campo, y la regla fallaba por los dos lados —una
+   * ayuda traducida o que no lo nombraba dejaba sin marca lo opcional, y «no es opcional» lo marcaba—.
+   * Eso lo dice `opcional`.
+   */
   readonly ayuda?: string;
   /**
    * El texto gris dentro del campo vacio (#65, `marcador`): «el numero que devolvio el alta». Es una
@@ -191,6 +206,27 @@ export interface CampoDeEntrada {
    * ordena; lo que se LEE en el campo sigue siendo `dd/mm/aaaa`. Ver `fecha.ts`.
    */
   readonly eleccion?: EleccionDelCampo;
+  /**
+   * **Se puede dejar en blanco, y se marca «(opcional)»** (#86, `obligatorio-u-opcional-por-campo`).
+   *
+   * Es un dato y no una deduccion: lo mismo que en un acto (`CampoDelActo.opcional`) decide si el
+   * campo es obligatorio al enviar, aqui decide la marca. Una sola fuente para las dos cosas: un
+   * campo marcado «(opcional)» que el acto exigia —o al reves— es lo que la regla vieja permitia.
+   */
+  readonly opcional?: boolean;
+  /** Lo que se dice bajo el campo cuando falta y es obligatorio (#86). Ver `MensajesDelCampo`. */
+  readonly mensajes?: MensajesDelCampo;
+}
+
+/**
+ * **Lo que un campo dice de si mismo cuando esta mal** (#86, `errores-tras-el-primer-intento`).
+ *
+ * Solo `obligatorio` por ahora: es el unico error que el interprete sabe ver sin preguntar al
+ * servidor. Sin el, la frase del saco (`textos.campoObligatorio`). Un `Texto`, asi que puede llevar
+ * un dato: «Falta el codigo del grupo {grupo}».
+ */
+export interface MensajesDelCampo {
+  readonly obligatorio?: Texto;
 }
 
 /** Un campo de un bloque, discriminado por su `tipo`. Generico en las opciones de su lista (#65). */
@@ -307,6 +343,69 @@ export interface DefinicionDeTabla<T extends Texto = string> {
    * Con ellas, la tabla **no mira los datos**: ni la ausencia, ni el vacio, ni `filas`.
    */
   readonly filasDeContenido?: readonly (readonly T[])[];
+  /**
+   * **Un buscador y unos chips que acotan las filas que YA llegaron** (#86,
+   * `filtro-en-el-cliente-con-conteo`). Sin el, la tabla no ofrece ningun filtro, como hasta #86.
+   * Ver `FiltroLocalDeLaTabla`.
+   */
+  readonly filtroLocal?: FiltroLocalDeLaTabla<T>;
+}
+
+/**
+ * **Un filtro que no sale de la pantalla** (#86, `filtro-en-el-cliente-con-conteo`, H02 de
+ * `normativa`).
+ *
+ * <h2>No viaja: ni a la ruta ni al servidor, y es a proposito</h2>
+ *
+ * Es lo contrario del campo con `eleccion` de #94, que escribe en la ruta para que el sistema pida
+ * otra lectura. Esto acota **las filas que el servidor ya mando** —la pagina que llego o, con la
+ * paginacion en cliente, todas las recibidas **antes** de cortar la pagina—, y lo que se elige vive
+ * en el estado de la tabla. Mandarlo seria pedir algo que el backend no admite: un `?estado=` que no
+ * esta en su lista blanca es un 422. Por eso tampoco ensucia la hoja: no es trabajo sin guardar.
+ *
+ * <h2>El conteo dice la diferencia, para que no se lea como filas que faltan</h2>
+ *
+ * Con el filtro puesto, la barra dice «N de M» —las que deja de las que llegaron— en una region viva,
+ * y «T en total» **solo si el sistema dio `total`**: M es lo que hay delante, y el total del
+ * servidor no se deduce de una pagina. Las palabras son del saco (`textos.filasQueDejaElFiltro`),
+ * como «Pagina N de M»: la mecanica es de la definicion y el idioma no.
+ *
+ * <h2>Lo que dice una tabla que el filtro deja sin filas NO es su `vacio`</h2>
+ *
+ * `vacio` es «la lectura contesto una lista vacia» (#65); aqui la lista llego con filas y es el
+ * filtro el que no deja ninguna. Se dice con `sinCoincidencias` o con la frase del saco, y la salida
+ * es quitar el filtro, que esta a la vista.
+ */
+export interface FiltroLocalDeLaTabla<T extends Texto = string> {
+  readonly buscador?: BuscadorDeLaTabla<T>;
+  /**
+   * Los chips, en su orden. Pulsados varios, **los del mismo dato se suman y los de datos distintos
+   * se cruzan**: «Vigentes» y «Anulados» dejan los dos estados; «Vigentes» y «Con cita», las vigentes
+   * que tienen cita.
+   */
+  readonly chips?: readonly ChipDelFiltro<T>[];
+  /** El nombre del dato con cuantas filas hay EN TOTAL, si el servidor lo dice. Sin el, no se escribe. */
+  readonly total?: string;
+  /** Lo que se dice cuando el filtro no deja ninguna. Sin ella, `textos.ningunaPasaElFiltro`. */
+  readonly sinCoincidencias?: T;
+}
+
+/** La caja de busqueda: busca lo tecleado en las celdas, sin distinguir mayusculas ni tildes. */
+export interface BuscadorDeLaTabla<T extends Texto = string> {
+  /** Su nombre accesible. Obligatorio: no se dibuja rotulo a la vista, y un campo sin nombre no se encuentra. */
+  readonly rotulo: T;
+  readonly marcador?: T;
+  /** Los indices de las columnas en que busca. Sin ellos, en todas. */
+  readonly columnas?: readonly number[];
+}
+
+/**
+ * Un chip: un boton que se queda pulsado (`aria-pressed`) y deja las filas cuyos datos cumplen `si`.
+ * Es la `Condicion` de #44, leida contra los `datos` de cada fila: el chip no mira el texto de la celda.
+ */
+export interface ChipDelFiltro<T extends Texto = string> {
+  readonly rotulo: T;
+  readonly si: Condicion;
 }
 
 /**
@@ -527,6 +626,44 @@ export type Texto =
     };
 
 /**
+ * **Un tramo de una frase con marcas** (#86, `texto-con-marcas`): texto corrido, codigo o enfasis.
+ *
+ * Los `?: never` son los de `DefinicionDeAccion`: sin ellos TypeScript admite `{ texto, codigo }`,
+ * porque en una union la comprobacion de propiedades de mas mira todas las ramas a la vez, y un
+ * tramo que fuera las dos cosas no tiene ninguna lectura.
+ */
+export type TramoConMarca<T extends Texto = Texto> =
+  | { readonly texto: T; readonly codigo?: never; readonly fuerte?: never }
+  | { readonly codigo: T; readonly texto?: never; readonly fuerte?: never }
+  | { readonly fuerte: T; readonly texto?: never; readonly codigo?: never };
+
+/**
+ * **Una frase con `code` y `strong` DENTRO** (#86, `texto-con-marcas`, N6 de `normativa`).
+ *
+ * «Lo impide `{restriccion}`: **no se puede deshacer**» es UNA frase. Con el texto como dato, la
+ * marca no puede ser JSX suelto —la definicion no es codigo de React—, y partirla en tres piezas
+ * de la pantalla la dejaria en tres parrafos. Asi que la frase es una lista de tramos, en su orden,
+ * y el interprete dibuja cada uno con su elemento: `texto` tal cual, `codigo` en `<code>` y
+ * `fuerte` en `<strong>`.
+ *
+ * <h2>Que pasa por `traducir`, tramo a tramo</h2>
+ *
+ * Cada tramo es un `Texto`, y se resuelve como cualquiera —una plantilla, un dato, un caso—, con
+ * una diferencia: **el tramo `codigo` no se traduce**, igual que el nombre de un campo del contrato
+ * o una operacion del pie. Es codigo, y traducirlo lo cambia. Se traducen `texto` y `fuerte`, cada
+ * uno por separado: la clave de traduccion es el tramo.
+ *
+ * <h2>Por que no es otra forma de `Texto`</h2>
+ *
+ * Porque `Texto` se resuelve a `string` (`resolverTexto`) y **eso es lo que leen los sistemas**: lo
+ * meten en un `aria-label`, en un `title`, en una lista de claves. Una forma que se dibuja como
+ * elementos no cabe en ninguno de esos sitios, y anadirla a `Texto` ensancharia cada campo que ya
+ * es un `Texto`. Por eso entra solo donde se dibuja como prosa —la nota de un bloque y la de un
+ * acto— y por un campo aparte: ver `DefinicionDeBloque.notaConMarcas`.
+ */
+export type TextoConMarcas<T extends Texto = Texto> = readonly TramoConMarca<T>[];
+
+/**
  * Cuando una pieza **existe** (#44, `pieza-condicional`).
  *
  * Lee `DatosDeLaPantalla.nombrados`. Un dato ausente no cumple `vale`: el aviso de «no esta
@@ -591,6 +728,27 @@ export interface DefinicionDeBloque<
   /** Que ES esta parte de la pantalla. Vacia cuando el titulo ya lo dice todo. */
   readonly nota: T;
   /**
+   * **La nota, con `code` y `strong` dentro de la frase** (#86, `texto-con-marcas`). Gana a `nota`
+   * si el bloque trae las dos, y se escribe con `nota: ''`.
+   *
+   * <h2>Por que es un campo aparte y no `nota: T | TextoConMarcas<T>`</h2>
+   *
+   * **Medido, no supuesto**, por la misma regla que dejo `vacioConSalida` fuera de `vacio`: con la
+   * union, lo que ya lee `nota` como un `Texto` deja de compilar. En este repositorio son los dos
+   * sitios que la dibujan, y son exactamente lo que escribe una pieza del consumidor con el
+   * `resolverTexto` que el indice publica para eso:
+   *
+   * ```
+   * paquetes/ui/interprete/BloqueDeLaPantalla.tsx(101,48): error TS2345: Argument of type
+   *   'Texto | TextoConMarcas<Texto>' is not assignable to parameter of type 'Texto'.
+   * ```
+   *
+   * Con el tipo condicional —`[T] extends [string] ? T : …`— el de por omision seguia siendo
+   * `string` y `rentas` no lo notaba; quien lo notaba era `DefinicionDeBloque<Texto>`, que es la
+   * que recorren los sistemas que usan las piezas. Aparte, no lo nota nadie.
+   */
+  readonly notaConMarcas?: TextoConMarcas<T>;
+  /**
    * Los campos del grupo. Vacio en los bloques que solo traen una tabla. En la de hoy sus listas son
    * de cadenas; en la de las piezas admiten `{ valor, rotulo }` (#65).
    */
@@ -613,6 +771,25 @@ export interface DefinicionDeBloque<
    * cabecera. Ver `tipos-de-los-actos.ts`.
    */
   readonly acciones?: readonly DefinicionDeAccion[];
+  /**
+   * **Insignias fijas en la cabecera, junto al titulo** (#86, `insignias-fijas-en-la-cabecera`):
+   * «Vigente», «Solo lectura». Van FUERA del encabezado, asi que el nombre accesible del titulo no
+   * cambia: quien salta de encabezado en encabezado oye «Detalle del registro» y no «Detalle del
+   * registro Vigente Solo lectura».
+   */
+  readonly insignias?: readonly InsigniaDeLaCabecera<T>[];
+  /** Lo que va a la derecha de la cabecera: el codigo de lo que se mira, «R-00042» (#86). */
+  readonly aLaDerecha?: { readonly codigo: T };
+}
+
+/**
+ * Una insignia de la cabecera de un bloque (#86). **El tono es dato**, como en toda insignia desde
+ * #65: nunca se deduce del texto. Es fija —no hay regla que la cambie segun un dato—; el texto si
+ * puede llevar uno, porque es un `Texto`.
+ */
+export interface InsigniaDeLaCabecera<T extends Texto = Texto> {
+  readonly tono: TonoDeInsignia;
+  readonly texto: T;
 }
 
 /** Un aviso con tono, titulo y parrafo (#44, `aviso`). Es la `Alerta`, como dato. */
@@ -753,6 +930,39 @@ export interface DefinicionDePantalla<Pieza extends PiezaDeLaPantalla = Definici
    */
   readonly instruccion: string;
   readonly bloques: readonly Pieza[];
+  /**
+   * **Como lleva esta hoja la marca de sucia y lo tecleado** (#86). Sin ella, como hasta #86: la
+   * hoja solo se ensucia si el sistema cablea `alEnsuciar`, y lo tecleado muere con la pantalla.
+   */
+  readonly hoja?: ComportamientoDeLaHoja;
+}
+
+/**
+ * **La marca de sucia y lo tecleado, como dato de la hoja** (#86).
+ *
+ * <h2>`suciaAlTeclear` — `la-hoja-se-marca-sucia-al-teclear`</h2>
+ *
+ * Con ella —y una `<Pantalla hoja>` que traiga `marcarSucia`— **cada** cambio que ensucia llama a
+ * `hoja.marcarSucia()`, y al guardar un acto la hoja se limpia y lo tecleado se vacia. Hasta aqui el
+ * aviso salia solo con la PRIMERA tecla de la vida de la pantalla y lo tecleado no se vaciaba nunca,
+ * asi que una hoja guardada no podia volver a ensuciarse: la segunda tanda de cambios se perdia sin
+ * preguntar.
+ *
+ * El issue la escribia con `limpiaAl: ['guardar', 'descartar']`. **No entra**, y es criterio y no
+ * olvido: una lista cuyo unico valor con sentido es la lista entera es un dato que solo se puede
+ * escribir mal —una hoja que siguiera sucia despues de guardar es el defecto de este hueco—.
+ *
+ * <h2>`conservaLoTecleado` — `lo-tecleado-y-la-negativa-sobreviven`</h2>
+ *
+ * **Solo `'soloSiSucia'`, la opcion C que se decidio.** Con ella, y una `<Pantalla hoja>` que traiga
+ * `alTeclear`, lo tecleado —en los campos y en los actos— vive en el marco y no en la pantalla, y
+ * sobrevive a irse y volver **mientras la hoja siga sucia**. Es una union de un valor a proposito: la
+ * A (siempre) y la B (nunca, la de normativa#58) se miraron, y el dia que una hoja demuestre que
+ * necesita otra entra como otro valor sin tocar a nadie.
+ */
+export interface ComportamientoDeLaHoja {
+  readonly suciaAlTeclear?: boolean;
+  readonly conservaLoTecleado?: 'soloSiSucia';
 }
 
 /**

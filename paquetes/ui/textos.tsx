@@ -199,6 +199,25 @@ export interface TextosDeLasPiezas {
   readonly celdaSinDato: string;
   /** Y por que esta vacia, anunciado en la celda. Nunca una celda en blanco y sin motivo. */
   readonly porQueLaCeldaNoTieneDato: string;
+
+  // ── Los campos, los actos y la prosa (#86) ────────────────────────────────────────────────────
+  /** Lo que se anuncia tras descartar lo escrito en un acto, si su definicion no da su `dicho`. */
+  readonly loEscritoSeDescarto: string;
+  /** El error bajo un campo obligatorio vacio, tras el primer intento, si el campo no dice el suyo. */
+  readonly campoObligatorio: string;
+  /** El nombre accesible del grupo del buscador y los chips de una tabla, con su nombre dentro. */
+  readonly filtrarLaTabla: (tabla: string) => string;
+  /**
+   * «N de M», o «N de M · T en total» cuando el sistema dio el total. Las cifras van donde el idioma
+   * las ponga. **Sin total, no se escribe ninguno**: M es lo que llego, no lo que hay.
+   */
+  readonly filasQueDejaElFiltro: (visibles: number, recibidas: number, total: string | undefined) => string;
+  /** Lo que se dice cuando el filtro no deja ninguna fila. NO es el `vacio` de la tabla: la lista llego con filas. */
+  readonly ningunaPasaElFiltro: string;
+  /** Por que no se puede guardar todavia: el dato con el texto —o con su nombre— aun no llego. */
+  readonly faltaParaGuardar: (nombre: string) => string;
+  /** Por que no se puede guardar en este navegador, si la accion no dice su propia frase. Nunca un boton mudo. */
+  readonly sinDescarga: string;
 }
 
 /** Lo que se ve si nadie pasa nada. */
@@ -255,6 +274,16 @@ export const TEXTOS_DE_LAS_PIEZAS: TextosDeLasPiezas = {
   mandosDeLaTabla: (tabla) => `Mandos de «${tabla}»`,
   celdaSinDato: '—',
   porQueLaCeldaNoTieneDato: 'Aqui no hay dato, y no es un cero.',
+
+  // #86
+  loEscritoSeDescarto: 'Se descarto lo escrito: el formulario esta como al abrirlo.',
+  campoObligatorio: 'Hay que rellenarlo para poder enviar.',
+  filtrarLaTabla: (tabla) => `Filtrar «${tabla}»`,
+  filasQueDejaElFiltro: (visibles, recibidas, total) =>
+    `${String(visibles)} de ${String(recibidas)}${total === undefined ? '' : ` · ${total} en total`}`,
+  ningunaPasaElFiltro: 'Ninguna de las filas que llegaron pasa el filtro. Quitelo para verlas todas.',
+  faltaParaGuardar: (nombre) => `Todavia no se ha leido «${nombre}»: no hay nada que guardar.`,
+  sinDescarga: 'Este navegador no permite guardar archivos desde la pagina.',
 };
 
 /** Los dos sacos que `Pantalla` recibe juntos, y lo que una pieza del consumidor recibe ya fundido. */

@@ -1,7 +1,7 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, RouterProvider, createHashRouter, useLocation, useNavigate } from 'react-router-dom';
 
-import { Avisos, type CambioDeLaRuta, type RutaDeLaHoja } from '../ui/index.ts';
+import { Avisos, type CambioDeLaRuta, type LoTecleado, type RutaDeLaHoja } from '../ui/index.ts';
 
 import { AccionesAlPie } from './AccionesAlPie.tsx';
 import { AvisoDeCambios } from './AvisoDeCambios.tsx';
@@ -93,6 +93,14 @@ import {
  */
 function extraDe(ruta: RutaDeLaHoja): ExtraDeLaPeticion {
   return { ...(ruta.sujeto === null ? {} : { sujeto: ruta.sujeto }), parametros: ruta.parametros };
+}
+
+/** El registro sin la entrada de un destino. El mismo objeto si no la tenia: no hay nada que pintar. */
+function sinElDestino<T>(registro: ReadonlyMap<string, T>, clave: string): ReadonlyMap<string, T> {
+  if (!registro.has(clave)) return registro;
+  const queda = new Map(registro);
+  queda.delete(clave);
+  return queda;
 }
 
 /** Los parámetros del marco cuando el sistema no pasa ninguno. Uno solo, para no cambiar en cada pintada. */
@@ -216,6 +224,27 @@ function Cascara() {
   const [consulta, setConsulta] = useState('');
   const [sucias, setSucias] = useState<ReadonlySet<string>>(() => new Set());
   /**
+   * **Lo tecleado de cada hoja, junto a `sucias` y con su misma clave** (#86,
+   * `lo-tecleado-y-la-negativa-sobreviven`, opción C).
+   *
+   * <h2>Por qué aquí, y por qué sólo mientras la hoja está sucia</h2>
+   *
+   * La `key` por destino (normativa#58, H10 de #61) desmonta la pantalla al cambiar de hoja, y con
+   * ella lo que se había tecleado: es lo que impide que lo escrito en una hoja aparezca en otra. La V6
+   * conservaba lo tecleado al volver. Las dos cosas chocaban **sólo porque lo tecleado vivía dentro de
+   * la pantalla que la `key` desmonta**. Aquí arriba la `key` sigue desmontando y lo tecleado no muere.
+   *
+   * La granularidad de `sucias` es exactamente `destino.clave`, y por eso la regla cabe en una línea:
+   * **lo tecleado de una hoja se conserva mientras esa hoja esté en `sucias`**. Salir limpia la
+   * olvida; salir sucia —por un camino que no pasa por `irA`: la dirección escrita a mano, el botón
+   * de atrás, un enlace— la guarda, y el árbol, que dice «SIN GUARDAR», tiene razón al volver. Hasta
+   * aquí decía «SIN GUARDAR» sobre un formulario que la `key` ya había vaciado.
+   *
+   * El marco no conoce la forma de lo tecleado: la pone `@kamayuk/ui` (`LoTecleado`), y aquí sólo se
+   * guarda y se devuelve. Una hoja que no pida conservarlo no escribe nada en este registro.
+   */
+  const [tecleadoPorDestino, setTecleadoPorDestino] = useState<ReadonlyMap<string, LoTecleado>>(() => new Map());
+  /**
    * A dónde se quería ir cuando saltó el aviso. `{ hacia: null }` es «salir a la raíz».
    *
    * Envuelto en un objeto y no como `string | null` a secas: con el segundo, «no hay nada
@@ -230,7 +259,12 @@ function Cascara() {
 
   const indice = useMemo(() => indiceDelCatalogo(catalogo), [catalogo]);
 
-  /** Deja de estar sucia. Se usa desde las tres salidas del aviso y desde la pantalla. */
+  /**
+   * Deja de estar sucia. Se usa desde las tres salidas del aviso y desde la pantalla.
+   *
+   * **Y olvida lo tecleado** (#86): una hoja limpia no guarda nada que conservar. «Salir sin guardar»
+   * y «Guardar y cerrar» pasan por aquí, y volver a la hoja tiene que dar el formulario vacío.
+   */
   const limpiar = useCallback((clave: string) => {
     setSucias((antes) => {
       if (!antes.has(clave)) return antes;
@@ -238,6 +272,7 @@ function Cascara() {
       quedan.delete(clave);
       return quedan;
     });
+    setTecleadoPorDestino((antes) => sinElDestino(antes, clave));
   }, []);
 
   /**
@@ -331,6 +366,22 @@ function Cascara() {
   }, [claveDelIgnorado, ignoradosDeEstaDireccion, pathname, search]);
 
   /**
+   * Al dejar una hoja, **lo tecleado se olvida si no está sucia** (#86, opción C).
+   *
+   * En un efecto sobre el destino, y no dentro de `irA`, por lo mismo que el módulo desplegado: se
+   * sale de una hoja también por caminos que no pasan por `irA`. Corre otra vez cuando cambia
+   * `sucias`, y entonces la hoja «dejada» es la misma que la abierta y no hace nada.
+   */
+  const claveAbierta = hoja?.destino.clave ?? null;
+  const laAnterior = useRef<string | null>(null);
+  useEffect(() => {
+    const dejada = laAnterior.current;
+    laAnterior.current = claveAbierta;
+    if (dejada === null || dejada === claveAbierta || sucias.has(dejada)) return;
+    setTecleadoPorDestino((antes) => sinElDestino(antes, dejada));
+  }, [claveAbierta, sucias]);
+
+  /**
    * El arbol despliega el modulo del DESTINO, y no el que se abrio la ultima vez.
    *
    * Va en un efecto sobre el destino y no dentro de la funcion que navega, y la diferencia se ve al
@@ -378,6 +429,12 @@ function Cascara() {
             marcarGuardada: () => {
               limpiar(hoja.destino.clave);
             },
+            tecleado: tecleadoPorDestino.get(hoja.destino.clave),
+            alTeclear: (cambio) => {
+              setTecleadoPorDestino((antes) =>
+                new Map(antes).set(hoja.destino.clave, cambio(antes.get(hoja.destino.clave))),
+              );
+            },
             ruta: deLaRuta.ruta,
             moverLaRuta: (cambio: CambioDeLaRuta) => {
               const { ruta, ignorados } = aplicarElCambio(hoja.destino, deLaRuta.ruta, cambio);
@@ -386,7 +443,7 @@ function Cascara() {
             },
             marco: marco ?? SIN_MARCO,
           },
-    [hoja, sucias, limpiar, deLaRuta, marco, navegar, alIgnorarDeLaRuta],
+    [hoja, sucias, tecleadoPorDestino, limpiar, deLaRuta, marco, navegar, alIgnorarDeLaRuta],
   );
 
   const aSangre = hoja?.destino.aSangre === true;

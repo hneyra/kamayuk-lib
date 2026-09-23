@@ -222,6 +222,7 @@ export type {
   DefinicionDeActo,
   DestinoDeUnaAccion,
   EnvioDeUnActo,
+  GuardadoComoArchivo,
   HechoDelActo,
   Impedimento,
   ManejadoresDeLasAcciones,
@@ -256,7 +257,27 @@ export type {
   PestanaDeLaPantalla,
 } from './interprete/tipos.ts';
 export type { FilaDeUnaLista } from './interprete/datos.ts';
-export type { CambioDeLaRuta, EnLaRuta, HojaDelMarco, RutaDeLaHoja } from './interprete/hoja.ts';
+export type {
+  CambioDeLaRuta,
+  CambioDeLoTecleado,
+  EnLaRuta,
+  HojaDelMarco,
+  LoTecleado,
+  RutaDeLaHoja,
+  TecleadoDeUnActo,
+} from './interprete/hoja.ts';
+// La marca de sucia y lo tecleado como dato de la hoja (#86).
+export type { ComportamientoDeLaHoja, InsigniaDeLaCabecera, MensajesDelCampo } from './interprete/tipos.ts';
+// La frase con `code` y `strong` dentro (#86, `texto-con-marcas`), y sus dos reglas puras: lo que
+// dice cada tramo y que datos lee, para la guarda del sistema que calcula que poner en `nombrados`.
+export type { TextoConMarcas, TramoConMarca } from './interprete/tipos.ts';
+export type { TramoResuelto } from './interprete/componer.ts';
+export { datosQueLee, resolverMarcas } from './interprete/componer.ts';
+// El filtro que acota lo que llego y no viaja (#86, `filtro-en-el-cliente-con-conteo`), y sus dos
+// reglas puras: que filas deja y que dice su conteo.
+export type { BuscadorDeLaTabla, ChipDelFiltro, FiltroLocalDeLaTabla } from './interprete/tipos.ts';
+export type { ConteoDelFiltro, FiltroElegido } from './interprete/reglas-de-las-tablas.ts';
+export { SIN_FILTRO, conteoDelFiltro, filtrarLasFilas, filtroPuesto } from './interprete/reglas-de-las-tablas.ts';
 export { EL_SUJETO, actoEnLaRuta, cambioEn, valorEnLaRuta } from './interprete/hoja.ts';
 export type { PiezaEnSuSitio } from './interprete/composicion.ts';
 export {
