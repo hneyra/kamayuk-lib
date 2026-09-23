@@ -7,7 +7,24 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+
+/**
+ * **Un sistema de archivos que no ordena** (#126, N3). En Linux el `scandir` de libuv ya devuelve
+ * las entradas ordenadas, asi que ahi quitar el `sort()` de `archivosDe` no cambia nada y la
+ * promesa de su docblock —la misma lista en cualquier sistema de archivos— no se podia medir. Con
+ * `alReves` encendido, `readdirSync` devuelve lo mismo en orden inverso: lo que haria un sistema
+ * de archivos que no ordena. Apagado —el resto del archivo—, es el de verdad.
+ */
+const desorden = vi.hoisted(() => ({ alReves: false }));
+vi.mock('node:fs', async (original) => {
+  const real = await original<typeof import('node:fs')>();
+  const readdirSync = ((...argumentos: Parameters<typeof real.readdirSync>) => {
+    const entradas = real.readdirSync(...argumentos);
+    return desorden.alReves ? [...entradas].reverse() : entradas;
+  }) as typeof real.readdirSync;
+  return { ...real, default: { ...real, readdirSync }, readdirSync };
+});
 
 import {
   APARTADAS,
@@ -117,6 +134,16 @@ describe('el recorredor comun baja y aparta', () => {
 
   it('las carpetas ocultas se saltan cuando se pide, que es lo que hace el guion del arnes', () => {
     expect(recorrido({ extensiones: ['.ts'], ocultas: false })).toEqual(['a/b/c/d/hondo.ts', 'a/dos.ts', 'uno.ts']);
+  });
+
+  it('el orden no es el del sistema de archivos: uno que no ordena da la misma lista', () => {
+    const ordenado = recorrido({ extensiones: ['.ts', '.tsx'], pruebas: true });
+    desorden.alReves = true;
+    try {
+      expect(recorrido({ extensiones: ['.ts', '.tsx'], pruebas: true })).toEqual(ordenado);
+    } finally {
+      desorden.alReves = false;
+    }
   });
 
   it('y solo recoge las extensiones que se le piden', () => {

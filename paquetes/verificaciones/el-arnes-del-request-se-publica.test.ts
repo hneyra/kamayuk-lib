@@ -169,6 +169,15 @@ describe('el guion, en un arbol de consumidor fabricado', () => {
     'src/a/b/c/hondo.ts': COPIA,
     'src/a/b/c/hondo.cjs': "window['Request'] = ElArnes;\n",
     'src/a/uno.test.ts': COPIA,
+    // Una prueba en CADA una de las demas extensiones que el guion lee. Sin ellas, estrechar
+    // `PRUEBAS` a `.ts`/`.tsx` pasaba en verde y ponia rojo al consumidor que escribe un
+    // `.test.js` (#126, N1): el guion lo tomaba por codigo y lo nombraba como copia.
+    'src/a/dos.spec.tsx': COPIA,
+    'src/a/tres.test.mts': COPIA,
+    'src/a/cuatro.spec.cts': COPIA,
+    'src/a/cinco.test.js': COPIA,
+    'src/a/seis.spec.mjs': COPIA,
+    'src/a/siete.test.cjs': COPIA,
     'src/a/b/nota.md': COPIA,
     '.oculto.ts': 'export const x = 1;\n',
     '.claude/worktrees/otro/vitest.setup.ts': COPIA,
