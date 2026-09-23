@@ -28,9 +28,13 @@ navegador, y por eso `sin-suponer-un-sistema` no lo barre.
   forma **no se aplica a `ui` ni a `shell`** y está medido por qué: una lista de clases de Tailwind
   es dos rachas de letras separadas por un espacio, y daría **393 hallazgos en `ui` y 86 en
   `shell`**. Más el arnés de marcas que usan las guardas montadas.
-- `formato-sin-number-ni-date` (#108): barre el código de producción de `paquetes/formato/`, sin
-  comentarios, buscando `Number`, `Date`, `Intl`, `parseInt` y `parseFloat`, con su centinela
-  archivo por archivo y su muestra, de la que exige archivo, línea y palabra de las cinco. Sólo
+- `formato-sin-number-ni-date` (#108): pasa el código de producción de `paquetes/formato/` por el
+  **comprobador de TypeScript**, no por texto, y denuncia `Number`, `Date`, `Intl`, `parseInt` y
+  `parseFloat` como identificador o como cadena exacta, **y la conversión sin la palabra**: un
+  `+`, `-` o `~` unario, o un operador aritmético, sobre lo que no es `number` ni `bigint`, un `as`
+  hacia `number`/`any`/`unknown`/`never`, y una llamada que da `any`. Por texto dejaba pasar
+  `String(+dia)` y un `Number` escondido detrás de un `'//'` dentro de una cadena. Con su centinela
+  archivo por archivo y su muestra, de la que exige archivo, línea y qué de las catorce. Sólo
   `formato`: `api` y `ui` usan `Date` y `Number` con todo derecho, y la promesa de «ni uno» es de
   ese paquete.
 - `lo-que-exports-promete-existe`: lee los seis `package.json` **tal cual**, no una lista escrita a

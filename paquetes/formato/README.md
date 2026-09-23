@@ -4,8 +4,9 @@ Fechas, importes y documento de identidad, copiado **verbatim** de `rentas/front
 
 Es la **hoja limpia del grafo**: no importa nada de nadie, y no hay ni un `Number` ni un `Date` en
 todo el paquete (regla 1). **Lo vigila una guarda**, `formato-sin-number-ni-date` —con `Intl`,
-`parseInt` y `parseFloat`—: hasta #108 se cumplía por costumbre, y había dos `Number` que la CI
-dejaba pasar.
+`parseInt` y `parseFloat`, y con el comprobador de TypeScript, así que tampoco pasa un `+dia` ni un
+`as unknown as number`—: hasta #108 se cumplía por costumbre, y había dos `Number` que la CI dejaba
+pasar.
 
 Lo que es un importe o una fecha **servidos** se decide en un solo sitio, `partir.ts`, interno y sin
 exportar: `formatearImporte`, `compararImportes`, `sumarImportes` y las dos fechas lo usan, y

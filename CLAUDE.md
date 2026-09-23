@@ -117,7 +117,7 @@ peticiones sin ninguna de las cuatro prohibiciones de importes.
 
 | # | Regla | Dónde muerde |
 |---|---|---|
-| 1 | **Importes en texto decimal, jamás `number`** | cuatro prohibiciones, más `@kamayuk/formato`: ni un `Number`, un `Date`, un `Intl`, un `parseInt` ni un `parseFloat` en todo el paquete, que lo vigila `formato-sin-number-ni-date`, con su muestra —hasta #108 se cumplía por costumbre: había dos `Number` y la CI salía verde— |
+| 1 | **Importes en texto decimal, jamás `number`** | cuatro prohibiciones, más `@kamayuk/formato`: ni un `Number`, un `Date`, un `Intl`, un `parseInt` ni un `parseFloat` en todo el paquete, ni una conversión sin la palabra —un `+` unario, un `as unknown as number`—, que lo vigila `formato-sin-number-ni-date` con el comprobador de TypeScript y su muestra —hasta #108 se cumplía por costumbre: había dos `Number` y la CI salía verde— |
 | 2 | **Ningún método recibe `municipalidadId`** | prohibición `municipalidad-en-el-cliente`, más una prueba que espía lo que sale por el cable |
 | 8 | **`alicuota`, nunca `tasa`** | prohibición `tasa-en-vez-de-alicuota` |
 | — | **`fetch` sólo donde debe** | `fetch-fuera-del-cliente`, con **dos** excepciones declaradas |
