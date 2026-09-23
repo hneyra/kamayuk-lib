@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ABRE, CIERRA, marcarElSaco } from '../verificaciones/marcas.ts';
 import { crearIdentidad, type FallaDeLaPuerta, type Identidad } from './identidad.ts';
-import { TEXTOS_DE_LA_PUERTA } from './textos.ts';
+import * as sesion from './index.ts';
+import type { TextosDeLaPuerta as TextosPublicosDeLaPuerta } from './index.ts';
+import { TEXTOS_DE_LA_PUERTA, type TextosDeLaPuerta } from './textos.ts';
 
 /**
  * La puerta de identidad: **PKCE S256, y el token en memoria**.
@@ -912,6 +914,65 @@ describe('#118 AC4 — lo que la puerta dice al no poder entrar sale del saco', 
     elEmisorNoContesta();
     const falla = await crearIdentidad(CONFIGURACION, MARCADOS).entrar();
     expect(falla?.motivo).toBe('Failed to fetch');
+  });
+
+  /**
+   * **Las tres funciones reciben SU dato**, y esto el saco marcado no lo ve: `marcarElSaco` hace
+   * que una funcion devuelva su marca sin mirar el argumento, asi que una puerta que le pasara los
+   * milisegundos en vez de los segundos, un `0` en vez del estado o una `'x'` en vez del codigo del
+   * emisor seguiria saliendo marcada y en verde. Aqui cada funcion devuelve lo que recibio.
+   */
+  const QUE_RECIBE: Partial<TextosDeLaPuerta> = {
+    noContestoEn: (segundos) => `noContestoEn(${String(segundos)})`,
+    elEmisorContesto: (error) => `elEmisorContesto(${error})`,
+    elCanjeVolvioCon: (estado) => `elCanjeVolvioCon(${String(estado)})`,
+  };
+
+  it('`noContestoEn` recibe los SEGUNDOS de la espera, no los milisegundos', async () => {
+    ubicacion();
+    const agotada = new Error('the operation was aborted');
+    agotada.name = 'TimeoutError';
+    elEmisorNoContesta(agotada);
+
+    const falla = await crearIdentidad(CONFIGURACION, QUE_RECIBE).entrar();
+
+    // La sonda espera ocho segundos (`ESPERA_DE_LA_SONDA = 8_000` en `identidad.ts`).
+    expect(falla?.motivo).toBe('noContestoEn(8)');
+  });
+
+  it('`elEmisorContesto` recibe el codigo de OAuth que mando el emisor', async () => {
+    ubicacion('http://localhost:5173/?error=temporarily_unavailable');
+
+    const vuelta = await crearIdentidad(CONFIGURACION, QUE_RECIBE).canjearSiVuelve();
+
+    expect(vuelta).toMatchObject({
+      estado: 'fallo',
+      detalle: 'elEmisorContesto(temporarily_unavailable)',
+    });
+  });
+
+  it('`elCanjeVolvioCon` recibe el estado HTTP con el que volvio el canje', async () => {
+    vuelveYElCanje(() => Promise.resolve(new Response(null, { status: 401 })));
+
+    const vuelta = await crearIdentidad(CONFIGURACION, QUE_RECIBE).canjearSiVuelve();
+
+    expect(vuelta).toMatchObject({ estado: 'fallo', detalle: 'elCanjeVolvioCon(401)' });
+  });
+
+  it('el saco y su tipo se publican por `index.ts`: sin ellos, un sistema no puede traducir', async () => {
+    // Un consumidor importa `@kamayuk/sesion`, que es este `index.ts`, y no `textos.ts`. El tipo
+    // lo vigila el compilador —sin la exportacion, `yarn typecheck` sale con TS2724— y el valor,
+    // esta prueba.
+    const traduccion: Partial<TextosPublicosDeLaPuerta> = {
+      laVueltaNoCuadraConLaIda: 'The way back does not match the way in',
+    };
+    expect(sesion.TEXTOS_DE_LA_PUERTA).toBe(TEXTOS_DE_LA_PUERTA);
+
+    sessionStorage.setItem(VERIFICADOR, 'el-verificador');
+    sessionStorage.setItem(ESTADO, 'el-estado');
+    ubicacion('http://localhost:5173/?code=un-codigo&state=OTRO');
+    const vuelta = await sesion.crearIdentidad(CONFIGURACION, traduccion).canjearSiVuelve();
+    expect(vuelta).toMatchObject({ motivo: 'The way back does not match the way in' });
   });
 
   it('el `Partial` se funde encima: lo que no se pasa sigue siendo lo de siempre', async () => {

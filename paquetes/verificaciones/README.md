@@ -23,9 +23,11 @@ navegador, y por eso `sin-suponer-un-sistema` no lo barre.
   `los-consumidores-se-miran`.
 - `el-texto-visible-es-dato`: el barrido con el analizador de TypeScript, que desde #52 tiene una
   **cuarta forma**: **la frase** —dos rachas de letras separadas por un espacio— sobre los paquetes
-  que escriben palabras **sin dibujar nada**, hoy `sesion`, con su saco y con `identidad.ts` como
-  **única excepción declarada**, comprobada entera para que no sobreviva a su motivo. La cuarta
-  forma **no se aplica a `ui` ni a `shell`** y está medido por qué: una lista de clases de Tailwind
+  que escriben palabras **sin dibujar nada**, hoy `sesion`, cuyo `textos.ts` guarda **dos sacos**
+  —`TEXTOS_DE_LA_ESCALERA` y `TEXTOS_DE_LA_PUERTA`— y es lo único que no se barre. **Sin
+  excepciones desde #118**: la que hubo, `identidad.ts`, declarada en #52, sobrevivió a su motivo y
+  se borró, y una prueba nombra `escalera.ts` e `identidad.ts` para que no vuelva sin leerse.
+  La cuarta forma **no se aplica a `ui` ni a `shell`** y está medido por qué: una lista de clases de Tailwind
   es dos rachas de letras separadas por un espacio, y daría **393 hallazgos en `ui` y 86 en
   `shell`**. Más el arnés de marcas que usan las guardas montadas.
 - `lo-que-exports-promete-existe`: lee los seis `package.json` **tal cual**, no una lista escrita a
