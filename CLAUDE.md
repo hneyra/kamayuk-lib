@@ -26,7 +26,7 @@ se repite. **Y las cifras de pruebas no se escriben a mano**: las escribe `yarn 
 | Pieza | Estado |
 |---|---|
 | [`paquetes/formato`](paquetes/formato/README.md) — `@kamayuk/formato` | **Existe.** Fechas, importes y documento de identidad: la hoja limpia del grafo. <!-- cifras:formato -->**67 pruebas** en 3 archivos<!-- /cifras -->. Le faltan `codigo predial` y `placa` |
-| [`paquetes/api`](paquetes/api/README.md) — `@kamayuk/api` | **Existe.** `crearCliente` y sus cuatro operaciones —`solicitar`, `solicitarRespuesta`, `descargar` y `subir`—, `entregarAlNavegador` y `ErrorDeLaApi` con las cinco extensiones del contrato. <!-- cifras:api -->**124 pruebas** en 5 archivos<!-- /cifras --> |
+| [`paquetes/api`](paquetes/api/README.md) — `@kamayuk/api` | **Existe.** `crearCliente` y sus cuatro operaciones —`solicitar`, `solicitarRespuesta`, `descargar` y `subir`—, `entregarAlNavegador` y `ErrorDeLaApi` con las cinco extensiones del contrato. <!-- cifras:api -->**129 pruebas** en 5 archivos<!-- /cifras --> |
 | [`paquetes/sesion`](paquetes/sesion/README.md) — `@kamayuk/sesion` | **Existe.** `crearIdentidad` con PKCE S256, la sonda del emisor y `quienEntro()`; `peldanoDe()` con sus nueve peldaños y sus palabras como dato. <!-- cifras:sesion -->**117 pruebas** en 3 archivos<!-- /cifras --> |
 | [`paquetes/ui`](paquetes/ui/README.md) — `@kamayuk/ui` | **Existe.** Los 42 tokens, cuatro identidades × dos modos, las piezas de shadcn y el `ProveedorDeTema`; no escribe ni una palabra. <!-- cifras:ui -->**533 pruebas** en 25 archivos, más las **3** de capa<!-- /cifras --> y las barreras de tipo. Le faltan los tokens contra el artboard y el contraste |
 | [`paquetes/ui/interprete`](paquetes/ui/interprete/README.md) — el intérprete de pantallas | **Existe**, y dibuja una hoja entera como **dato**: bloques, avisos, pie, actos, maestro-detalle, pestañas y piezas del consumidor, con lo elegido en la ruta. Sus pruebas cuentan en `paquetes/ui` |
@@ -34,7 +34,7 @@ se repite. **Y las cifras de pruebas no se escriben a mano**: las escribe `yarn 
 | [`paquetes/verificaciones`](paquetes/verificaciones/README.md) — `@kamayuk/verificaciones` | **Existe.** Las prohibiciones de ESLint con sus muestras, las guardas del árbol, los guiones de la CI y el arnés del `Request`. <!-- cifras:verificaciones -->**239 pruebas** en 16 archivos<!-- /cifras -->. Le faltan los tokens contra el artboard y el contraste |
 | La guarda de la fila del registro | **Existe**, con su autoprueba de **catorce muestras**, adaptada a la forma de este repositorio; desde #128 exige además una fila por issue |
 
-<!-- cifras:total -->**En total: 1204 pruebas en 62 archivos, más las 3 de capa.**<!-- /cifras -->
+<!-- cifras:total -->**En total: 1209 pruebas en 62 archivos, más las 3 de capa.**<!-- /cifras -->
 
 ## La regla que gobierna este repositorio
 
@@ -67,7 +67,9 @@ borrarla estaría pidiendo falsificar el registro.
 ```
 paquetes/
   formato/   valores.ts, formato.ts, aritmetica.ts, documento.ts
-  api/       errores.ts (ErrorDeLaApi + NoEsUnDocumento + ArchivoRechazado), cliente.ts (crearCliente),
+  api/       errores.ts (ErrorDeLaApi + NoEsUnDocumento + ArchivoRechazado, y cuerpoDeProblema y
+             operacionDe, la unica lectura del problem+json y la unica forma de «VERBO /ruta»),
+             cliente.ts (crearCliente, y pedir(), por donde pasan tres de las cuatro operaciones),
              subir.ts (el multipart, y el UNICO XMLHttpRequest), entregar.ts (entregarAlNavegador)
   sesion/    identidad.ts (crearIdentidad), quien-entro.ts (leerQuienEntro),
              escalera.ts (peldanoDe), textos.ts (su saco)
