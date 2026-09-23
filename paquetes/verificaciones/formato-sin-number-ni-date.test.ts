@@ -73,7 +73,7 @@ describe('en @kamayuk/formato no hay ni un Number ni un Date (regla 1)', () => {
     // y no se cuentan: un conteo seguiria cuadrando con uno renombrado y otro nuevo.
     // `partir.ts` va con nombre: es donde vive el analisis de lo servido, y el primer sitio donde
     // alguien pensaria en «convertir el mes a numero».
-    expect(PRODUCCION.length, 'no se leyo ni un archivo de formato: la guarda no mide nada').toBeGreaterThanOrEqual(6);
+    expect(PRODUCCION.length, 'no se leyo ni un archivo de formato: la guarda no mide nada').toBeGreaterThan(0);
     for (const archivo of ['formato.ts', 'aritmetica.ts', 'partir.ts', 'documento.ts', 'valores.ts', 'index.ts']) {
       expect(
         PRODUCCION.some((a) => a.endsWith(join('formato', archivo))),
