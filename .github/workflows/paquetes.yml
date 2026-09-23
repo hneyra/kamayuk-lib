@@ -195,9 +195,17 @@ jobs:
           path: ${{ matrix.directorio }}
           token: ${{ secrets.GH_CLONE_KEY || github.token }}
 
+      # `check-latest: true` es lo que hace que «24» sea la ULTIMA 24 y no la que el corredor tenga
+      # en su cache. Sin ello, el 2026-09-23 `rentas` subio su `engines` a `^24.21.0` y este trabajo
+      # salio rojo ANTES de medir nada —en la linea base y en la rama por igual—, con
+      # `The engine "node" is incompatible with this module. Expected version "^24.21.0". Got
+      # "24.20.0"` al instalar: el corredor traia la 24.20.0 en su cache y `setup-node` no mira mas
+      # alla si no se le pide. Lo que el consumidor exige lo decide el consumidor; esta CI solo
+      # tiene que no quedarse atras. Lo vigila `los-consumidores-se-miran.test.ts`.
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
+          check-latest: true
           cache: yarn
           cache-dependency-path: ${{ format('{0}/{1}/yarn.lock', matrix.directorio, matrix.ruta) }}
 
