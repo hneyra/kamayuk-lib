@@ -28,6 +28,11 @@ navegador, y por eso `sin-suponer-un-sistema` no lo barre.
   forma **no se aplica a `ui` ni a `shell`** y está medido por qué: una lista de clases de Tailwind
   es dos rachas de letras separadas por un espacio, y daría **393 hallazgos en `ui` y 86 en
   `shell`**. Más el arnés de marcas que usan las guardas montadas.
+- `formato-sin-number-ni-date` (#108): barre el código de producción de `paquetes/formato/`, sin
+  comentarios, buscando `Number`, `Date`, `Intl`, `parseInt` y `parseFloat`, con su centinela
+  archivo por archivo y su muestra, de la que exige archivo, línea y palabra de las cinco. Sólo
+  `formato`: `api` y `ui` usan `Date` y `Number` con todo derecho, y la promesa de «ni uno» es de
+  ese paquete.
 - `lo-que-exports-promete-existe`: lee los seis `package.json` **tal cual**, no una lista escrita a
   mano, comprueba que cada promesa apunta a un archivo que existe y que es un archivo, y ante una
   forma de `exports` que no sepa leer sale **en rojo diciéndolo** en vez de pasar en verde.

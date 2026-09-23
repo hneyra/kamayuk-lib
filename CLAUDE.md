@@ -31,10 +31,10 @@ se repite. **Y las cifras de pruebas no se escriben a mano**: las escribe `yarn 
 | [`paquetes/ui`](paquetes/ui/README.md) — `@kamayuk/ui` | **Existe.** Los 42 tokens, cuatro identidades × dos modos, las piezas de shadcn y el `ProveedorDeTema`; no escribe ni una palabra. <!-- cifras:ui -->**533 pruebas** en 25 archivos, más las **3** de capa<!-- /cifras --> y las barreras de tipo. Le faltan los tokens contra el artboard y el contraste |
 | [`paquetes/ui/interprete`](paquetes/ui/interprete/README.md) — el intérprete de pantallas | **Existe**, y dibuja una hoja entera como **dato**: bloques, avisos, pie, actos, maestro-detalle, pestañas y piezas del consumidor, con lo elegido en la ruta. Sus pruebas cuentan en `paquetes/ui` |
 | [`paquetes/shell`](paquetes/shell/README.md) — `@kamayuk/shell` | **Existe.** El armazón de V8, con el catálogo por parámetro y el estado de la hoja en la ruta; no decide permisos ni escribe una palabra. <!-- cifras:shell -->**124 pruebas** en 10 archivos<!-- /cifras --> |
-| [`paquetes/verificaciones`](paquetes/verificaciones/README.md) — `@kamayuk/verificaciones` | **Existe.** Las prohibiciones de ESLint con sus muestras, las guardas del árbol, los guiones de la CI y el arnés del `Request`. <!-- cifras:verificaciones -->**239 pruebas** en 16 archivos<!-- /cifras -->. Le faltan los tokens contra el artboard y el contraste |
+| [`paquetes/verificaciones`](paquetes/verificaciones/README.md) — `@kamayuk/verificaciones` | **Existe.** Las prohibiciones de ESLint con sus muestras, las guardas del árbol, los guiones de la CI y el arnés del `Request`. <!-- cifras:verificaciones -->**244 pruebas** en 17 archivos<!-- /cifras -->. Le faltan los tokens contra el artboard y el contraste |
 | La guarda de la fila del registro | **Existe**, con su autoprueba de **catorce muestras**, adaptada a la forma de este repositorio; desde #128 exige además una fila por issue |
 
-<!-- cifras:total -->**En total: 1204 pruebas en 62 archivos, más las 3 de capa.**<!-- /cifras -->
+<!-- cifras:total -->**En total: 1209 pruebas en 63 archivos, más las 3 de capa.**<!-- /cifras -->
 
 ## La regla que gobierna este repositorio
 
@@ -66,7 +66,8 @@ borrarla estaría pidiendo falsificar el registro.
 
 ```
 paquetes/
-  formato/   valores.ts, formato.ts, aritmetica.ts, documento.ts
+  formato/   valores.ts, formato.ts, aritmetica.ts, documento.ts, partir.ts (el UNICO analisis de lo
+             servido, interno)
   api/       errores.ts (ErrorDeLaApi + NoEsUnDocumento + ArchivoRechazado), cliente.ts (crearCliente),
              subir.ts (el multipart, y el UNICO XMLHttpRequest), entregar.ts (entregarAlNavegador)
   sesion/    identidad.ts (crearIdentidad), quien-entro.ts (leerQuienEntro),
@@ -116,7 +117,7 @@ peticiones sin ninguna de las cuatro prohibiciones de importes.
 
 | # | Regla | Dónde muerde |
 |---|---|---|
-| 1 | **Importes en texto decimal, jamás `number`** | cuatro prohibiciones, más `@kamayuk/formato`: ni un `Number` ni un `Date` en todo el paquete |
+| 1 | **Importes en texto decimal, jamás `number`** | cuatro prohibiciones, más `@kamayuk/formato`: ni un `Number`, un `Date`, un `Intl`, un `parseInt` ni un `parseFloat` en todo el paquete, que lo vigila `formato-sin-number-ni-date`, con su muestra —hasta #108 se cumplía por costumbre: había dos `Number` y la CI salía verde— |
 | 2 | **Ningún método recibe `municipalidadId`** | prohibición `municipalidad-en-el-cliente`, más una prueba que espía lo que sale por el cable |
 | 8 | **`alicuota`, nunca `tasa`** | prohibición `tasa-en-vez-de-alicuota` |
 | — | **`fetch` sólo donde debe** | `fetch-fuera-del-cliente`, con **dos** excepciones declaradas |
