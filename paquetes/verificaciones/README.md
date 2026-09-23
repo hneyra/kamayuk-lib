@@ -16,6 +16,13 @@ navegador, y por eso `sin-suponer-un-sistema` no lo barre.
   `depreciacion`, `reajuste` y `baseImponible`, y la lista de `reduce` gana `parametros`; `valor`,
   `porcentaje`, `base` y `tramos` **se quedan fuera, con su falso positivo medido en código que
   existe**.
+- **Una regla con tipos que no es una prohibición** (#111): `@typescript-eslint/switch-exhaustiveness-check`,
+  en un bloque propio de `eslint.config.js` —el único con `projectService`—, con su muestra
+  `switch-sin-agotar` en `OTRAS_MUESTRAS`. No entra en `PROHIBICIONES` por lo mismo que el XHR: allí
+  sólo caben selectores, y una clave nueva exige muestra en el árbol de los cinco sistemas.
+  `reglas-de-eslint.test.ts` la juzga con el config entero sobre la muestra **en su ruta de verdad**
+  —el servicio de proyectos no tipa una ruta sintética—, en sus dos mitades: señalada, y limpia con
+  el `case` que le faltaba.
 
 ## Las guardas
 
