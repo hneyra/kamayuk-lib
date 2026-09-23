@@ -42,6 +42,11 @@ y `subir`, que va por `XMLHttpRequest`, comparte con ellas lo que no depende del
 única forma de escribir `VERBO /ruta`, y el orden `mensaje ?? detail ?? title` de `ErrorDeLaApi` y
 `ArchivoRechazado`, que es uno y trata un miembro `null` como no dicho. Ninguna de las tres se
 exporta desde `index.ts`.
+Que `descargar` pase por `pedir()` no lo ve ninguna prueba de conducta —su propio `fetch`
+devolvería lo mismo—, así que lo vigila una guarda sobre el código: `cliente.ts` llama a `fetch`
+**una sola vez**, dentro de `pedir`, y `descargar` llama a `pedir`
+(`la-peticion-se-compone-en-un-solo-sitio.test.ts`). Y si `respuesta.text()` falla al leer el error
+—la conexión se corta a mitad del cuerpo—, sale igual el `ErrorDeLaApi` con su estado.
 
 **Un 204 no se trata igual en las dos puertas, y es a sabiendas.** `solicitar` rechaza con el
 `SyntaxError` de `respuesta.json()` —`Unexpected end of JSON input`— y `subir` resuelve `undefined`

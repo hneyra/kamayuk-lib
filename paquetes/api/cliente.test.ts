@@ -231,6 +231,35 @@ describe('ErrorDeLaApi conserva codigo y mensaje del problem+json', () => {
       operacion: 'GET /seguridad/sesion',
     });
   });
+
+  it('#121 — un cuerpo que se corta a mitad de leerlo tampoco tapa el error', async () => {
+    // La conexion se cae despues de las cabeceras: `respuesta.text()` rechaza. Sin el segundo
+    // argumento de `.then` en `problemaDe`, ese rechazo SUSTITUIRIA al ErrorDeLaApi y la pantalla
+    // recibiria un `Error` sin estado ni codigo — sin poder decir si era un 500 o un 403.
+    //
+    // Un `Response` nuevo en cada llamada, y no `fetchQueContesta`: un cuerpo que ya dio error
+    // no se puede clonar sin arrastrar el error al clon, y lo que se mide es el corte al LEER.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>(() => {
+        const cuerpo = new ReadableStream<Uint8Array>({
+          start(controlador) {
+            controlador.enqueue(new TextEncoder().encode('{"codigo":"ERROR_INT'));
+            controlador.error(new Error('conexion cortada'));
+          },
+        });
+        return Promise.resolve(new Response(cuerpo, { status: 500 }));
+      }),
+    );
+
+    await expect(solicitar('/x')).rejects.toBeInstanceOf(ErrorDeLaApi);
+    await expect(solicitar('/x')).rejects.toMatchObject({
+      estado: 500,
+      codigo: null,
+      mensaje: null,
+      operacion: 'GET /x',
+    });
+  });
 });
 
 describe('«solicitarRespuesta» devuelve los bytes que llegaron, y no una reserializacion', () => {
