@@ -61,7 +61,8 @@ import { RAIZ, archivosDeProduccion } from './texto.ts';
  * persona lee: `peldanoDe()` devuelve un título, una explicación y un remedio. **Medido**: el
  * detector de las tres formas de arriba, aplicado a `paquetes/sesion/escalera.ts` antes de #52,
  * daba **cero hallazgos** sobre veintiséis frases escritas dentro. Ninguna de las tres las ve,
- * porque ahí una palabra es el valor de una propiedad de objeto.
+ * porque ahí una palabra es el valor de una propiedad de objeto. `crearIdentidad()` escribe del
+ * mismo modo el motivo y el detalle de cada `Vuelta` fallida, y desde #118 los saca de su saco.
  *
  * La cuarta forma es por eso **la frase**: un literal —o un trozo de plantilla— con dos rachas de
  * letras separadas por un espacio. Es de forma y no de contenido, como las otras tres.
@@ -98,18 +99,22 @@ const LOS_SACOS = new Set([
 ]);
 
 /**
- * **La única excepción declarada de la cuarta forma, con su motivo** (#52).
+ * **Los archivos de `sesion` que escriben lo que una persona lee, y que el barrido TIENE que ver.**
  *
- * `paquetes/sesion/identidad.ts` escribe texto que llega a una persona —`motivoDelEmisor` y el
- * motivo y el detalle de cada `Vuelta` fallida— y **no se toca aquí**: lo reescribe entero
- * `kamayuk-lib`#42, y mudar sus palabras en dos issues a la vez es un conflicto garantizado en el
- * archivo más largo del paquete.
+ * La cuarta forma **no tiene excepciones desde #118**. Tuvo una: `paquetes/sesion/identidad.ts`,
+ * declarada en #52 con el motivo de que «lo reescribe entero `kamayuk-lib`#42». #42 se mezcló y la
+ * excepción siguió ahí, porque se comprobaba entera y sólo salía roja el día que el archivo ya no
+ * tuviera frases —nada empujaba a quitarlas—. Sus dieciséis frases viven ahora en
+ * `TEXTOS_DE_LA_PUERTA`, y la excepción se borró.
  *
- * Se comprueba **entera**, como la lista de excepciones de `fetch`: si ese archivo dejara de tener
- * texto literal, esta guarda sale roja pidiendo que se borre la excepción. Así no sobrevive a su
- * motivo.
+ * Se nombran aquí para que **volver a eximir a uno** —un filtro, un `relativo !== …`— salga rojo en
+ * el centinela en vez de pasar en verde: una excepción no se vuelve a declarar sin tocar esta lista,
+ * que es donde se lee.
  */
-const LA_EXCEPCION = join('paquetes', 'sesion', 'identidad.ts');
+const HABLAN_A_LA_PERSONA = [
+  join('paquetes', 'sesion', 'escalera.ts'),
+  join('paquetes', 'sesion', 'identidad.ts'),
+] as const;
 
 /** Hay letras dentro. Un `data-slot`, un separador o una clase de Tailwind no cuentan como palabra. */
 const LETRA = /[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/;
@@ -255,10 +260,10 @@ const LOS_QUE_HABLAN = HABLAN_SIN_DIBUJAR.flatMap((paquete) =>
   archivosDeProduccion(join(RAIZ, 'paquetes', paquete)),
 );
 
-const FRASES_SUELTAS = LOS_QUE_HABLAN.filter((a) => {
-  const relativo = relative(RAIZ, a);
-  return !LOS_SACOS.has(relativo) && relativo !== LA_EXCEPCION;
-}).flatMap(frasesLiterales);
+/** Lo que la cuarta forma barre: todo `sesion` menos su saco. Sin excepciones desde #118. */
+const BARRIDOS_POR_FRASE = LOS_QUE_HABLAN.filter((a) => !LOS_SACOS.has(relative(RAIZ, a)));
+
+const FRASES_SUELTAS = BARRIDOS_POR_FRASE.flatMap(frasesLiterales);
 
 describe('EL AC1: el texto literal visible vive SOLO en los dos sacos', () => {
   it('EL CENTINELA: hay archivos que barrer, y los sacos SI tienen texto', () => {
@@ -320,25 +325,24 @@ describe('EL AC5 de #52: en «sesion» las frases viven SOLO en su saco', () => 
       FRASES_SUELTAS,
       'Hay frases escritas DENTRO del codigo de «sesion», fuera de su saco:\n' +
         FRASES_SUELTAS.map((h) => `  ${h.archivo}:${String(h.linea)}  «${h.texto}»`).join('\n') +
-        '\n\n  Eso no se puede traducir nunca: «peldanoDe()» devuelve lo que una persona lee.\n' +
-        '  Sacalo a «paquetes/sesion/textos.ts» y pasalo por el segundo argumento.',
+        '\n\n  Eso no se puede traducir nunca: «peldanoDe()» y «crearIdentidad()» devuelven lo\n' +
+        '  que una persona lee. Sacalo a «paquetes/sesion/textos.ts» —TEXTOS_DE_LA_ESCALERA o\n' +
+        '  TEXTOS_DE_LA_PUERTA— y pasalo por el segundo argumento.',
     ).toEqual([]);
   });
 
-  it('LA EXCEPCION es UNA, y sigue teniendo su motivo', () => {
-    // Se comprueba entera —como la lista de `fetch`— y en las dos direcciones: que el archivo
-    // existe entre los barridos, y que todavia tiene frases dentro. El dia que `kamayuk-lib`#42
-    // las mude, esta linea sale roja pidiendo que se borre la excepcion, en vez de quedarse
-    // eximiendo a un archivo que ya no lo necesita.
-    const excepciones = LOS_QUE_HABLAN.map((a) => relative(RAIZ, a)).filter(
-      (a) => a === LA_EXCEPCION,
-    );
-    expect(excepciones).toEqual([LA_EXCEPCION]);
-    expect(
-      frasesLiterales(join(RAIZ, LA_EXCEPCION)).length,
-      'La excepcion sobrevivio a su motivo: «identidad.ts» ya no tiene frases dentro, asi que ' +
-        'borra LA_EXCEPCION y deja que el barrido lo cubra.',
-    ).toBeGreaterThan(0);
+  it('SIN EXCEPCIONES (#118): la escalera y la puerta estan entre lo que se barre', () => {
+    // La que hubo —`identidad.ts`, declarada en #52— sobrevivio a su motivo y se borro. Esto es
+    // lo que impide que vuelva sin que se lea: un filtro que eximiera a cualquiera de los dos lo
+    // saca de aqui, y sale rojo con su nombre.
+    const barridos = BARRIDOS_POR_FRASE.map((a) => relative(RAIZ, a));
+    for (const archivo of HABLAN_A_LA_PERSONA) {
+      expect(
+        barridos,
+        `«${archivo}» escribe lo que una persona lee y la cuarta forma no lo barre: alguien lo ` +
+          'eximio. Sus frases van a «paquetes/sesion/textos.ts», no a una excepcion.',
+      ).toContain(archivo);
+    }
   });
 
   it('LA MUESTRA: la forma muerde, y se demuestra con una que la viola y otra que la cumple', () => {

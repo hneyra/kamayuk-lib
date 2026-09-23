@@ -178,3 +178,109 @@ export const TEXTOS_DE_LA_ESCALERA: TextosDeLaEscalera = {
       : 'Reintente en unos segundos. Si sigue igual, avise a soporte con este numero de ' +
         `incidencia: ${incidencia}`,
 };
+
+/**
+ * **Las dieciseis frases que la puerta dice cuando no se pudo entrar** (#118).
+ *
+ * <h2>Por que llegan ahora, y no con la escalera</h2>
+ *
+ * `crearIdentidad` escribe lo que se lee en la pantalla de «no se pudo entrar»: el `motivo` y el
+ * `detalle` de cada `Vuelta` fallida, y el `motivo` de `FallaDeLaPuerta` cuando el navegador no dio
+ * palabras. En #52 se quedaron dentro de `identidad.ts` como **la unica excepcion declarada** de la
+ * cuarta forma de `el-texto-visible-es-dato`, con un motivo escrito: «lo reescribe entero
+ * `kamayuk-lib`#42, y mudar sus palabras en dos issues a la vez es un conflicto garantizado». #42 se
+ * mezclo (`b139342`) y la excepcion siguio ahi, porque se comprobaba entera: solo salia roja el dia
+ * que el archivo ya no tuviera frases, y nada empujaba a quitarlas. Medido antes de mudarlas, sin la
+ * excepcion el barrido daba **veintiun hallazgos en dieciseis frases**, de la linea 268 a la 572.
+ *
+ * <h2>La misma forma que el saco de la escalera, y por lo mismo</h2>
+ *
+ * Plano —`marcarElSaco` no baja a un saco anidado—, con el castellano de hoy por omision, y como
+ * `Partial` por el segundo argumento de `crearIdentidad`: con uno solo, la puerta dice palabra por
+ * palabra lo que decia. **Sin motor de traduccion**: `PEER_DECLARADAS.sesion` sigue siendo `[]`.
+ *
+ * <h2>Lo que NO esta aqui: lo que dijeron el emisor y el navegador</h2>
+ *
+ * El `error_description` que Keycloak manda en la vuelta es **lo que el emisor dijo**, y el
+ * `motivo` de `FallaDeLaPuerta` es, cuando el navegador hablo, **lo que el navegador dijo** —«Failed
+ * to fetch»—, que es lo que se puede buscar y lo que sale en su consola. Ninguno de los dos pasa por
+ * este saco, igual que el `detalle` del backend no pasa por el de la escalera: este saco pone **el
+ * respaldo**, para cuando no dijeron nada.
+ *
+ * <h2>Las tres funciones son funciones porque llevan un dato dentro</h2>
+ *
+ * Los segundos de la espera, el codigo de error del emisor y el estado HTTP del canje caen en
+ * distinto sitio en cada idioma. Como en la escalera, el dato entra donde el idioma lo ponga.
+ */
+
+/** Lo que la puerta dice, palabra por palabra, cuando no se pudo entrar. */
+export interface TextosDeLaPuerta {
+  // ── La sonda: `FallaDeLaPuerta.motivo` cuando el navegador no dio palabras ──────────────────
+  /** Lo que se lanzo no era un `Error`, asi que no hay mensaje del navegador que repetir. */
+  readonly laPeticionNoLlegoACompletarse: string;
+  /** Se agoto la espera de la sonda. Lleva dentro los segundos que se espero. */
+  readonly noContestoEn: (segundos: number) => string;
+
+  // ── La vuelta con `?error=`: el motivo, segun el codigo de OAuth que mando el emisor ────────
+  /** `access_denied`. */
+  readonly noSeCompletoLaEntrada: string;
+  /** `invalid_scope`. */
+  readonly elAlcanceNoExisteEnElEmisor: string;
+  /** `unauthorized_client` e `invalid_client`. */
+  readonly elEmisorNoReconoceAlCliente: string;
+  /** `temporarily_unavailable` y `server_error`. */
+  readonly elEmisorTuvoUnProblema: string;
+  /** Cualquier otro codigo. */
+  readonly elEmisorNoDejoEntrar: string;
+  /** El respaldo del detalle, cuando el emisor no mando `error_description`. Lleva el codigo. */
+  readonly elEmisorContesto: (error: string) => string;
+
+  // ── La vuelta sin el `state` que se guardo al salir ─────────────────────────────────────────
+  readonly laVueltaNoCuadraConLaIda: string;
+  readonly elCodigoLlegoSinSuEstado: string;
+
+  // ── El canje no llego a completarse ─────────────────────────────────────────────────────────
+  readonly elEmisorNoContesto: string;
+  readonly elCanjeNoLlegoACompletarse: string;
+
+  // ── El canje volvio con un estado que no es 2xx ─────────────────────────────────────────────
+  readonly elEmisorRechazoElCanje: string;
+  /** El detalle. Lleva dentro el estado HTTP con el que volvio. */
+  readonly elCanjeVolvioCon: (estado: number) => string;
+
+  // ── El canje volvio bien, pero sin `access_token` ───────────────────────────────────────────
+  readonly elEmisorNoDevolvioNingunToken: string;
+  readonly laRespuestaDelCanjeNoTraeElToken: string;
+}
+
+/** Lo que hoy se lee en la puerta, palabra por palabra. Quien no pase `textos`, sigue viendo esto. */
+export const TEXTOS_DE_LA_PUERTA: TextosDeLaPuerta = {
+  laPeticionNoLlegoACompletarse: 'la peticion no llego a completarse',
+  noContestoEn: (segundos) => `no contesto en ${String(segundos)} s`,
+
+  noSeCompletoLaEntrada: 'No se completo la entrada',
+  elAlcanceNoExisteEnElEmisor: 'El alcance que se pide no existe en el emisor',
+  elEmisorNoReconoceAlCliente: 'El emisor no reconoce a este cliente',
+  elEmisorTuvoUnProblema: 'El emisor tuvo un problema',
+  elEmisorNoDejoEntrar: 'El emisor no dejo entrar',
+  elEmisorContesto: (error) => `El emisor contesto «${error}».`,
+
+  laVueltaNoCuadraConLaIda: 'La vuelta no cuadra con la ida',
+  elCodigoLlegoSinSuEstado:
+    'El codigo llego sin el estado que se guardo al salir. Suele pasar al abrir un ' +
+    'enlace de vuelta antiguo o en otra pestana; tambien es lo que se ve si alguien ' +
+    'intenta colar un codigo ajeno.',
+
+  elEmisorNoContesto: 'El emisor no contesto',
+  elCanjeNoLlegoACompletarse:
+    'La peticion del canje no llego a completarse. El emisor puede estar apagado o no ' +
+    'ser alcanzable desde este puesto.',
+
+  elEmisorRechazoElCanje: 'El emisor rechazo el canje',
+  elCanjeVolvioCon: (estado) =>
+    `La peticion del canje volvio con ${String(estado)}. Suele ser la URI de ` +
+    'retorno o el cliente.',
+
+  elEmisorNoDevolvioNingunToken: 'El emisor no devolvio ningun token',
+  laRespuestaDelCanjeNoTraeElToken: 'La respuesta del canje no trae «access_token».',
+};
