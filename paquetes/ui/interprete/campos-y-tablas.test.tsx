@@ -124,6 +124,50 @@ describe('`tabla-con-vacio` (AC-3): una tabla vacia dice por que, y no inventa u
     expect(tablasSinVacio(def)).toEqual(['Sin clave', 'sin']);
     expect(tablasSinVacio(MUESTRAS_DE_CAMPOS_Y_TABLAS['tabla-con-vacio'].definicion)).toEqual([]);
   });
+
+  // #110: la guarda que cada sistema escribe con esta funcion miraba solo el primer nivel, y una
+  // tabla sin `vacio` dentro de una pestana —abierta o cerrada— o del detalle de un maestro pasaba
+  // en verde y salia en produccion con el aviso «tabla sin motivo».
+  it('`tablasSinVacio` ve la tabla sin `vacio` dentro de una pestana, tambien de la CERRADA (#110)', () => {
+    const def: Definicion = {
+      instruccion: '',
+      bloques: [
+        {
+          tipo: 'pestanas',
+          enLaRuta: 'pestana',
+          rotulo: 'Secciones',
+          pestanas: [
+            { clave: 'a', rotulo: 'A', bloques: [{ titulo: 'a', nota: '', campos: [] }] },
+            {
+              clave: 'b',
+              rotulo: 'B',
+              bloques: [{ titulo: 'b', nota: '', campos: [], tablas: [{ clave: 'escondida', titulo: 'E', columnas: [] }] }],
+            },
+          ],
+        },
+      ],
+    };
+    expect(tablasSinVacio(def)).toEqual(['escondida']);
+  });
+
+  it('`tablasSinVacio` ve la tabla sin `vacio` dentro de `detalle.bloques` de un maestro (#110)', () => {
+    const def: Definicion = {
+      instruccion: '',
+      bloques: [
+        {
+          tipo: 'maestroDetalle',
+          enLaRuta: 'sujeto',
+          maestro: { rotulo: 'Lista', filas: 'lista', fila: { titulo: '{nombre}' }, vacio: 'Ninguno.' },
+          detalle: {
+            sinEleccion: 'Elija uno.',
+            noEstaEnLaLista: 'No esta en la lista.',
+            bloques: [{ titulo: 'd', nota: '', campos: [], tabla: { titulo: 'Del detalle', columnas: [] } }],
+          },
+        },
+      ],
+    };
+    expect(tablasSinVacio(def)).toEqual(['Del detalle']);
+  });
 });
 
 describe('`marcador`', () => {
