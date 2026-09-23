@@ -11,6 +11,17 @@
 
 name: Paquetes
 
+# `CLAUDE.md` y `README.md` estan aqui desde #128, y no por ser documentacion: `yarn verificar`
+# corre `yarn cifras --comprobar`, que LEE esos dos archivos y sale en rojo si una cifra de pruebas
+# escrita no es la medida. Sin ellos en la lista, un PR que solo tocara una cifra a mano no dispararia
+# la comprobacion que existe para cazarlo. Lo vigila `las-cifras-las-escribe-un-guion.test.ts`,
+# que lee la lista de archivos de `cifras.mjs` y no una copia.
+#
+# Y `.gitattributes`, por lo mismo: `el-registro-se-mezcla-solo.test.ts` monta la mezcla del
+# registro con ESE archivo y exige que salga limpia. Un PR que solo borrara la linea de
+# `merge=union` no dispararia, sin esto, la prueba que existe para pararlo. Y `**/.gitattributes`
+# tambien: uno ANIDADO —`docs/agent/.gitattributes` con `HISTORY.md -merge`— anula el de la raiz
+# sin tocarlo, y `docs/**` no esta en la lista (medido en la segunda revision de #128).
 on:
   push:
     branches: [main]
@@ -20,6 +31,10 @@ on:
       - "*.ts"
       - "eslint.config.js"
       - ".github/workflows/paquetes.yml"
+      - "CLAUDE.md"
+      - "README.md"
+      - ".gitattributes"
+      - "**/.gitattributes"
   pull_request:
     paths:
       - "paquetes/**"
@@ -27,6 +42,10 @@ on:
       - "*.ts"
       - "eslint.config.js"
       - ".github/workflows/paquetes.yml"
+      - "CLAUDE.md"
+      - "README.md"
+      - ".gitattributes"
+      - "**/.gitattributes"
 
 permissions:
   contents: read
