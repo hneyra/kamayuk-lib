@@ -547,8 +547,16 @@ describe('#52 AC4 — los textos de la escalera son DATO', () => {
 describe('#109 — un archivo rechazado no manda a soporte, ni ofrece reintentar', () => {
   const MARCADOS = marcarElSaco(TEXTOS_DE_LA_ESCALERA);
 
-  /** Lo que las tres afirman: ni averia, ni boton de reintentar, ni soporte, y palabras del saco. */
-  function noEsUnaAveria(elFallo: unknown): Peldano {
+  /**
+   * Lo que todas afirman: ni averia, ni boton de reintentar, ni soporte, y palabras del saco.
+   *
+   * `dijo` es lo que el servidor explico, si lo explico: entonces el detalle es ESO, con el saco
+   * marcado o sin marcar. Si no lo explico —el rechazo local, o un 413/415/200 sin cuerpo— el
+   * detalle es el respaldo, y con el saco marcado tiene que salir marcado: un detalle leido de
+   * `TEXTOS_DE_LA_ESCALERA` en vez de los `textos` del consumidor se quedaria sin traducir y no
+   * lo veria ni el barrido del texto visible, porque no hay ningun literal.
+   */
+  function noEsUnaAveria(elFallo: unknown, dijo?: string): Peldano {
     const peldano = peldanoDe(elFallo);
 
     expect(peldano.esAveria, 'se ensena como una averia').toBe(false);
@@ -562,6 +570,12 @@ describe('#109 — un archivo rechazado no manda a soporte, ni ofrece reintentar
     const marcado = peldanoDe(elFallo, MARCADOS);
     expect(marcado.titulo.startsWith(ABRE), `titulo: «${marcado.titulo}»`).toBe(true);
     expect(marcado.remedio.startsWith(ABRE), `remedio: «${marcado.remedio}»`).toBe(true);
+    if (dijo === undefined) {
+      expect(marcado.detalle.startsWith(ABRE), `detalle: «${marcado.detalle}»`).toBe(true);
+    } else {
+      expect(peldano.detalle).toBe(dijo);
+      expect(marcado.detalle).toBe(dijo);
+    }
     return peldano;
   }
 
@@ -583,27 +597,71 @@ describe('#109 — un archivo rechazado no manda a soporte, ni ofrece reintentar
     expect(tipo.clave).toBe('no-valido');
     // Y los dos motivos no se dicen igual: el remedio de uno no arregla el otro.
     expect(grande.titulo).not.toBe(tipo.titulo);
+    // El rechazo local no trae cuerpo, asi que el detalle es el respaldo DE SU MOTIVO: cruzarlos
+    // diria «no admite archivos de ese tipo» de un archivo que solo pesa de mas.
+    expect(grande.detalle).toBe(TEXTOS_DE_LA_ESCALERA.superaElTamanoAdmitido);
+    expect(tipo.detalle).toBe(TEXTOS_DE_LA_ESCALERA.esteTipoNoSeAdmite);
     expect(grande.remedio).toBe(TEXTOS_DE_LA_ESCALERA.elijaUnArchivoMasLiviano);
     expect(tipo.remedio).toBe(TEXTOS_DE_LA_ESCALERA.elijaUnArchivoDeOtroTipo);
     expect(grande.remedio).not.toBe(tipo.remedio);
   });
 
-  it('ArchivoRechazado del SERVIDOR (413): el backend contesto, y lo que dijo se conserva', () => {
-    const dijo = 'El archivo supera el limite de 1 MB';
-    const peldano = noEsUnaAveria(
-      new ArchivoRechazado(
-        413,
-        'POST /documentos',
-        { motivo: 'demasiado-grande', bytes: 5_000_000, limiteDeBytes: null, tipo: 'text/csv' },
-        { mensaje: dijo },
-      ),
-    );
+  // Los dos estados del servidor, y cada uno con su motivo: lo que el backend explico se conserva
+  // en los DOS, y sin explicacion cada uno cae en el respaldo de su motivo y no en el del otro.
+  const DEL_SERVIDOR = [
+    {
+      estado: 413,
+      motivo: 'demasiado-grande',
+      dijo: 'El archivo supera el limite de 1 MB',
+      respaldo: TEXTOS_DE_LA_ESCALERA.superaElTamanoAdmitido,
+      remedio: TEXTOS_DE_LA_ESCALERA.elijaUnArchivoMasLiviano,
+    },
+    {
+      estado: 415,
+      motivo: 'tipo-no-admitido',
+      dijo: 'Solo se admiten hojas de calculo en formato CSV',
+      respaldo: TEXTOS_DE_LA_ESCALERA.esteTipoNoSeAdmite,
+      remedio: TEXTOS_DE_LA_ESCALERA.elijaUnArchivoDeOtroTipo,
+    },
+  ] as const;
 
-    expect(peldano.clave).toBe('no-valido');
-    // Es lo unico que puede nombrar el limite del servidor, que no viaja en ningun campo.
-    expect(peldano.detalle).toBe(dijo);
-    expect(peldano.remedio).toBe(TEXTOS_DE_LA_ESCALERA.elijaUnArchivoMasLiviano);
-  });
+  it.each(DEL_SERVIDOR)(
+    'ArchivoRechazado del SERVIDOR ($estado): el backend contesto, y lo que dijo se conserva',
+    ({ estado, motivo, dijo, remedio }) => {
+      const peldano = noEsUnaAveria(
+        new ArchivoRechazado(
+          estado,
+          'POST /documentos',
+          { motivo, bytes: 5_000_000, limiteDeBytes: null, tipo: 'text/csv' },
+          { mensaje: dijo },
+        ),
+        dijo,
+      );
+
+      expect(peldano.clave).toBe('no-valido');
+      // Es lo unico que puede nombrar el limite —o la lista de tipos— del servidor, que no viaja
+      // en ningun campo.
+      expect(peldano.detalle).toBe(dijo);
+      expect(peldano.remedio).toBe(remedio);
+    },
+  );
+
+  it.each(DEL_SERVIDOR)(
+    'ArchivoRechazado del SERVIDOR ($estado) SIN cuerpo: el respaldo es el de su motivo',
+    ({ estado, motivo, respaldo, remedio }) => {
+      const peldano = noEsUnaAveria(
+        new ArchivoRechazado(estado, 'POST /documentos', {
+          motivo,
+          bytes: 5_000_000,
+          limiteDeBytes: null,
+          tipo: 'text/csv',
+        }),
+      );
+
+      expect(peldano.detalle).toBe(respaldo);
+      expect(peldano.remedio).toBe(remedio);
+    },
+  );
 
   it('NoEsUnDocumento (200 con JSON): lo arregla quien hizo la pantalla, no quien la usa', () => {
     const peldano = noEsUnaAveria(new NoEsUnDocumento(200, 'GET /documentos/7', 'application/json'));
@@ -613,5 +671,7 @@ describe('#109 — un archivo rechazado no manda a soporte, ni ofrece reintentar
     expect(peldano.clave).toBe('orden-no-admitido');
     expect(peldano.remedio.toLowerCase()).not.toContain('corrija');
     expect(peldano.remedio).toBe(TEXTOS_DE_LA_ESCALERA.loArreglaQuienHizoLaDescarga);
+    // Un 200 no trae `problem+json`: el detalle es el respaldo, y sale del saco (arriba).
+    expect(peldano.detalle).toBe(TEXTOS_DE_LA_ESCALERA.llegaronDatosEnVezDeUnDocumento);
   });
 });
