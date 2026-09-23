@@ -308,3 +308,7 @@ export { cambioAlElegir, eleccionDe, momentoDeLaEleccion, valorElegido } from '.
 // Como viaja una fecha —ISO— y como se lee —`dd/mm/aaaa`—: dejaron de ser la misma cadena cuando lo
 // elegido en un campo empezo a viajar en una ruta (#94).
 export { diaDeUnaFecha, fechaDeUnDia, fechaLeida } from './shadcn/fecha.ts';
+// La fila de una tabla que se elige, y lo elegido en la ruta (#95). La regla es pura por lo mismo que
+// las de #65: una pieza del consumidor que pinte su propia tabla escribe el mismo valor, y no una copia.
+export type { EleccionDeLaFila } from './interprete/tipos.ts';
+export { valorDeLaFila } from './interprete/reglas-de-las-tablas.ts';

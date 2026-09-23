@@ -1,10 +1,11 @@
-import { Fragment, useId, useState } from 'react';
+import { Fragment, useId, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
 
 import { Insignia } from '../Insignia.tsx';
 import { Alerta } from '../shadcn/alerta.tsx';
 import { CAPA_CABECERA_FIJA } from '../shadcn/capas.ts';
 import { Boton } from '../shadcn/boton.tsx';
 import { Campo } from '../shadcn/campo.tsx';
+import { FOCO } from '../shadcn/foco.ts';
 import {
   Tabla,
   TablaCabecera,
@@ -16,6 +17,7 @@ import {
 } from '../shadcn/tabla.tsx';
 import { TarjetaBarraDeTabla } from '../shadcn/tarjeta.tsx';
 import type { TextosDeLaPantalla } from '../textos.tsx';
+import { cn } from '../utilidades.ts';
 import { AccionesDeLaFila } from './AccionesDeLaFila.tsx';
 import { type Nombrados, resolverTexto, seCumple } from './componer.ts';
 import type { Ausencia, CeldaDeLaTabla, FilaDeLaTabla } from './datos.ts';
@@ -33,6 +35,7 @@ import {
   resolverInsignia,
   SIN_FILTRO,
   textoDeLaCelda,
+  valorDeLaFila,
 } from './reglas-de-las-tablas.ts';
 import type { DefinicionDeTabla, TonoDeInsignia, Texto } from './tipos.ts';
 
@@ -94,6 +97,13 @@ import type { DefinicionDeTabla, TonoDeInsignia, Texto } from './tipos.ts';
  * escribe en la ruta ni lo pide: ver `FiltroLocalDeLaTabla`. Solo se ofrece cuando HAY filas —sin
  * dato o con `[]` no hay nada que acotar—; puesto, el conteo dice «N de M» en una region viva, y si
  * no deja ninguna se dice con su propia frase, que no es el `vacio` de la tabla.
+ *
+ * <h2>Y la fila elegible de #95, que es lo contrario del filtro: SIEMPRE sale a la ruta</h2>
+ *
+ * `eleccion` (`fila-elegible-en-la-ruta`) convierte la tabla en un `grid` cuyas filas se eligen con
+ * el raton o con Intro y Espacio, y escribe lo elegido en la ruta —en el estado de la tabla sin
+ * `hoja`, como la pagina—. El patron, el teclado y por que un boton de la fila no la elige, en el
+ * docblock de `EleccionDeLaFila`. Sin `eleccion`, ni un atributo de mas.
  */
 
 export interface TablaDelBloqueProps {
@@ -135,6 +145,9 @@ export function TablaDelBloque({
   const [sinMarco, fijarSinMarco] = useState<Readonly<Record<string, string>>>({});
   // El filtro local vive SIEMPRE aqui, con hoja o sin ella: no viaja (#86).
   const [elegido, fijarElegido] = useState<FiltroElegido>(SIN_FILTRO);
+  // La fila con el foco del tabulador itinerante, por su valor y no por su indice: la pagina cambia.
+  const [foco, fijarFoco] = useState<string | null>(null);
+  const filasElegibles = useRef(new Map<string, HTMLTableRowElement>());
   const sitio: SitioDeLaTabla = {
     leer: (donde: EnLaRuta) => (hoja === undefined ? (sinMarco[donde] ?? null) : valorEnLaRuta(hoja.ruta, donde)),
     fijar: (cambios) => {
@@ -216,6 +229,59 @@ export function TablaDelBloque({
   const ordenado = tabla.orden === undefined ? undefined : campoOrdenado(tabla.orden, sitio.leer(tabla.orden.enLaRuta));
   const descendente = tabla.orden !== undefined && sitio.leer(tabla.orden.sentidoEnLaRuta) === tabla.orden.descendente;
 
+  // La fila elegida es la que dice la ruta (o la tabla, sin hoja): recargar la conserva (#95).
+  const eleccion = tabla.eleccion;
+  const elegida = eleccion === undefined ? null : sitio.leer(eleccion.enLaRuta);
+  const elegibles =
+    eleccion === undefined
+      ? []
+      : (dibujadas ?? []).flatMap((fila) => {
+          const valor = valorDeLaFila(eleccion, fila);
+          return valor === null ? [] : [valor];
+        });
+  // El tabulador entra por la que tiene el foco, si sigue a la vista; si no, por la elegida; si no,
+  // por la primera elegible. Nunca por dos.
+  const activa = [foco, elegida].find((valor) => valor !== null && elegibles.includes(valor)) ?? elegibles[0];
+  /** Elegir escribe la ruta en UN movimiento, y elegir la que ya esta elegida no la mueve. */
+  const elegirLaFila = (valor: string): void => {
+    if (eleccion === undefined || valor === elegida) return;
+    sitio.fijar({ [eleccion.enLaRuta]: valor });
+  };
+  const moverElFoco = (valor: string | undefined): void => {
+    if (valor === undefined) return;
+    fijarFoco(valor);
+    filasElegibles.current.get(valor)?.focus();
+  };
+  const alPulsarEnLaFila = (evento: KeyboardEvent<HTMLTableRowElement>, valor: string): void => {
+    // Una tecla que nace en un boton de la fila es de ese boton: Intro sobre «Anular» no elige.
+    if (evento.target !== evento.currentTarget) return;
+    if (evento.key === 'Enter' || evento.key === ' ') {
+      evento.preventDefault();
+      elegirLaFila(valor);
+      return;
+    }
+    const k = elegibles.indexOf(valor);
+    const destino =
+      evento.key === 'ArrowDown'
+        ? elegibles[Math.min(k + 1, elegibles.length - 1)]
+        : evento.key === 'ArrowUp'
+          ? elegibles[Math.max(k - 1, 0)]
+          : evento.key === 'Home'
+            ? elegibles[0]
+            : evento.key === 'End'
+              ? elegibles[elegibles.length - 1]
+              : null;
+    if (destino === null) return;
+    evento.preventDefault();
+    moverElFoco(destino);
+  };
+  const alClicarEnLaFila = (evento: MouseEvent<HTMLTableRowElement>, valor: string): void => {
+    // Un clic en un mando de la fila —una accion, tambien la impedida— es de ese mando.
+    if (nacioEnUnMando(evento.target, evento.currentTarget)) return;
+    fijarFoco(valor);
+    elegirLaFila(valor);
+  };
+
   return (
     <div className={tabla.cabeceraFija === true ? 'flex min-h-0 flex-1 flex-col' : undefined}>
       <TarjetaBarraDeTabla>
@@ -264,6 +330,9 @@ export function TablaDelBloque({
 
       <Tabla
         style={{ minWidth: `${String(columnasDibujadas * 130)}px` }}
+        // Con filas elegibles, un `grid`: `aria-selected` en una fila solo se anuncia ahi (#95).
+        role={eleccion === undefined ? undefined : 'grid'}
+        aria-labelledby={eleccion === undefined ? undefined : idDelTitulo}
         marco={
           tabla.cabeceraFija === true
             ? {
@@ -322,6 +391,8 @@ export function TablaDelBloque({
             const detalle = detalleDe(tabla, fila, traducir, textos);
             const idDelDetalle = detalle === '' ? undefined : `${raiz}-detalle-${String(i)}`;
             const bordes = idDelDetalle === undefined ? undefined : 'border-b-0';
+            const valor = eleccion === undefined ? null : valorDeLaFila(eleccion, fila);
+            const esLaElegida = valor !== null && valor === elegida;
             return (
               // La clave es la que da la fila o, sin ella, la fila entera, y no el indice: dos filas
               // no suelen ser iguales —llevan su identificador— y con el indice, reordenar deja a
@@ -331,7 +402,42 @@ export function TablaDelBloque({
                   impar={i % 2 === 1}
                   data-realzada={fila.realzada === true ? '' : undefined}
                   aria-current={fila.realzada === true ? 'true' : undefined}
-                  className={fila.realzada === true ? 'bg-azul-suave' : undefined}
+                  className={cn(
+                    fila.realzada === true || esLaElegida ? 'bg-azul-suave' : undefined,
+                    // La elegida no se dice solo con color: lleva el filo azul a la izquierda, como
+                    // la fila elegida del maestro de #67.
+                    esLaElegida ? '[&>td:first-child]:shadow-[inset_3px_0_0_var(--color-azul)]' : undefined,
+                    valor === null ? undefined : cn('cursor-pointer', FOCO),
+                  )}
+                  // Solo las elegibles: una fila sin su dato no se enfoca, no se pulsa y no dice
+                  // `aria-selected`, que en un `grid` es lo que la anuncia como elegible. Sin
+                  // `eleccion`, todo `undefined`: ni un atributo de mas (#95).
+                  data-no-elegible={eleccion !== undefined && valor === null ? '' : undefined}
+                  data-elegible={valor ?? undefined}
+                  aria-selected={valor === null ? undefined : esLaElegida}
+                  tabIndex={valor === null ? undefined : valor === activa ? 0 : -1}
+                  ref={
+                    valor === null
+                      ? undefined
+                      : (elemento: HTMLTableRowElement | null) => {
+                          if (elemento === null) filasElegibles.current.delete(valor);
+                          else filasElegibles.current.set(valor, elemento);
+                        }
+                  }
+                  onClick={
+                    valor === null
+                      ? undefined
+                      : (evento) => {
+                          alClicarEnLaFila(evento, valor);
+                        }
+                  }
+                  onKeyDown={
+                    valor === null
+                      ? undefined
+                      : (evento) => {
+                          alPulsarEnLaFila(evento, valor);
+                        }
+                  }
                 >
                   {fila.celdas.map((celda, j) => {
                     const columna = tabla.columnas[j];
@@ -582,6 +688,16 @@ function SinDato({
       {palabra}
     </span>
   );
+}
+
+/** Los mandos que pueden ir dentro de una fila: lo que se pulsa en ellos es suyo, no de la fila. */
+const MANDOS = 'button, a[href], input, select, textarea, summary, [role="button"], [role="link"]';
+
+/** Si el evento nacio en un mando DENTRO de la fila, y no en la fila o en una de sus celdas (#95). */
+function nacioEnUnMando(objetivo: EventTarget, fila: HTMLElement): boolean {
+  if (!(objetivo instanceof Element)) return false;
+  const mando = objetivo.closest(MANDOS);
+  return mando !== null && mando !== fila && fila.contains(mando);
 }
 
 /** La clave de React de una fila sin `clave`: lo que se lee en sus celdas, unido. */

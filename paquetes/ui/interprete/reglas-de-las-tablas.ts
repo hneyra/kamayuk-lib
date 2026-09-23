@@ -5,6 +5,7 @@ import type {
   AccionesPorFila,
   ChipDelFiltro,
   DefinicionDePantalla,
+  EleccionDeLaFila,
   FiltroLocalDeLaTabla,
   PaginacionDeLaTabla,
   PiezaDeLaPantalla,
@@ -27,6 +28,8 @@ import type {
  *
  * **Y desde #86, siete**: que filas deja el filtro local (`filtrarLasFilas`) y que dice su conteo
  * (`conteoDelFiltro`).
+ *
+ * **Y desde #95, ocho**: que valor escribe en la ruta una fila elegible (`valorDeLaFila`).
  */
 
 /**
@@ -307,4 +310,18 @@ export interface ConteoDelFiltro {
  */
 export function conteoDelFiltro(visibles: number, recibidas: number, total: DatoConNombre | undefined): ConteoDelFiltro {
   return typeof total === 'string' && total !== '' ? { visibles, recibidas, total } : { visibles, recibidas };
+}
+
+/**
+ * **Lo que una fila escribe en la ruta al elegirla**, o `null` si no es elegible (#95,
+ * `fila-elegible-en-la-ruta`).
+ *
+ * Lee el dato `desde` **de la fila** —no de la pantalla, ni sus celdas: la celda se lee y puede ir
+ * traducida o con la palabra de la celda sin dato—. Un dato que falta —ausente, `null` o `''`— no se
+ * puede escribir, y la fila no se elige; un `false` si es un dato, como en `seCumple`, y viaja
+ * escrito.
+ */
+export function valorDeLaFila(eleccion: EleccionDeLaFila, fila: FilaDeLaTabla): string | null {
+  const valor = fila.datos?.get(eleccion.desde);
+  return falta(valor) ? null : String(valor);
 }

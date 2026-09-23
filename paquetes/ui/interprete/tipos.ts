@@ -349,6 +349,65 @@ export interface DefinicionDeTabla<T extends Texto = string> {
    * Ver `FiltroLocalDeLaTabla`.
    */
   readonly filtroLocal?: FiltroLocalDeLaTabla<T>;
+  /**
+   * **La fila se elige, y lo elegido vive en la ruta** (#95, `fila-elegible-en-la-ruta`). Sin ella,
+   * ninguna fila se enfoca ni se pulsa y la tabla se dibuja como hasta #95. Ver `EleccionDeLaFila`.
+   */
+  readonly eleccion?: EleccionDeLaFila;
+}
+
+/**
+ * **Una fila que se elige por si misma** (#95, `fila-elegible-en-la-ruta`; medido al cerrar
+ * `caja`#99, donde hubo que rodearlo con una accion `va` a la misma hoja).
+ *
+ * Es el hermano de `paginacion.enLaRuta` y `orden.enLaRuta`: pulsar la fila —o Intro o Espacio con
+ * el foco en ella— **escribe en la ruta** el valor de su dato `desde`, y la fila cuyo valor es el
+ * que dice la ruta va realzada. Recargar o compartir el enlace deja elegida la misma. El sistema lee
+ * `ruta.<enLaRuta>` y pide lo que dependa de ella, como con el `maestroDetalle` de #67, cuyo maestro
+ * es una lista de `titulo`/`linea`/`insignia` y en el que una tabla de ocho columnas no cabe.
+ *
+ * <h2>El patron ARIA es el `grid` con filas elegibles, y no una tabla con filas que se pulsan</h2>
+ *
+ * `aria-selected` sobre una fila **solo significa algo dentro de un `grid` o un `treegrid`** (ARIA
+ * 1.2, `row`): en una tabla de datos el lector de pantalla no lo anuncia, y la fila realzada seria
+ * un color y nada mas. Asi que con `eleccion` la `<table>` pasa a `role="grid"` —es la unica
+ * conversion de `table` que `jsx-a11y` admite en su configuracion recomendada—, sus celdas se
+ * exponen como `gridcell` (HTML-AAM) y cada fila elegible lleva `aria-selected`. Una fila con un
+ * boton de eleccion dentro se miro y no entra: la eleccion es de la fila entera, y un segundo boton
+ * por fila junto a las `accionesPorFila` seria una parada mas del tabulador en cada una.
+ *
+ * <h2>El teclado es el del maestro de #67: la eleccion NO sigue al foco</h2>
+ *
+ * Tabulador itinerante por filas: el tabulador entra por la elegida —o por la primera elegible—,
+ * ↑/↓ mueven el foco, Inicio/Fin van a los extremos, e **Intro o Espacio eligen**. Si eligiera el
+ * foco, bajar diez filas serian diez direcciones y diez lecturas pedidas por el sistema. El `grid`
+ * del APG mueve el foco por CELDAS y saca del tabulador los botones de dentro; aqui el foco va por
+ * filas y **los botones de `accionesPorFila` siguen en el tabulador**, porque la otra forma cambia
+ * el teclado de una tabla que ya funciona (#65) y no lo pide nadie.
+ *
+ * <h2>Pulsar un boton de la fila NO la elige</h2>
+ *
+ * Un clic o una tecla que nace en un mando de la fila —una accion, tambien la impedida con su
+ * motivo— es de ese mando: «Anular» sobre la fila 3 no puede mover la ruta a la fila 3.
+ *
+ * <h2>Sin `hoja`, en el estado de la tabla</h2>
+ *
+ * Como la pagina y el orden: fuera del marco lo elegido vive en la tabla y no sobrevive a recargar.
+ * Cambiar de pagina o de orden **no borra la eleccion**: es otro sitio de la ruta.
+ */
+export interface EleccionDeLaFila {
+  /**
+   * Donde vive la fila elegida: un parametro, o `EL_SUJETO`. Es tambien como se lee: `ruta.<enLaRuta>`.
+   * La hoja lo tiene que declarar en su `Destino.enLaRuta`, como la pagina: lo que no declara, el
+   * marco lo ignora con aviso y la eleccion no sobrevive a recargar.
+   */
+  readonly enLaRuta: EnLaRuta;
+  /**
+   * El nombre del dato **de la fila** cuyo valor se escribe: `'codigo'`. Viaja tal cual, sin
+   * `traducir`. **Una fila que no lo trae —ausente, `null` o `''`— no es elegible**: ni se enfoca ni
+   * se pulsa, y no lleva `aria-selected`.
+   */
+  readonly desde: string;
 }
 
 /**
@@ -868,8 +927,29 @@ export interface DefinicionDeMaestroDetalle extends ComunDeUnaPieza {
     readonly lectura?: LecturaDeUnaPieza;
   };
   readonly detalle: {
-    /** Lo que ocupa el detalle sin nada elegido. */
+    /** Lo que ocupa el detalle sin nada elegido. Con `sinEleccionSeDibuja`, lo que dice encima de el. */
     readonly sinEleccion: Texto;
+    /**
+     * **Sin eleccion, el detalle SE DIBUJA igual** (#95, `detalle-sin-eleccion-que-se-dibuja`), con
+     * `sinEleccion` encima diciendo por que no tiene dato: su cabecera y sus piezas, y cada lectura en
+     * el estado que el sistema le ponga —`en-espera`, con su frase—. Sin el, el todo o nada de #67:
+     * `sinEleccion` ocupa el detalle entero.
+     *
+     * <h2>Por que es un campo aparte y no `sinEleccion: Texto | { dibuja, dice }`</h2>
+     *
+     * Por la regla que dejo `vacioConSalida` fuera de `vacio` y `notaConMarcas` fuera de `nota`, y
+     * **medido**: con la union deja de compilar lo que ya lee `sinEleccion` como un `Texto` —la
+     * propia pieza, y lo que escribe un sistema con el `resolverTexto` publicado—:
+     *
+     * ```
+     * paquetes/ui/interprete/MaestroDetalle.tsx(200,25): error TS2345: Argument of type
+     *   'Texto | { readonly dibuja: true; readonly dice: Texto; }' is not assignable to parameter
+     *   of type 'Texto'.
+     * ```
+     *
+     * Aparte, no lo nota nadie.
+     */
+    readonly sinEleccionSeDibuja?: boolean;
     /** Lo elegido no vino en la lista (otra pagina, otro filtro): se dice, y el detalle sigue. */
     readonly noEstaEnLaLista: Texto;
     readonly cabecera?: { readonly titulo: Texto; readonly subtitulo?: Texto };

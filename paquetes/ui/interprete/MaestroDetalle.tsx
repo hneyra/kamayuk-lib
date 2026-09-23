@@ -33,6 +33,13 @@ import type { DefinicionDeMaestroDetalle, Texto, TonoDeInsignia } from './tipos.
  * un enlace compartido—, el detalle **se dibuja igual** y encima dice `noEstaEnLaLista`: el detalle
  * se pide por su clave y no depende de la lista, y esconderlo castigaria al enlace compartido. Y con
  * la lista sin contestar todavia, eso no se dice: no se sabe.
+ *
+ * <h2>Y el detalle que se dibuja sin eleccion (#95)</h2>
+ *
+ * Con `detalle.sinEleccionSeDibuja`, sin nada elegido el detalle **no se sustituye**: se dibuja con
+ * su cabecera y sus piezas, y `sinEleccion` va encima diciendo por que no tiene dato, en el sitio
+ * donde iria `noEstaEnLaLista`. Lo que cada pieza dice mientras tanto es de su lectura, que el
+ * sistema pone en `en-espera`: la pieza no inventa un estado. Sin el dato, el todo o nada de #67.
  */
 
 /** El ancho de la lista en el artboard: el de la V6 de `catastro` (`Catastro.tsx:856`). */
@@ -186,7 +193,7 @@ export function MaestroDetalle({
   }
 
   let cuerpoDelDetalle: ReactNode;
-  if (elegido === null) {
+  if (elegido === null && detalle.sinEleccionSeDibuja !== true) {
     cuerpoDelDetalle = (
       <div data-slot="sin-eleccion" className="grid flex-1 place-items-center p-[30px]">
         <p className="m-0 max-w-[44ch] text-center text-[14px] leading-[1.6] text-tinta-3 text-pretty">
@@ -198,7 +205,12 @@ export function MaestroDetalle({
     const subtitulo = detalle.cabecera?.subtitulo === undefined ? '' : deLaPantalla(detalle.cabecera.subtitulo);
     cuerpoDelDetalle = (
       <div className="flex flex-col gap-[14px] px-[18px] pb-6 pt-4">
-        {listaContesto && indiceElegido < 0 ? (
+        {elegido === null ? (
+          // Sin eleccion, y el detalle se dibuja igual: lo dice encima, con la frase de la hoja.
+          <Alerta tono="info" data-sin-eleccion="">
+            {deLaPantalla(detalle.sinEleccion)}
+          </Alerta>
+        ) : listaContesto && indiceElegido < 0 ? (
           <Alerta tono="info" data-no-esta-en-la-lista={elegido}>
             {deLaPantalla(detalle.noEstaEnLaLista)}
           </Alerta>
