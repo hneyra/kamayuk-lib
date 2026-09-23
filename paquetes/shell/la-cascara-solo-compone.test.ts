@@ -47,10 +47,11 @@ function medirLaFuncion(fuente: string, nombre: string): Medida {
   };
 }
 
-/** Una `Cascara` como la de antes, en pequeño: tres hooks, uno de ellos citado en un comentario. */
+/** Una `Cascara` como la de antes, en pequeño: tres hooks, y dos más escritos en comentarios que no cuentan. */
 const MUESTRA = [
   'function Cascara() {',
-  '  // useState aqui no cuenta',
+  '  // const [x] = useState(0); comentado no cuenta',
+  '  /** Ni en un docblock: `useEffect(() => {})`. */',
   '  const [a] = useState(1);',
   '  const b = useMemo<string>(() => "", []);',
   '  useEffect(() => {}, []);',
@@ -64,7 +65,7 @@ const MUESTRA = [
 
 describe('la medida', () => {
   it('cuenta las líneas de la función y sus hooks, sin los del comentario ni los de la siguiente', () => {
-    expect(medirLaFuncion(MUESTRA, 'Cascara')).toEqual({ lineas: 7, hooks: ['useState', 'useMemo', 'useEffect'] });
+    expect(medirLaFuncion(MUESTRA, 'Cascara')).toEqual({ lineas: 8, hooks: ['useState', 'useMemo', 'useEffect'] });
   });
 
   it('sin la función, lo dice en vez de medir cero', () => {
