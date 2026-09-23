@@ -78,6 +78,37 @@ export default tseslint.config(
   },
   ...bloquesDeExcepcion,
   {
+    // **LA EXHAUSTIVIDAD, TAMBIEN EN EL LINT** (#111).
+    //
+    // Un `switch` sobre una union que se deja una rama sin `case` lo senala
+    // `switch-exhaustiveness-check`, que necesita los tipos: por eso este bloque —y solo este— lleva
+    // `projectService`. Cubre lo que el compilador no ve: un `switch` en una funcion que no devuelve
+    // nada (el `pulsar` de `GrupoDeAcciones`) o que admite `undefined` (`motivoDeLaAccion`), donde la
+    // rama que falta no es TS2366 sino un boton que no hace nada o una accion que «se puede pulsar».
+    //
+    // **NO es una prohibicion de `PROHIBICIONES`, y es a proposito**, por lo mismo que el XHR: cada
+    // sistema le exige a cada clave su muestra en SU arbol, y una regla nueva ahi es un cambio
+    // coordinado en cinco repositorios. Ademas no es `no-restricted-syntax` —es una regla con tipos—,
+    // y `PROHIBICIONES` solo sabe llevar selectores. Vive en el config de este repositorio; su muestra
+    // esta en `verificaciones/muestras/switch-sin-agotar.ts` y la juzga `reglas-de-eslint.test.ts`.
+    //
+    // A los consumidores los protege otra cosa, que si viaja: los tipos de retorno anotados y los
+    // `never` de `CampoDelBloque`, `EstadoDeLaLectura`, `PiezaDeLaPantalla` y `claseDe`, que dan su
+    // rojo con el `tsconfig` de cada uno.
+    files: ['paquetes/**/*.{ts,tsx}'],
+    languageOptions: {
+      parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
+    },
+    rules: {
+      '@typescript-eslint/switch-exhaustiveness-check': [
+        'error',
+        // Explicitas, aunque sean las de omision: con `true`, un `default` daria por agotada una
+        // union a la que le falta un `case`, que es justo lo que se viene a cazar.
+        { considerDefaultExhaustiveForUnions: false, allowDefaultCaseForExhaustiveSwitch: true },
+      ],
+    },
+  },
+  {
     // En las pruebas la prohibicion se apaga, y no por comodidad: varias NOMBRAN lo que
     // verifican —un `localStorage.setItem('token', …)` que tiene que salir rojo, un importe
     // convertido a numero— y con la regla encendida el arnes no se podria escribir.
