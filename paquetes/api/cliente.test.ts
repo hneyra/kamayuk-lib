@@ -474,3 +474,142 @@ describe('el prefijo es de quien construye el cliente, y no de esta libreria', (
     );
   });
 });
+
+/**
+ * **Las CINCO extensiones del contrato llegan enteras** (#52, AC2).
+ *
+ * Hasta #52 `ErrorDeLaApi` guardaba dos —`codigo` y `mensaje`— y tiraba las otras tres, que ya
+ * llegaban por el cable. Medido el 2026-09-20 sobre los cinco `ManejadorDeErrores.java`, las
+ * cinco son las mismas en los cinco sistemas: `CAMPO_CODIGO`, `CAMPO_MENSAJE`, `CAMPO_DETALLES`,
+ * `CAMPO_INCIDENCIA` y `CAMPO_PARAMETRO_QUE_FALTA` —`:46-60` en `identidad`, `catastro`, `caja` y
+ * `normativa`, `:47-61` en `rentas`—.
+ *
+ * **Los cuerpos son copias de lo que emite el backend**, y se miden **a traves de `solicitar()`**
+ * y no construyendo el error a mano: lo que se quiere demostrar es que el camino completo
+ * —`fetch`, `problemaDe`, el constructor— no pierde nada por el medio. Un `new ErrorDeLaApi(...)`
+ * en la prueba saltaria justo el trozo donde se perdian.
+ */
+describe('#52 AC2 — ErrorDeLaApi conserva incidencia, detalles y parametroQueFalta', () => {
+  /** Lo que `ManejadorDeErrores.interno()` emite: `cuerpoDe` mas `incidencia` (`:288-296`). */
+  const EL_500 = {
+    type: 'https://kamayuk.gob.pe/errores/error_interno',
+    title: 'No se pudo completar la operacion',
+    status: 500,
+    detail: 'No se pudo completar la operacion',
+    codigo: 'ERROR_INTERNO',
+    mensaje: 'No se pudo completar la operacion',
+    incidencia: '2f0f7f2e-9a1c-4f1e-9a55-1c3f5c2f0a11',
+  };
+
+  /** Lo que `ManejadorDeErrores.ordenNoAdmitido()` emite (`:75-81`). */
+  const EL_422_DEL_ORDEN = {
+    type: 'https://kamayuk.gob.pe/errores/orden_no_admitido',
+    title: 'No se puede ordenar por ese campo',
+    status: 422,
+    detail: 'No se puede ordenar por ese campo',
+    codigo: 'ORDEN_NO_ADMITIDO',
+    mensaje: 'No se puede ordenar por ese campo',
+    detalles: ['Campo pedido: selladoPor'],
+  };
+
+  /** Un 404 con `parametroQueFalta`, tal como lo compone `ParametroQueFalta.comoMiembro()`. */
+  const EL_404_SIN_PUBLICAR = {
+    title: 'No se encontro lo solicitado',
+    status: 404,
+    detail: 'No hay ningun conjunto sellado para el ejercicio 2027',
+    codigo: 'NO_ENCONTRADO',
+    mensaje: 'No hay ningun conjunto sellado para el ejercicio 2027',
+    parametroQueFalta: { ejercicio: 2027 },
+  };
+
+  function contesta(cuerpo: Record<string, unknown>): void {
+    fetchQueContesta(
+      new Response(JSON.stringify(cuerpo), {
+        status: cuerpo['status'] as number,
+        headers: { 'content-type': 'application/problem+json' },
+      }),
+    );
+  }
+
+  async function elFalloDe(cuerpo: Record<string, unknown>): Promise<ErrorDeLaApi> {
+    contesta(cuerpo);
+    try {
+      await solicitar('/algo');
+    } catch (error) {
+      return error as ErrorDeLaApi;
+    }
+    throw new Error('la peticion no fallo, y esta prueba mide un fallo');
+  }
+
+  it('el 500 llega con su incidencia, que es lo unico con lo que soporte encuentra la causa', async () => {
+    const fallo = await elFalloDe(EL_500);
+
+    expect(fallo).toBeInstanceOf(ErrorDeLaApi);
+    expect(fallo.incidencia).toBe('2f0f7f2e-9a1c-4f1e-9a55-1c3f5c2f0a11');
+    // Y lo que ya llegaba sigue llegando.
+    expect(fallo.estado).toBe(500);
+    expect(fallo.codigo).toBe('ERROR_INTERNO');
+  });
+
+  it('el 422 ORDEN_NO_ADMITIDO llega con sus detalles, que es donde viaja el campo', async () => {
+    const fallo = await elFalloDe(EL_422_DEL_ORDEN);
+
+    // El `mensaje` de ese codigo es fijo: sin `detalles` no hay forma de decir por que campo se
+    // pidio ordenar.
+    expect(fallo.detalles).toEqual(['Campo pedido: selladoPor']);
+  });
+
+  it('el 404 de un ejercicio sin publicar llega con parametroQueFalta, TAL CUAL', async () => {
+    const fallo = await elFalloDe(EL_404_SIN_PUBLICAR);
+
+    // Es lo que separa este 404 del 404 de una ruta que no existe: los dos llegan con
+    // `codigo: 'NO_ENCONTRADO'`, y leerlos del mensaje en castellano es lo que el catalogo de
+    // errores prohibe (`normativa`#66 y #67).
+    expect(fallo.parametroQueFalta).toEqual({ ejercicio: 2027 });
+    // Y no se interpreta aqui: `llave` no esta porque el backend no la escribe cuando falta el
+    // conjunto del ano entero, y no llega como `null` (`ParametroQueFalta.comoMiembro()`).
+    expect(fallo.parametroQueFalta?.llave).toBeUndefined();
+  });
+
+  it('y con «llave» tambien, que es el otro caso que el backend compone', async () => {
+    const fallo = await elFalloDe({
+      ...EL_404_SIN_PUBLICAR,
+      parametroQueFalta: { ejercicio: 2026, llave: 'UIT:VALOR' },
+    });
+
+    expect(fallo.parametroQueFalta).toEqual({ ejercicio: 2026, llave: 'UIT:VALOR' });
+  });
+
+  it('las tres AUSENCIAS se dicen distinto, y ninguna es una cadena vacia', async () => {
+    // El 401 de la cadena de identidad trae CUATRO miembros y ninguna de las tres. Que
+    // `detalles` sea `[]` y no `null` es a proposito: el backend no escribe el miembro con la
+    // lista vacia (`ManejadorDeErrores.java:65-67`), asi que su ausencia significa «este rechazo
+    // no publica ninguna cifra» y nunca «no se sabe».
+    const fallo = await elFalloDe({
+      status: 401,
+      title: 'No autenticado',
+      codigo: 'NO_AUTENTICADO',
+      mensaje: 'La peticion no trae un token valido',
+    });
+
+    expect(fallo.incidencia).toBeNull();
+    expect(fallo.detalles).toEqual([]);
+    expect(fallo.parametroQueFalta).toBeNull();
+  });
+
+  it('un cuerpo que no es JSON tampoco deja las tres en un estado raro', async () => {
+    fetchQueContesta(
+      new Response('<html>502 Bad Gateway</html>', {
+        status: 502,
+        headers: { 'content-type': 'text/html' },
+      }),
+    );
+
+    await expect(solicitar('/algo')).rejects.toMatchObject({
+      estado: 502,
+      incidencia: null,
+      detalles: [],
+      parametroQueFalta: null,
+    });
+  });
+});

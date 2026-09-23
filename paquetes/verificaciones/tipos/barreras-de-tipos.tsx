@@ -15,6 +15,7 @@ import type {
 import type { Cliente, RespuestaTalCual } from '../../api/index.ts';
 import { formatearImporte } from '../../formato/index.ts';
 import { peldanoDe } from '../../sesion/index.ts';
+import type { Peldano } from '../../sesion/index.ts';
 import type { NavegacionDelArmazon } from '../../shell/index.ts';
 import type { DefinicionDeAccion, DefinicionDeActo, Impedimento, NavegacionDeLaPantalla } from '../../ui/index.ts';
 
@@ -163,6 +164,32 @@ export const datoConNumero: DatosDeLaPantalla = {
  * y no en la pantalla del primer sistema que lo pinte.
  */
 export const elPeldanoDeLaSesionCabe: PeldanoDeUnFallo = peldanoDe(new TypeError('sin red'));
+
+/**
+ * **Las claves de `Peldano` son EXACTAMENTE nueve** (#52).
+ *
+ * `ciudadano` traduce la escalera con un `Record` completo sobre las claves, y lo tiene a proposito:
+ * «no compila si la libreria anade un decimo peldano y aqui no se decide que decir». Los dos que
+ * trajo #52 —`conflicto` y `orden-no-admitido`— lo pusieron rojo en el trabajo `consumidores`
+ * (`TS2739`, `RC=2`) hasta que `ciudadano` los decidio en su propio `main` (`fce3c64`, ciudadano#33).
+ *
+ * Esta barrera es **la misma forma que esa guarda**, puesta aqui: con una decima clave falta una
+ * propiedad (`TS2741`), y con una de menos sobra una (`TS2353`). Sin `@ts-expect-error`: esto TIENE
+ * que compilar, y el dia que la union cambie sale rojo en `yarn typecheck` de esta libreria —con el
+ * nombre de la clave— antes de que el trabajo `consumidores` lo descubra en el arbol de otro.
+ * Crecer sigue siendo posible; lo que deja de ser posible es crecer sin enterarse.
+ */
+export const LAS_NUEVE_CLAVES: Readonly<Record<Peldano['clave'], true>> = {
+  'sin-identidad': true,
+  'sin-municipalidad': true,
+  'sin-privilegio': true,
+  'no-encontrado': true,
+  'no-permitido': true,
+  conflicto: true,
+  'orden-no-admitido': true,
+  'no-valido': true,
+  averia: true,
+};
 
 /**
  * Las barreras de #66: la regla 10 y el motivo de lo impedido, llevados al tipo.
