@@ -4,8 +4,8 @@
    esquivada, que en una convencion de proceso es peor todavia — el peaje se aprende a
    rodear y la tabla se queda igual de vacia.
 
-   Asi que se corre la comprobacion contra nueve situaciones fabricadas, cinco que tiene
-   que rechazar y cuatro que tiene que dejar pasar, y se exige que el rechazo **nombre el
+   Asi que se corre la comprobacion contra once situaciones fabricadas, seis que tiene
+   que rechazar y cinco que tiene que dejar pasar, y se exige que el rechazo **nombre el
    issue**: rechazar por el motivo equivocado seria pasar por casualidad.
 
    La ultima en llegar es del tercer tiempo de `infrastructure`#114 y fija lo que la mudanza
@@ -18,6 +18,14 @@
    la otra toca `infrastructure/` FUERA de `src/` —su prueba y su README— y tiene que
    seguir pasando. Sin la segunda, «que el descriptor cuente» se podria satisfacer
    declarando que todo cuenta, y una guarda que grita en cada PR se acaba apagando.
+
+   Y las dos que cierran la lista son de #128, y tambien van en pareja. El registro se mezcla con
+   `merge=union`, que cuando dos ramas EDITAN la misma fila se queda con las dos sin avisar;
+   la primera fabrica ese registro —dos filas con el mismo issue en el titulo— y tiene que
+   salir roja aunque el PR no declare nada. La segunda cita ese issue en el TEXTO de otra fila
+   y tiene que pasar: las filas citan otros issues a docenas, y una guarda que contara esas
+   citas daria rojo a todas. Las nueve de antes no cambian: el registro que se les pasa es uno
+   limpio, con una fila.
 
    Uso: node docs/00-gobierno/verificar-las-muestras-del-registro.mjs
 */
@@ -36,6 +44,12 @@ const COMPROBACION = fileURLToPath(
 
 /** Una fila de la tabla, como la que este mismo PR anade. */
 const FILA = '| Lo que se verifico (#711, 3 pruebas) | La rotura | El rojo |';
+
+/** La cabecera del registro, para fabricar uno entero. */
+const CABECERA = '| Verificacion | Como se demostro que puede fallar | Resultado |\n|---|---|---|';
+
+/** El registro que se les pasa a las muestras que no traen el suyo: limpio, con una fila. */
+const REGISTRO_LIMPIO = `${CABECERA}\n| **Lo que se verifico (#711).** Algo | La rotura | El rojo |\n`;
 
 const CASOS = [
   {
@@ -117,6 +131,34 @@ const CASOS = [
     anadido: '',
     esperado: 'verde',
   },
+  {
+    // #128. Lo que deja `merge=union` cuando `main` y la rama editan la MISMA fila: las dos
+    // versiones, una debajo de la otra, sin conflicto. Sale roja aunque el PR no declare nada,
+    // porque la fila repetida la trae una mezcla y no el PR que la declara.
+    nombre: 'el registro tiene dos filas con el mismo issue en el titulo',
+    cuerpo: 'Un arreglo suelto, sin issue.',
+    archivos: ['paquetes/ui/Boton.tsx'],
+    anadido: '',
+    registro:
+      `${CABECERA}\n` +
+      '| **Lo que se verifico (#711).** La version de main | La rotura | El rojo |\n' +
+      '| **Lo que se verifico (#711).** La version de la rama | La rotura | El rojo |\n',
+    esperado: 'rojo',
+    dice: '#711 tiene 2 filas',
+  },
+  {
+    // Su contraste. La fila de #712 CITA a #711 en su texto —como la de #24 cita a seis—, y eso
+    // no es una segunda fila de #711: una guarda que contara las citas daria rojo a todas.
+    nombre: 'una fila que cita otro issue en su texto no es una segunda fila de ese issue',
+    cuerpo: 'Cierra #712.',
+    archivos: ['paquetes/ui/Boton.tsx'],
+    anadido: '+| **Lo siguiente (#712).** Sale de #711 | La rotura | El rojo |',
+    registro:
+      `${CABECERA}\n` +
+      '| **Lo que se verifico (#711).** Algo | La rotura | El rojo |\n' +
+      '| **Lo siguiente (#712).** Sale de #711 | La rotura | El rojo |\n',
+    esperado: 'verde',
+  },
 ];
 
 /* Y la direccion que faltaba, que es de #45: TODO patron de `RUTAS_DE_CODIGO` tiene que
@@ -162,16 +204,28 @@ for (const caso of CASOS) {
   const cuerpo = join(carpeta, 'cuerpo.txt');
   const archivos = join(carpeta, 'archivos.txt');
   const anadido = join(carpeta, 'anadido.txt');
+  const registro = join(carpeta, 'registro.md');
   writeFileSync(cuerpo, caso.cuerpo);
   writeFileSync(archivos, caso.archivos.join('\n'));
   writeFileSync(anadido, caso.anadido);
+  writeFileSync(registro, caso.registro ?? REGISTRO_LIMPIO);
 
   let salida = '';
   let codigo = 0;
   try {
     salida = execFileSync(
       'node',
-      [COMPROBACION, '--cuerpo', cuerpo, '--archivos', archivos, '--anadido', anadido],
+      [
+        COMPROBACION,
+        '--cuerpo',
+        cuerpo,
+        '--archivos',
+        archivos,
+        '--anadido',
+        anadido,
+        '--registro',
+        registro,
+      ],
       { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
     );
   } catch (fallo) {

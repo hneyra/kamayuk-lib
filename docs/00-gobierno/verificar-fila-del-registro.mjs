@@ -36,11 +36,24 @@
    y es lo que usa su autoprueba: sin poder alimentarlas, demostrar que muerde exigiria
    fabricar un repositorio, y una comprobacion que no se puede probar es la que este
    issue viene a impedir.
+
+   ## Y que ningun issue tenga dos filas (#128)
+
+   Desde #128 el registro se mezcla solo: `.gitattributes` le pone `merge=union`, porque
+   las filas solo se anaden y dos PR que anaden cada uno la suya al final de la tabla
+   chocaban SIEMPRE en la misma linea. La union tiene un precio conocido: cuando dos ramas
+   EDITAN la misma fila, no hay conflicto — se queda con las dos versiones, una debajo de
+   la otra, y no avisa. Asi que esta guarda comprueba ademas, **en cada PR y declare lo que
+   declare**, que ningun issue tenga mas de una fila en el registro entero. La fila de un
+   issue es la que lo cita en su TITULO —la primera negrita de la primera celda—: las
+   filas citan en su texto otros issues a docenas, y contar esas citas daria rojo a todas.
+
+   El registro se lee del arbol, o de `--registro` en la autoprueba.
 */
 
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 /** Lo que hace de un cambio «codigo» a efectos de esta guarda.
 
@@ -114,6 +127,33 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 
 function principal() {
   const opciones = leerOpciones(process.argv.slice(2));
+
+  // Antes que nada, y sin mirar el cuerpo: dos filas del mismo issue las deja una mezcla, no el
+  // PR que las declara, asi que no se espera a que el PR cierre algo para mirarlas (#128).
+  const registro = readFileSync(
+    opciones.registro ??
+      fileURLToPath(new URL(`../../${DONDE_VIVE_LA_FILA[0]}`, import.meta.url)),
+    'utf8',
+  );
+  const repetidas = filasRepetidas(registro);
+  if (repetidas.length > 0) {
+    console.error('');
+    console.error(`FALLO: hay issues con mas de una fila en ${DONDE_VIVE_LA_FILA[0]}.`);
+    console.error('');
+    for (const { numero, lineas } of repetidas) {
+      console.error(
+        `  · #${numero} tiene ${lineas.length} filas: lineas ${lineas.join(', ')}.`,
+      );
+    }
+    console.error('');
+    console.error('  El registro es una fila por issue. Dos filas del mismo issue son lo que deja');
+    console.error('  `merge=union` cuando dos ramas EDITAN la misma fila: se queda con las dos');
+    console.error('  versiones, sin conflicto y sin avisar. Se arregla dejando una —la buena— a mano.');
+    console.error('');
+    console.error('  La fila de un issue es la que lo cita en su titulo: la primera negrita de la');
+    console.error('  primera celda. Citarlo en el texto de otra fila no cuenta.');
+    process.exit(1);
+  }
 
   const cuerpo = opciones.cuerpo
     ? readFileSync(opciones.cuerpo, 'utf8')
@@ -207,6 +247,39 @@ function nombra(texto, numero) {
     .some((linea) => linea.startsWith('|') && cita.test(linea));
 }
 
+/**
+ * Los issues que tienen mas de una fila en el registro, con las lineas de cada una (#128).
+ *
+ * **La fila de un issue es la que lo cita en su TITULO**, y el titulo es la primera negrita de la
+ * primera celda: `| **Lo que se hizo (#N).** …`. Medido sobre las cincuenta filas de hoy: cada
+ * titulo cita **uno o ningun** issue —dos no llevan numero: la de `subir()` y la del Node del
+ * consumidor—, y ningun issue sale dos veces. El texto de las filas, en cambio, cita otros issues a
+ * docenas —la de #24 cita seis—, asi que contar cualquier `#N` de la fila daria rojo a todas.
+ *
+ * Una cita de otro repositorio —`caja`#99, `infrastructure`#114— no es de este: el `#` va pegado a
+ * una comilla invertida o a una letra, y no cuenta.
+ *
+ * @param {string} registro
+ * @returns {{ numero: string, lineas: number[] }[]}
+ */
+export function filasRepetidas(registro) {
+  /** @type {Map<string, number[]>} */
+  const porIssue = new Map();
+  registro.split('\n').forEach((linea, indice) => {
+    const titulo = /^\|\s*\*\*(.+?)\*\*/.exec(linea.trim())?.[1];
+    if (titulo === undefined) return;
+    const citados = new Set(
+      [...titulo.matchAll(/(?<![\w`])#(\d+)(?![0-9])/g)].map((cita) => cita[1] ?? ''),
+    );
+    for (const numero of citados) {
+      porIssue.set(numero, [...(porIssue.get(numero) ?? []), indice + 1]);
+    }
+  });
+  return [...porIssue]
+    .filter(([, filas]) => filas.length > 1)
+    .map(([numero, filas]) => ({ numero, lineas: filas }));
+}
+
 function lineas(texto) {
   return texto
     .split('\n')
@@ -226,7 +299,7 @@ function leerOpciones(argumentos) {
     if (valor === undefined) {
       throw new Error(`Falta el valor de ${nombre}`);
     }
-    if (!['--base', '--cuerpo', '--archivos', '--anadido'].includes(nombre)) {
+    if (!['--base', '--cuerpo', '--archivos', '--anadido', '--registro'].includes(nombre)) {
       throw new Error(`Opcion desconocida: ${nombre}`);
     }
     opciones[nombre.slice(2)] = valor;
