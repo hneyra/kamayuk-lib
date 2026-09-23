@@ -49,7 +49,13 @@ pueden decir en voz alta sin decir de qué fila es cada uno— y, cuando la fila
   el dato que decide no llegó —pintar `otro` ahí afirmaría un estado que nadie ha leído—;
 - `accionesQueOfrece`, que **revienta** si `segun.ofrece` nombra una acción que `acciones` no
   declara;
-- y `tablasSinVacio`, con la que cada sistema recorre sus definiciones **sin montar nada**.
+- y `tablasSinVacio`, con la que cada sistema recorre sus definiciones **sin montar nada** —**las
+  anidadas incluidas** desde #110: recorre con `recorrerLasPiezas` y pregunta a `esBloque`, como
+  `piezasSinRegistrar`, así que una tabla sin `vacio` dentro de una pestaña, abierta o cerrada, o
+  del detalle de un maestro, ya no pasa la guarda—.
+
+«La tabla del bloque y sus `tablas`» se dice **en un solo sitio**, `tablasDe(bloque)`, interno y
+fuera del índice; «qué es un bloque», sólo en `esBloque` (#110).
 
 ## Cuatro cosas que no se tocan
 
