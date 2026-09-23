@@ -20,9 +20,20 @@ export const RUTAS_DE_LOS_ORIGENES: Readonly<Record<IdentidadDeOrigen, string>> 
   clasico: fileURLToPath(new URL('../estilos/clasico.css', import.meta.url)),
 };
 
-/** El CSS de un archivo, sin comentarios: un `--color-x` citado en un comentario no es un token. */
-const cssSinComentarios = (ruta: string): string =>
-  readFileSync(ruta, 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
+/**
+ * **Un CSS sin sus comentarios**: un `--color-x` citado en un comentario no es un token.
+ *
+ * Es el UNICO quitador de comentarios de CSS del paquete (#126). Hasta entonces este y dos pruebas
+ * —`la-fuente-es-de-la-identidad` y `las-paletas-llegan-al-css`— se escribian la misma expresion
+ * cada uno. El CSS solo tiene comentarios de bloque, asi que no le hace falta el `(?<!:)` del de
+ * JavaScript (`verificaciones/comentarios.mjs`): una `url(https://…)` no se confunde con nada.
+ */
+export function sinComentariosCss(css: string): string {
+  return css.replace(/\/\*[\s\S]*?\*\//g, ' ');
+}
+
+/** El CSS de un archivo, sin comentarios. */
+const cssSinComentarios = (ruta: string): string => sinComentariosCss(readFileSync(ruta, 'utf8'));
 
 /** Los `--color-*` de un archivo de origen, `--nombre` -> valor, en el orden en que se declaran. */
 export function coloresDe(ruta: string): Map<string, string> {

@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { compile } from 'tailwindcss';
 import { describe, expect, it } from 'vitest';
 
-import { leerLosOrigenes } from './base.ts';
+import { leerLosOrigenes, sinComentariosCss } from './base.ts';
 import { COMBINACIONES, derivar } from './derivar.ts';
 
 /**
@@ -134,7 +134,7 @@ function sinLlave(selector: string): string {
 
 /** El CSS con los espacios colapsados: lo emitido se compara por texto, no por formato. */
 function aplanar(css: string): string {
-  return css.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\s+/g, ' ');
+  return sinComentariosCss(css).replace(/\s+/g, ' ');
 }
 
 /** Las declaraciones del bloque que abre en `selector`, hasta su `}`. */
