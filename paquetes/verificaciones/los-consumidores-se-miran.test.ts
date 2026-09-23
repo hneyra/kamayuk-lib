@@ -104,6 +104,26 @@ const losQueNoSiguenLaConvencion = (consumidores: readonly Disposicion[]): strin
     .filter((c) => c.directorio !== c.repositorio.split('/').pop())
     .map((c) => `  ${c.repositorio} se clona en «${c.directorio}»`);
 
+/**
+ * Las ORDENES del paso `setup-node` que instala el consumidor —el que cachea SU `yarn.lock`—, sin
+ * los comentarios. Sin comentarios a proposito: una guarda que se diera por satisfecha con un
+ * `# check-latest: true` en un comentario pasaria en verde con la CI rota, que es justo el defecto
+ * que ya se cazo una vez en este repositorio.
+ */
+function ordenesDelNodeDelConsumidor(yaml: string): readonly string[] {
+  const lineas = yaml.split('\n');
+  const cache = lineas.findIndex((l) => /^\s*cache-dependency-path:.*matrix\.directorio/.test(l));
+  if (cache === -1) return [];
+  let inicio = cache;
+  while (inicio > 0 && !/^\s*- uses: actions\/setup-node@/.test(lineas[inicio] ?? '')) inicio -= 1;
+  let fin = cache + 1;
+  while (fin < lineas.length && !/^\s*-\s/.test(lineas[fin] ?? '') && (lineas[fin] ?? '').trim() !== '') fin += 1;
+  return lineas
+    .slice(inicio, fin)
+    .map((l) => l.trim())
+    .filter((l) => l !== '' && !l.startsWith('#'));
+}
+
 describe('la CI mira a sus consumidores', () => {
   it('EL CENTINELA: hay al menos un consumidor declarado', () => {
     // Una lista vacia deja el trabajo de CI con cero casos de matriz y en VERDE. Es exactamente el
@@ -274,5 +294,28 @@ describe('la CI mira a sus consumidores', () => {
     expect(workflow).toContain('continue-on-error: true');
     expect(workflow, 'no hay paso de veredicto').toContain('El veredicto');
     expect(workflow, 'el veredicto no falla nunca').toMatch(/ESTA RAMA ROMPE A/);
+  });
+
+  it('el Node del consumidor es la ULTIMA 24, no la que el corredor tenga en cache', () => {
+    // Medido el 2026-09-23: `rentas` pidio `^24.21.0`, el corredor traia la 24.20.0 y el trabajo
+    // salio rojo en la instalacion, antes de medir nada y en la linea base igual que en la rama.
+    const ordenes = ordenesDelNodeDelConsumidor(workflow);
+    expect(ordenes, 'no se encontro el `setup-node` que cachea el `yarn.lock` del consumidor').not.toEqual([]);
+    expect(ordenes, 'el `setup-node` del consumidor no pide la ultima 24').toContain('check-latest: true');
+  });
+
+  it('LA MUESTRA: `check-latest` en un COMENTARIO no cuenta, y sin el sale rojo', () => {
+    const paso = (extra: string) =>
+      [
+        '      - uses: actions/setup-node@v7',
+        '        with:',
+        '          node-version: "24"',
+        extra,
+        "          cache-dependency-path: ${{ format('{0}/{1}/yarn.lock', matrix.directorio, matrix.ruta) }}",
+        '',
+      ].join('\n');
+    expect(ordenesDelNodeDelConsumidor(paso('          check-latest: true'))).toContain('check-latest: true');
+    expect(ordenesDelNodeDelConsumidor(paso('          # check-latest: true'))).not.toContain('check-latest: true');
+    expect(ordenesDelNodeDelConsumidor(paso('          cache: yarn'))).not.toContain('check-latest: true');
   });
 });
