@@ -137,21 +137,34 @@ export function compararImportes(a: Importe, b: Importe): number {
   return uno.signo * (uno.decimales < otro.decimales ? -1 : 1);
 }
 
-/** Los doce meses, en minuscula, como los escribe el artboard: «al 31 de agosto». */
-const MESES = [
-  'enero',
-  'febrero',
-  'marzo',
-  'abril',
-  'mayo',
-  'junio',
-  'julio',
-  'agosto',
-  'septiembre',
-  'octubre',
-  'noviembre',
-  'diciembre',
-];
+/** Un mes como lo sirve una fecha ISO: dos digitos, del `01` al `12`. */
+type Mes = '01' | '02' | '03' | '04' | '05' | '06' | '07' | '08' | '09' | '10' | '11' | '12';
+
+/**
+ * Los doce meses, en minuscula, como los escribe el artboard: «al 31 de agosto».
+ *
+ * **Por su clave de dos digitos, y no por posicion** (#108): la lista por posicion obligaba a
+ * convertir `'08'` en el numero 7 para indexarla, y eso era un `Number` en el unico paquete que
+ * promete no tener ninguno. Con la clave tal cual llega no hay nada que convertir.
+ */
+const MESES: Readonly<Record<Mes, string>> = {
+  '01': 'enero',
+  '02': 'febrero',
+  '03': 'marzo',
+  '04': 'abril',
+  '05': 'mayo',
+  '06': 'junio',
+  '07': 'julio',
+  '08': 'agosto',
+  '09': 'septiembre',
+  '10': 'octubre',
+  '11': 'noviembre',
+  '12': 'diciembre',
+};
+
+function esMes(texto: string): texto is Mes {
+  return Object.hasOwn(MESES, texto);
+}
 
 /**
  * `"2026-08-31"` -> `"31 de agosto"`.
@@ -172,12 +185,12 @@ export function formatearFechaEnPalabras(fecha: Fecha): string {
     );
   }
 
-  const [, , mes, dia] = partes;
-  const nombre = MESES[Number(mes) - 1];
-  if (nombre === undefined) {
+  const [, , mes = '', dia = ''] = partes;
+  if (!esMes(mes)) {
     throw new Error(`Fecha con un mes que no existe: «${fecha}».`);
   }
 
-  // Sin el cero de la izquierda: «1 de enero», no «01 de enero».
-  return `${String(Number(dia))} de ${nombre}`;
+  // Sin el cero de la izquierda: «1 de enero», no «01 de enero». Uno solo, y con texto: el dia
+  // siempre trae dos digitos, asi que `'01'` da `'1'` y `'10'` se queda como esta.
+  return `${dia.replace(/^0/, '')} de ${MESES[mes]}`;
 }
