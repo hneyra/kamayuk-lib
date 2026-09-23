@@ -4,19 +4,23 @@
 // `jsdom`, `import.meta.url` no es una URL `file:` y el `fileURLToPath` de `texto.ts` revienta con
 // «The URL must be of scheme file».
 
-import { join, sep } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, sep } from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
   EL_MODULO,
   EL_SITIO_LEGITIMO,
   LA_LINEA,
+  archivosDelArbol,
   barrer,
   copiasEn,
   enchufaElArnes,
 } from './el-arnes-del-request-no-se-copia.mjs';
-import { RAIZ, leer, sinComentarios } from './texto.ts';
+import { RAIZ, leer, rutaDesde, sinComentarios } from './texto.ts';
 
 /**
  * **El arnes del `Request` se publica una vez, y aqui se importa** (#92).
@@ -144,5 +148,69 @@ describe('el arnes del `Request` se publica y se importa', () => {
   it('el sitio legitimo es UNO, y esta donde dice', () => {
     expect(EL_ARNES.endsWith(`${sep}${EL_SITIO_LEGITIMO}`)).toBe(true);
     expect(leer(EL_ARNES).length).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * **Lo que el guion hace en el arbol de un consumidor no cambio con el recorredor comun** (#126,
+ * AC-4).
+ *
+ * El guion lo ejecutan los consumidores contra SU arbol, y su recorrido tiene tres decisiones que
+ * las guardas de aqui no toman: aparta `build` y `coverage`, que esta libreria no tiene, y no baja
+ * a ningun directorio oculto. Al pasar al recorredor comun, cualquiera de las tres se podia perder
+ * sin un rojo aqui —este arbol no tiene `build/`, ni `coverage/`, ni un oculto con codigo—, asi que
+ * se fabrica uno que si, con una copia del arnes en cada sitio que NO se mira y dos donde si.
+ */
+describe('el guion, en un arbol de consumidor fabricado', () => {
+  let arbol = '';
+  const COPIA = 'globalThis.Request = ElArnes;\n';
+  const ARBOL: Readonly<Record<string, string>> = {
+    'vitest.setup.ts': `${LA_LINEA}\n`,
+    'src/a/b/c/hondo.ts': COPIA,
+    'src/a/b/c/hondo.cjs': "window['Request'] = ElArnes;\n",
+    'src/a/uno.test.ts': COPIA,
+    'src/a/b/nota.md': COPIA,
+    '.oculto.ts': 'export const x = 1;\n',
+    '.claude/worktrees/otro/vitest.setup.ts': COPIA,
+    'src/.cache/copia.ts': COPIA,
+    'build/copia.js': COPIA,
+    'coverage/copia.js': COPIA,
+    'node_modules/dep/copia.ts': COPIA,
+    'dist/copia.js': COPIA,
+    'src/muestras/copia.ts': COPIA,
+  };
+
+  beforeAll(() => {
+    arbol = mkdtempSync(join(tmpdir(), 'kamayuk-consumidor-'));
+    for (const [ruta, texto] of Object.entries(ARBOL)) {
+      mkdirSync(dirname(join(arbol, ruta)), { recursive: true });
+      writeFileSync(join(arbol, ruta), texto);
+    }
+  });
+
+  afterAll(() => {
+    if (arbol !== '') rmSync(arbol, { recursive: true, force: true });
+  });
+
+  it('mira lo que miraba: ni ocultos, ni `build`, ni `coverage`, ni pruebas, ni lo de siempre', () => {
+    // Un ARCHIVO oculto si se mira: lo que se salta es el directorio. Asi era antes de #126.
+    expect(archivosDelArbol(arbol).map((archivo) => rutaDesde(arbol, archivo))).toEqual([
+      '.oculto.ts',
+      'src/a/b/c/hondo.cjs',
+      'src/a/b/c/hondo.ts',
+      'vitest.setup.ts',
+    ]);
+  });
+
+  it('y como proceso sale igual: RC=1, las dos copias nombradas y la linea que las cambia', () => {
+    const guion = join(RAIZ, 'paquetes/verificaciones/el-arnes-del-request-no-se-copia.mjs');
+    const salida = spawnSync(process.execPath, [guion, '--raiz', arbol], { encoding: 'utf8' });
+    expect(salida.status).toBe(1);
+    expect(salida.stdout).toContain('(4 archivos de codigo)');
+    expect(salida.stderr.split('\n').filter((linea) => linea.startsWith('  · '))).toEqual([
+      "  · src/a/b/c/hondo.cjs:1  window['Request'] = ElArnes;",
+      '  · src/a/b/c/hondo.ts:1  globalThis.Request = ElArnes;',
+    ]);
+    expect(salida.stderr).toContain(LA_LINEA);
   });
 });
