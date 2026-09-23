@@ -11,6 +11,7 @@ import type { Ausencia, Coordenada, DatosDeUnaTabla, FilaDeLaTabla } from './dat
 import { coordenada } from './datos.ts';
 import type { HojaDelMarco } from './hoja.ts';
 import { ProsaConMarcas } from './ProsaConMarcas.tsx';
+import { tablasDe } from './reglas-de-las-tablas.ts';
 import { TablaDelBloque } from './TablaDelBloque.tsx';
 import type { DefinicionDeBloque, DefinicionDeTabla, TonoDeInsignia, Texto } from './tipos.ts';
 
@@ -104,10 +105,7 @@ export function BloqueDeLaPantalla({
   // `''` no se dibuja, ni se traduce: es como la definicion dice «este bloque no tiene nota».
   const nota = bloque.nota === '' ? '' : texto(bloque.nota);
   const pie = bloque.pie === undefined || bloque.pie === '' ? '' : texto(bloque.pie);
-  const lasTablas: readonly DefinicionDeTabla<Texto>[] = [
-    ...(bloque.tabla === undefined ? [] : [bloque.tabla]),
-    ...(bloque.tablas ?? []),
-  ];
+  const lasTablas = tablasDe(bloque);
   /** Las filas y el conteo de una tabla: por su nombre si lo tiene, por el indice del bloque si no. */
   const datosDe = (tabla: DefinicionDeTabla<Texto>): { filas?: readonly FilaDeLaTabla[]; conteo?: string } => {
     if (tabla.clave !== undefined) return datosDeLasTablas?.get(tabla.clave) ?? {};
