@@ -204,8 +204,11 @@ añaden cada uno su fila al final de la tabla ya no chocan —lo ensaya `el-regi
 con el `.gitattributes` del árbol—. Lo que la unión no avisa —dos ramas que **editan** la misma fila
 dejan las dos versiones— lo caza la misma guarda, que en cada PR exige **una fila por issue**: la
 que lo cita en su título, la primera negrita de la primera celda; la que no cita ninguno cuenta por
-su título entero. **Lo que hace GitHub al actualizar la rama no está medido todavía**: ver la fila
-de #128.
+su título entero. **Y GitHub NO la respeta, medido** (PR #131, dos ramas con una fila cada una):
+el PR sale `mergeable_state: dirty` y «Update branch» contesta `merge conflict between base and
+head`, mientras que `git merge` local de las mismas dos ramas sale limpio con las dos filas. O sea:
+la unión sirve a quien mezcla `main` **en local**, que es como se integran las ramas aquí; el botón
+de GitHub sigue chocando.
 
 **Y las cifras de pruebas no se escriben a mano** (#128). Las de la tabla de arriba y las del
 `README.md` de la raíz viven entre dos marcadores de una misma línea —`<!-- cifras:<paquete> -->`, o
