@@ -1,6 +1,8 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { extname, join } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { archivosDe } from './archivos.mjs';
 
 /** La raiz de `kamayuk-lib`: el padre de `paquetes/`. */
 export const RAIZ = fileURLToPath(new URL('../..', import.meta.url));
@@ -19,8 +21,26 @@ export const PAQUETES = join(RAIZ, 'paquetes');
  */
 export { sinComentarios } from './comentarios.mjs';
 
-const APARTADAS = new Set(['node_modules', 'dist', 'muestras']);
-const EXTENSIONES = new Set(['.ts', '.tsx', '.mjs', '.js', '.css']);
+/**
+ * Las herramientas comunes de las guardas: el recorrido, la normalizacion de rutas y el escaner de
+ * lineas (#126).
+ *
+ * Como `sinComentarios`, **se importan de aqui y viven en un `.mjs`**, `archivos.mjs`, porque el
+ * guion que un consumidor corre contra su arbol recorre y escanea igual y no tiene `tsc`. El porque
+ * entero esta en el docblock de alli.
+ */
+export {
+  APARTADAS,
+  PRUEBAS,
+  archivosDe,
+  lineasDelTextoQueCasan,
+  lineasQueCasan,
+  rutaDesde,
+} from './archivos.mjs';
+export type { Hallazgo, LineaQueCasa } from './archivos.mjs';
+
+/** Lo que las guardas de este arbol leen como codigo. */
+const EXTENSIONES = ['.ts', '.tsx', '.mjs', '.js', '.css'] as const;
 
 /**
  * Los archivos de **codigo de produccion** de los paquetes.
@@ -30,22 +50,7 @@ const EXTENSIONES = new Set(['.ts', '.tsx', '.mjs', '.js', '.css']);
  * violar la regla.
  */
 export function archivosDeProduccion(raiz: string = PAQUETES): string[] {
-  const salida: string[] = [];
-  const recorrer = (directorio: string): void => {
-    for (const entrada of readdirSync(directorio)) {
-      if (APARTADAS.has(entrada)) continue;
-      const completa = join(directorio, entrada);
-      if (statSync(completa).isDirectory()) {
-        recorrer(completa);
-        continue;
-      }
-      if (/\.(test|spec)\.(ts|tsx)$/.test(entrada)) continue;
-      if (!EXTENSIONES.has(extname(entrada))) continue;
-      salida.push(completa);
-    }
-  };
-  recorrer(raiz);
-  return salida;
+  return archivosDe(raiz, { extensiones: EXTENSIONES });
 }
 
 /**
@@ -56,21 +61,7 @@ export function archivosDeProduccion(raiz: string = PAQUETES): string[] {
  * justo la via que ningun consumidor tiene.
  */
 export function archivosDeLosPaquetes(raiz: string = PAQUETES): string[] {
-  const salida: string[] = [];
-  const recorrer = (directorio: string): void => {
-    for (const entrada of readdirSync(directorio)) {
-      if (APARTADAS.has(entrada)) continue;
-      const completa = join(directorio, entrada);
-      if (statSync(completa).isDirectory()) {
-        recorrer(completa);
-        continue;
-      }
-      if (!EXTENSIONES.has(extname(entrada))) continue;
-      salida.push(completa);
-    }
-  };
-  recorrer(raiz);
-  return salida;
+  return archivosDe(raiz, { extensiones: EXTENSIONES, pruebas: true });
 }
 
 export function leer(archivo: string): string {
