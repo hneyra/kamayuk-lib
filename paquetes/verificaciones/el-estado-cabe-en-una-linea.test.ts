@@ -90,6 +90,6 @@ describe('la tabla de estado de `CLAUDE.md` cabe en una línea por pieza', () =>
     const rotos = enlaces
       .filter(({ ruta }) => !existsSync(join(RAIZ, ruta)) || !statSync(join(RAIZ, ruta)).isFile())
       .map(({ numero, ruta }) => `CLAUDE.md:${String(numero)} enlaza ${ruta}, y no está`);
-    expect(rotos).toEqual([]);
+    expect(rotos, `lo movido dejó de estar enlazado:\n  ${rotos.join('\n  ')}`).toEqual([]);
   });
 });
