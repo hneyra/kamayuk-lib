@@ -241,6 +241,52 @@ describe('`tabla-con-vacio` (AC-3): una tabla vacia dice por que, y no inventa u
     };
     expect(tablasSinVacio(def)).toEqual(['primero', 'segundo', 'tercero']);
   });
+
+  // #110, vuelta 1 de la correccion: el «sin repetir» del docblock valia solo si las repetidas
+  // estaban las dos en el primer nivel, que es lo unico que afirmaba la prueba de arriba. Una clave
+  // en el primer nivel Y dentro de una pestana, o en dos pestanas, es la misma tabla dicha dos veces
+  // en el mensaje de error que cada sistema escribe con esta lista.
+  it('`tablasSinVacio` no repite una clave aunque vuelva en OTRO nivel o en otra pestana (#110)', () => {
+    const def: Definicion = {
+      instruccion: '',
+      bloques: [
+        { titulo: 'arriba', nota: '', campos: [], tablas: [{ clave: 'repetida', titulo: 'R', columnas: [] }] },
+        {
+          tipo: 'pestanas',
+          enLaRuta: 'pestana',
+          rotulo: 'Secciones',
+          pestanas: [
+            {
+              clave: 'a',
+              rotulo: 'A',
+              bloques: [{ titulo: 'a', nota: '', campos: [], tablas: [{ clave: 'repetida', titulo: 'R', columnas: [] }] }],
+            },
+            {
+              clave: 'b',
+              rotulo: 'B',
+              bloques: [
+                {
+                  titulo: 'b',
+                  nota: '',
+                  campos: [],
+                  tablas: [
+                    { clave: 'en-dos-pestanas', titulo: 'D', columnas: [] },
+                    { clave: 'repetida', titulo: 'R', columnas: [] },
+                  ],
+                },
+              ],
+            },
+            {
+              clave: 'c',
+              rotulo: 'C',
+              bloques: [{ titulo: 'c', nota: '', campos: [], tablas: [{ clave: 'en-dos-pestanas', titulo: 'D', columnas: [] }] }],
+            },
+          ],
+        },
+      ],
+    };
+    expect(tablasSinVacio(def)).toEqual(['repetida', 'en-dos-pestanas']);
+  });
 });
 
 describe('`marcador`', () => {
