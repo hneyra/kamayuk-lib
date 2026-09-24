@@ -917,6 +917,29 @@ describe('#118 AC4 — lo que la puerta dice al no poder entrar sale del saco', 
   });
 
   /**
+   * **Y un `Error` del navegador SIN mensaje dice su nombre, que tambien es el dato.**
+   *
+   * Es la unica rama de `enPalabrasDelNavegador` que no sale del saco ni repite un mensaje, y
+   * ninguno de `LOS_CAMINOS` la recorre, asi que EL CIRCULO —que mira las claves del saco— no la
+   * cubre. Y el barrido de `el-texto-visible-es-dato` tampoco la puede cubrir: `FRASE` pide dos
+   * palabras separadas por espacio para no confundir una frase con una clave (`'perfil'`,
+   * `'account/'`), asi que una palabra suelta —`'Desconocido'`— o una frase partida en trozos —
+   * `'Error' + ' ' + 'desconocido'`— escrita en esa rama no la ve. Medido en la vuelta 1 de la
+   * verificacion de #118: con cualquiera de las dos, las 152 de `sesion` pasaban en verde. Lo que
+   * la caza es esto: el motivo tiene que ser **exactamente** el nombre del error.
+   */
+  it('y un Error del navegador SIN mensaje dice su nombre, que tambien es el dato', async () => {
+    ubicacion();
+    const sinMensaje = new Error('');
+    sinMensaje.name = 'NetworkError';
+    elEmisorNoContesta(sinMensaje);
+
+    const falla = await crearIdentidad(CONFIGURACION, MARCADOS).entrar();
+
+    expect(falla?.motivo).toBe('NetworkError');
+  });
+
+  /**
    * **Las tres funciones reciben SU dato**, y esto el saco marcado no lo ve: `marcarElSaco` hace
    * que una funcion devuelva su marca sin mirar el argumento, asi que una puerta que le pasara los
    * milisegundos en vez de los segundos, un `0` en vez del estado o una `'x'` en vez del codigo del
