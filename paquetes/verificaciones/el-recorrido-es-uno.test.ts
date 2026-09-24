@@ -31,6 +31,8 @@ import {
   PAQUETES,
   RAIZ,
   archivosDe,
+  archivosDeLosPaquetes,
+  archivosDeProduccion,
   lineasDelTextoQueCasan,
   lineasQueCasan,
   rutaDesde,
@@ -94,8 +96,7 @@ describe('el recorredor comun baja y aparta', () => {
   });
 
   it('EL CENTINELA: en el arbol de verdad, ni una muestra ni una dependencia entran al recorrido', () => {
-    const todo = archivosDe(PAQUETES, { extensiones: ['.ts', '.tsx', '.mjs', '.js', '.css'], pruebas: true })
-      .map((archivo) => rutaDesde(RAIZ, archivo));
+    const todo = archivosDeLosPaquetes().map((archivo) => rutaDesde(RAIZ, archivo));
     expect(todo.length, 'el recorrido no encontro nada: la guarda no mide').toBeGreaterThan(100);
     expect(todo.filter((ruta) => /\/(?:muestras|node_modules|dist)\//.test(ruta))).toEqual([]);
     // Y que apartar `muestras/` aparta algo: si la carpeta se vaciara, lo de arriba seria trivial.
@@ -148,6 +149,91 @@ describe('el recorredor comun baja y aparta', () => {
 
   it('y solo recoge las extensiones que se le piden', () => {
     expect(recorrido({ extensiones: ['.md'] })).toEqual(['a/b/c/d/nota.md']);
+  });
+});
+
+/**
+ * **Las guardas del arbol leen CINCO extensiones, y se fija cuales** (#126, N1 y N3 de la primera
+ * correccion).
+ *
+ * `archivosDeProduccion` y `archivosDeLosPaquetes` son lo que recorren `sin-suponer-un-sistema`,
+ * `sin-nombre-publico-entre-paquetes`, `el-xhr-vive-en-un-solo-sitio`, `el-marco-no-decide-permisos`
+ * y el barrido del texto visible. Su lista de extensiones —`EXTENSIONES` en `texto.ts`— es la que
+ * habia en `main`, con `.css` y `.mjs` dentro. Quitar una no pone roja ninguna guarda: **las deja
+ * mirando menos, en verde**. Se midio: sin `.css`, un `.predio-fantasma` en `clasico.css` deja de
+ * caer en `sin-suponer-un-sistema`; sin `.mjs`, un `from '@kamayuk/api'` en `comentarios.mjs` deja
+ * de caer en `sin-nombre-publico-entre-paquetes`, y los propios `archivos.mjs` y `comentarios.mjs`
+ * —el recorredor y el quitador de comentarios— salen del barrido.
+ *
+ * Por eso se fija de las dos maneras: sobre un arbol FABRICADO con un archivo de cada extension, cuya
+ * lista se compara ENTERA —una extension que se va o una que entra la cambian—, y sobre el arbol de
+ * VERDAD, nombrando los archivos que hoy solo entran por `.css` y por `.mjs`.
+ */
+describe('las guardas del arbol leen las cinco extensiones que se decidieron', () => {
+  let arbol = '';
+  const DE_CADA_EXTENSION: Readonly<Record<string, string>> = {
+    'codigo.ts': 'export {};\n',
+    'pieza.tsx': 'export {};\n',
+    'guion.mjs': 'export {};\n',
+    'viejo.js': 'export {};\n',
+    'estilos/hoja.css': '.a { color: red; }\n',
+    'pieza.test.ts': 'es una prueba\n',
+    'guion.test.mjs': 'tambien es una prueba\n',
+    // Lo que NO es codigo del arbol: si alguna entrara, la lista crece y se ve.
+    'nota.md': 'no\n',
+    'datos.json': '{}\n',
+    'tipos.d.mts': 'export {};\n',
+    'imagen.svg': '<svg/>\n',
+  };
+
+  beforeAll(() => {
+    arbol = mkdtempSync(join(tmpdir(), 'kamayuk-extensiones-'));
+    for (const [ruta, texto] of Object.entries(DE_CADA_EXTENSION)) {
+      mkdirSync(dirname(join(arbol, ruta)), { recursive: true });
+      writeFileSync(join(arbol, ruta), texto);
+    }
+  });
+
+  afterAll(() => {
+    if (arbol !== '') rmSync(arbol, { recursive: true, force: true });
+  });
+
+  it('`archivosDeProduccion` recoge .ts, .tsx, .mjs, .js y .css, y nada mas', () => {
+    expect(archivosDeProduccion(arbol).map((archivo) => rutaDesde(arbol, archivo))).toEqual([
+      'codigo.ts',
+      'estilos/hoja.css',
+      'guion.mjs',
+      'pieza.tsx',
+      'viejo.js',
+    ]);
+  });
+
+  it('`archivosDeLosPaquetes` recoge lo mismo, con las pruebas', () => {
+    expect(archivosDeLosPaquetes(arbol).map((archivo) => rutaDesde(arbol, archivo))).toEqual([
+      'codigo.ts',
+      'estilos/hoja.css',
+      'guion.mjs',
+      'guion.test.mjs',
+      'pieza.test.ts',
+      'pieza.tsx',
+      'viejo.js',
+    ]);
+  });
+
+  it('EL CENTINELA: en el arbol de verdad entran los CSS de la interfaz y los .mjs de las guardas', () => {
+    // Los que hoy solo entran por `.css` y por `.mjs`: si uno falta, una guarda dejo de mirarlo.
+    const QUE_TIENEN_QUE_ENTRAR = [
+      'paquetes/ui/estilos/clasico.css',
+      'paquetes/ui/estilos/estilos.css',
+      'paquetes/ui/estilos/temas.css',
+      'paquetes/verificaciones/archivos.mjs',
+      'paquetes/verificaciones/comentarios.mjs',
+      'paquetes/verificaciones/prohibiciones.mjs',
+    ];
+    for (const recorrido of [archivosDeProduccion(), archivosDeLosPaquetes()]) {
+      const rutas = recorrido.map((archivo) => rutaDesde(RAIZ, archivo));
+      expect(QUE_TIENEN_QUE_ENTRAR.filter((ruta) => !rutas.includes(ruta))).toEqual([]);
+    }
   });
 });
 

@@ -24,7 +24,9 @@ navegador, y por eso `sin-suponer-un-sistema` no lo barre.
   (`node_modules`, `dist`, `muestras`), la única normalización de rutas (`rutaDesde`, con `/`), el
   escáner de líneas sin comentarios (`lineasQueCasan`) y el único `Hallazgo`; `texto.ts` los
   reexporta. Lo mide `el-recorrido-es-uno` sobre un árbol fabricado de cuatro niveles, con una
-  carpeta apartada en cada uno. El guion del arnés extiende `APARTADAS` con `build` y `coverage` y
+  carpeta apartada en cada uno, y fija también las **cinco extensiones** que leen las guardas del
+  árbol (`.ts`, `.tsx`, `.mjs`, `.js`, `.css`): quitar una no pone roja ninguna guarda, las deja
+  mirando menos. El guion del arnés extiende `APARTADAS` con `build` y `coverage` y
   salta los directorios ocultos, y lo mide un árbol de consumidor fabricado en
   `el-arnes-del-request-se-publica`. El quitador de comentarios de CSS es `sinComentariosCss`, en
   `ui/temas/base.ts`.
