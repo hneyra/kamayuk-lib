@@ -35,32 +35,59 @@ import { PAQUETES, RAIZ, archivosDeProduccion, leer } from './texto.ts';
  * Las dos son el mismo defecto: un texto no sabe que es cadena, que es comentario ni que tipo
  * tiene cada cosa. Aqui cada archivo pasa por un `Program` de TypeScript con las opciones del
  * `tsconfig.json` de la raiz: los comentarios no son nodos, las cadenas si, y el comprobador dice
- * el tipo de cada operando. Se denuncian cuatro cosas:
+ * el tipo de cada operando.
  *
- *   - una palabra: un identificador `Number`, `Date`, `Intl`, `parseInt` o `parseFloat` —coma
- *     flotante, un entero que ya no sabe de centimos, la zona horaria del puesto (en Lima,
- *     `new Date("2026-09-06")` es el 5), y los formateadores de `Intl`, que piden un `Date` o un
- *     `number`—, o una cadena que es exactamente una de ellas (`globalThis['Date']`);
+ * <h2>La vuelta 2: un `number` que el comprobador cree y no es</h2>
+ *
+ * Con el comprobador, la revision encontro dos roturas mas que NO mordian, con `tsc`, ESLint y la
+ * salida intactos: `Math.trunc(comoSi<number>(dia))` —un `as T` generico, que no es `as number`—
+ * y un predicado que miente, `(valor: unknown): valor is number`, seguido de `-(-suelto)`. En las
+ * dos el comprobador **cree** que tiene un `number`, y la guarda se fiaba del comprobador. Medidas
+ * en el mismo sitio, pasaban tambien una sobrecarga (`function f(x: string): number;` sobre una
+ * implementacion que devuelve `unknown`), un `declare const Math` que miente sobre `Math.trunc`,
+ * un `// @ts-expect-error` con descripcion —ESLint lo admite asi—, la covarianza de los arreglos
+ * (`const mezcla: (number | string)[] = cifras; mezcla.push(dia)`) y la bivarianza de los metodos.
+ * Por eso la guarda vigila las dos puntas: **por donde se miente** al comprobador y **donde se
+ * convierte** lo mentido. Se denuncian:
+ *
+ *   - una palabra: un identificador `Number`, `Date`, `Intl`, `parseInt`, `parseFloat` o `Math`
+ *     —coma flotante, un entero que ya no sabe de centimos, la zona horaria del puesto (en Lima,
+ *     `new Date("2026-09-06")` es el 5), los formateadores de `Intl`, que piden un `Date` o un
+ *     `number`, y `Math`, cuyas funciones convierten a numero lo que reciben—, o una cadena que es
+ *     exactamente una de ellas (`globalThis['Date']`);
  *   - `coercion`: un operador que convierte a numero lo que no lo es —`+x`, `-x`, `~x`, `x++`,
- *     `x * 1`, `x | 0`…— sobre un operando que no es `number` ni `bigint`. `-centimos` en
- *     `aritmetica.ts` es un `bigint` y se calla;
- *   - `conversion`: un `as` hacia `number`, `any`, `unknown` o `never` desde algo que no es
- *     `number`: `dia as unknown as number` no convierte nada, pero apaga al compilador para que
- *     lo haga el operador de despues;
- *   - `any`: una llamada o un acceso por indice que da `any` —`JSON.parse(dia)`—, porque desde un
- *     `any` el compilador ya no vigila nada de lo anterior.
+ *     `x * 1`, `x | 0`…— sobre un operando que no es `number` ni `bigint`;
+ *   - `aritmetica`: el mismo operador sobre un `number` que el comprobador da por bueno, salvo el
+ *     signo de un literal (`-1`, `slice(0, -2)`). Es el sumidero: un `number` mentido solo se
+ *     vuelve cifra al operar con el, y en este paquete la aritmetica es de `bigint` —`-centimos`
+ *     en `aritmetica.ts` se calla— y la de `number` no hace falta;
+ *   - `conversion`: un `as` (o `<T>`) que **estrecha** —lo de la izquierda no cabe en lo de la
+ *     derecha: `unknown as T`, `unknown as number`— o que va hacia algo con `any`. Ensanchar
+ *     (`dia as string | number`) no miente y se calla, igual que `as const`;
+ *   - `predicado`: un `valor is T` o `asserts valor is T` cuyo `T` no es texto, booleano, `null`
+ *     ni `undefined`. `esMes(texto): texto is Mes` estrecha a doce cadenas y se calla;
+ *   - `sobrecarga` y `declare`: una firma sin cuerpo y una declaracion ambiental, que el
+ *     comprobador cree sin mirar la implementacion;
+ *   - `directiva`: un `@ts-ignore`, `@ts-expect-error` o `@ts-nocheck` en un comentario, que
+ *     apaga al comprobador en la linea de abajo;
+ *   - `any`: el tipo `any` escrito, o una llamada o un acceso por indice que da `any`
+ *     —`JSON.parse(dia)`—, porque desde un `any` el compilador ya no vigila nada de lo anterior.
  *
- * **Lo que no ve, y se dice**: una cifra sacada de un texto con `indexOf` o `charCodeAt`
- * (`'0123456789'.indexOf(c)`) es un `number` legitimo para el compilador, igual que el
- * `numero.length` con el que `documento.ts` compara longitudes. Prohibir todo `number` pondria
- * rojo ese `length`; lo que se vigila es la conversion, no la existencia de un entero.
+ * **Lo que no ve, y se dice**: TypeScript no es sano por diseno, y la covarianza de los arreglos o
+ * la bivarianza de los metodos dan un `number` mentido sin ninguna marca. Aqui lo cazan `Math` y
+ * la `aritmetica`, que son los sumideros; lo que no caza es el que pasa por un metodo de texto que
+ * recibe un `number` —`'x'.repeat(cifras[0] ?? 0).length`—, medido en la vuelta 2 y apuntado en
+ * `HISTORY.md`. Tampoco una cifra sacada de un texto con `indexOf` o `charCodeAt`
+ * (`'0123456789'.indexOf(c)`), que es un `number` legitimo para el compilador, igual que el
+ * `numero.length` con el que `documento.ts` compara longitudes: lo que se vigila es la conversion,
+ * no la existencia de un entero.
  *
  * Es solo `formato` y no los seis paquetes a proposito: `api` y `ui` usan `Date` y `Number` con
  * todo derecho —un `Content-Length`, un calendario— y la promesa de «ni uno» es de este paquete.
  */
 
 /** Las palabras prohibidas, como identificador o como cadena exacta. */
-const PALABRAS: ReadonlySet<string> = new Set(['Number', 'Date', 'Intl', 'parseInt', 'parseFloat']);
+const PALABRAS: ReadonlySet<string> = new Set(['Number', 'Date', 'Intl', 'parseInt', 'parseFloat', 'Math']);
 
 /** Los operadores binarios que convierten sus operandos a numero. `+` no: con una cadena, concatena. */
 const ARITMETICOS: ReadonlySet<ts.SyntaxKind> = new Set([
@@ -151,8 +178,25 @@ function hallazgosDe(
 
   const programa = ts.createProgram([...archivos, ...virtuales.keys()], OPCIONES, host);
   const comprobador = programa.getTypeChecker();
+  const tieneBandera = (nodo: ts.Node, bandera: ts.TypeFlags): boolean =>
+    (comprobador.getTypeAtLocation(nodo).flags & bandera) !== 0;
   const esNumerico = (nodo: ts.Expression): boolean =>
-    (comprobador.getTypeAtLocation(nodo).flags & (ts.TypeFlags.NumberLike | ts.TypeFlags.BigIntLike)) !== 0;
+    tieneBandera(nodo, ts.TypeFlags.NumberLike | ts.TypeFlags.BigIntLike);
+  const esBigint = (nodo: ts.Expression): boolean => tieneBandera(nodo, ts.TypeFlags.BigIntLike);
+  /** `-1`, `+2`: el signo de un literal no convierte nada. */
+  const esSignoDeUnLiteral = (nodo: ts.PrefixUnaryExpression): boolean =>
+    (nodo.operator === ts.SyntaxKind.MinusToken || nodo.operator === ts.SyntaxKind.PlusToken) &&
+    ts.isNumericLiteral(nodo.operand);
+  /** Si alguna de las partes del tipo —una union se mira pieza a pieza— es `any`. */
+  const llevaAny = (tipo: ts.Type): boolean =>
+    tipo.isUnionOrIntersection() ? tipo.types.some(llevaAny) : (tipo.flags & ts.TypeFlags.Any) !== 0;
+  /** Lo que un predicado puede estrechar sin abrir una puerta al numero: texto, booleano o nada. */
+  const esSoloTexto = (tipo: ts.Type): boolean =>
+    tipo.isUnionOrIntersection()
+      ? tipo.types.every(esSoloTexto)
+      : (tipo.flags &
+          (ts.TypeFlags.StringLike | ts.TypeFlags.BooleanLike | ts.TypeFlags.Null | ts.TypeFlags.Undefined)) !==
+        0;
 
   const salida: Hallazgo[] = [];
   for (const archivo of [...archivos, ...virtuales.keys()]) {
@@ -167,29 +211,72 @@ function hallazgosDe(
       });
     };
 
+    // Las directivas viven en comentarios, que no son nodos: se buscan en los comentarios que
+    // rodean a cada nodo, cada uno una vez. Un `@ts-ignore` dentro de una CADENA no es directiva
+    // y no se mira, porque una cadena no es un comentario.
+    const comentariosVistos = new Set<number>();
+    const mirarComentarios = (rangos: readonly ts.CommentRange[] | undefined): void => {
+      for (const rango of rangos ?? []) {
+        if (comentariosVistos.has(rango.pos)) continue;
+        comentariosVistos.add(rango.pos);
+        const directiva = /@ts-(ignore|expect-error|nocheck)\b/.exec(fuente.text.slice(rango.pos, rango.end));
+        if (directiva !== null) {
+          salida.push({
+            archivo: archivo.replace(PAQUETES, 'paquetes'),
+            linea: fuente.getLineAndCharacterOfPosition(rango.pos).line + 1,
+            que: `directiva ${directiva[0]}`,
+          });
+        }
+      }
+    };
+
     const visitar = (nodo: ts.Node): void => {
+      mirarComentarios(ts.getLeadingCommentRanges(fuente.text, nodo.pos));
+      mirarComentarios(ts.getTrailingCommentRanges(fuente.text, nodo.end));
+
+      if (ts.canHaveModifiers(nodo) && ts.getModifiers(nodo)?.some((m) => m.kind === ts.SyntaxKind.DeclareKeyword)) {
+        anotar(nodo, 'declare');
+      }
+
       if (ts.isIdentifier(nodo) && PALABRAS.has(nodo.text)) {
         anotar(nodo, nodo.text);
       } else if ((ts.isStringLiteral(nodo) || ts.isNoSubstitutionTemplateLiteral(nodo)) && PALABRAS.has(nodo.text)) {
         anotar(nodo, `'${nodo.text}'`);
       } else if (
         (ts.isPrefixUnaryExpression(nodo) || ts.isPostfixUnaryExpression(nodo)) &&
-        UNARIOS.has(nodo.operator) &&
-        !esNumerico(nodo.operand)
+        UNARIOS.has(nodo.operator)
       ) {
-        anotar(nodo, `coercion ${ts.tokenToString(nodo.operator) ?? '?'}`);
-      } else if (
-        ts.isBinaryExpression(nodo) &&
-        ARITMETICOS.has(nodo.operatorToken.kind) &&
-        !(esNumerico(nodo.left) && esNumerico(nodo.right))
-      ) {
-        anotar(nodo, `coercion ${nodo.operatorToken.getText(fuente)}`);
-      } else if (ts.isAsExpression(nodo) || ts.isTypeAssertionExpression(nodo)) {
-        const destino = comprobador.getTypeAtLocation(nodo.type);
-        const apaga = ts.TypeFlags.NumberLike | ts.TypeFlags.Any | ts.TypeFlags.Unknown | ts.TypeFlags.Never;
-        if ((destino.flags & apaga) !== 0 && !esNumerico(nodo.expression)) {
-          anotar(nodo, `conversion as ${comprobador.typeToString(destino)}`);
+        const op = ts.tokenToString(nodo.operator) ?? '?';
+        if (!esNumerico(nodo.operand)) anotar(nodo, `coercion ${op}`);
+        else if (!esBigint(nodo.operand) && !(ts.isPrefixUnaryExpression(nodo) && esSignoDeUnLiteral(nodo))) {
+          anotar(nodo, `aritmetica ${op}`);
         }
+      } else if (ts.isBinaryExpression(nodo) && ARITMETICOS.has(nodo.operatorToken.kind)) {
+        const op = nodo.operatorToken.getText(fuente);
+        if (!(esNumerico(nodo.left) && esNumerico(nodo.right))) anotar(nodo, `coercion ${op}`);
+        else if (!(esBigint(nodo.left) && esBigint(nodo.right))) anotar(nodo, `aritmetica ${op}`);
+      } else if (ts.isAsExpression(nodo) || ts.isTypeAssertionExpression(nodo)) {
+        // `as const` no es un tipo: el comprobador no sabe resolverlo como destino.
+        if (!ts.isConstTypeReference(nodo.type)) {
+          const origen = comprobador.getTypeAtLocation(nodo.expression);
+          const destino = comprobador.getTypeFromTypeNode(nodo.type);
+          if (llevaAny(destino) || !comprobador.isTypeAssignableTo(origen, destino)) {
+            anotar(nodo, `conversion as ${comprobador.typeToString(destino)}`);
+          }
+        }
+      } else if (ts.isTypePredicateNode(nodo) && nodo.type !== undefined) {
+        const destino = comprobador.getTypeFromTypeNode(nodo.type);
+        if (!esSoloTexto(destino)) anotar(nodo, `predicado ${comprobador.typeToString(destino)}`);
+      } else if (
+        (ts.isFunctionDeclaration(nodo) || ts.isMethodDeclaration(nodo) || ts.isConstructorDeclaration(nodo)) &&
+        nodo.body === undefined &&
+        !(ts.getCombinedModifierFlags(nodo) & ts.ModifierFlags.Ambient)
+      ) {
+        // Una sobrecarga: la firma que ve quien llama no la compara nadie con lo que devuelve el
+        // cuerpo mas alla de «se parecen». Las ambientales ya salen como `declare`.
+        anotar(nodo, 'sobrecarga');
+      } else if (nodo.kind === ts.SyntaxKind.AnyKeyword) {
+        anotar(nodo, 'any');
       } else if (
         (ts.isCallExpression(nodo) || ts.isElementAccessExpression(nodo)) &&
         (comprobador.getTypeAtLocation(nodo).flags & ts.TypeFlags.Any) !== 0
@@ -222,15 +309,17 @@ describe('en @kamayuk/formato no hay ni un Number ni un Date (regla 1)', () => {
     }
   });
 
-  it('ni Number, ni Date, ni Intl, ni parseInt, ni parseFloat, ni una coercion en el codigo de produccion', () => {
+  it('ni Number, ni Date, ni Intl, ni parseInt, ni parseFloat, ni Math, ni una coercion en el codigo de produccion', () => {
     const hallazgos = hallazgosDe(PRODUCCION);
     const detalle = hallazgos.map((h) => `  ${h.archivo}:${String(h.linea)}  ${h.que}`).join('\n');
     expect(
       hallazgos,
       'Un importe es texto decimal y una fecha es texto ISO (regla 1, RNF-055): un `Number` ' +
         'pierde centimos y un `Date` arrastra la zona horaria del puesto. En este paquete no hay ' +
-        'ni uno, tampoco para un mes o un dia, y tampoco escondido en un `+` unario o en un `as`: ' +
-        'trabaja con el texto.\n\n' +
+        'ni uno, tampoco para un mes o un dia, y tampoco escondido en un `+` unario, en un `Math` ' +
+        'o detras de algo que le miente al comprobador —un `as` que estrecha, un predicado, una ' +
+        'sobrecarga, un `declare`, un `@ts-expect-error`—: trabaja con el texto, y la aritmetica, ' +
+        'en `bigint`.\n\n' +
         `Donde aparece:\n${detalle}`,
     ).toEqual([]);
   });
@@ -250,9 +339,12 @@ describe('LA MUESTRA: la guarda muerde, y se demuestra', () => {
     // Exacto, y no «alguno»: una guarda que solo cazara `Number` seguiria «mordiendo». Las lineas
     // son las del archivo —con su docblock delante—, que es lo que el rojo tiene que decir para
     // que se mire donde es (#42). Las de la 30 y la 36 son las dos roturas que la guarda por
-    // texto dejaba pasar en la revision de #108.
+    // texto dejaba pasar en la vuelta 1 de #108; de la 51 a la 66, las que la guarda con el
+    // comprobador dejaba pasar en la vuelta 2. La 41 ya no da `as unknown`: ensanchar no miente, y
+    // lo que se denuncia es el `as number` de despues, que estrecha.
     const archivo = 'paquetes/verificaciones/muestras/formato-con-number-o-date.ts';
     expect(hallazgosDe([MUESTRA])).toEqual([
+      { archivo, linea: 12, que: 'aritmetica -' },
       { archivo, linea: 12, que: 'Number' },
       { archivo, linea: 15, que: 'Date' },
       { archivo, linea: 17, que: 'Intl' },
@@ -261,34 +353,50 @@ describe('LA MUESTRA: la guarda muerde, y se demuestra', () => {
       { archivo, linea: 30, que: 'coercion +' },
       { archivo, linea: 36, que: 'Number' },
       { archivo, linea: 39, que: 'coercion -' },
+      { archivo, linea: 40, que: 'aritmetica ~' },
       { archivo, linea: 40, que: 'coercion ~' },
       { archivo, linea: 41, que: 'conversion as number' },
-      { archivo, linea: 41, que: 'conversion as unknown' },
       { archivo, linea: 42, que: 'coercion *' },
       { archivo, linea: 43, que: 'any' },
       { archivo, linea: 44, que: "'Date'" },
+      { archivo, linea: 51, que: 'conversion as T' },
+      { archivo, linea: 53, que: 'Math' },
+      { archivo, linea: 54, que: 'predicado number' },
+      { archivo, linea: 57, que: 'aritmetica -' },
+      { archivo, linea: 57, que: 'aritmetica -' },
+      { archivo, linea: 58, que: 'sobrecarga' },
+      { archivo, linea: 62, que: 'declare' },
+      { archivo, linea: 63, que: 'directiva @ts-expect-error' },
+      { archivo, linea: 64, que: 'Math' },
+      { archivo, linea: 65, que: 'any' },
+      { archivo, linea: 66, que: 'aritmetica -' },
     ]);
   });
 
-  it('y sabe callarse: ni en un comentario, ni dentro de otro identificador, ni sobre un numero', () => {
+  it('y sabe callarse: ni en un comentario, ni dentro de otro identificador, ni sobre un bigint', () => {
     // La explicacion de por que no se usa `Number("0.1")` vive en los docblocks del paquete, y no
     // puede ponerse roja. `\b` ya no hace falta: se comparan identificadores enteros, y
-    // `esNumberish` o `toDateString` no son `Number` ni `Date`. Y la aritmetica que el paquete SI
-    // hace —`-centimos` sobre un `bigint`, `slice(0, -2)`, restar a un `length`— no es coercion.
+    // `esNumberish` o `toDateString` no son `Number` ni `Date`. Y lo que el paquete SI hace
+    // —`-centimos` sobre un `bigint`, `slice(0, -2)`, el `-1` de `compararImportes`, el predicado
+    // de `esMes` hacia doce cadenas— no es conversion; ni lo es ensanchar con `as` o `as const`, ni
+    // un `@ts-ignore` dentro de una CADENA, que no es un comentario.
     const callado = join(RAIZ, 'formato-callado.virtual.ts');
     const texto = [
       '/** `Number("0.1") + Number("0.2")` no es 0.3. */',
-      '// y en linea: new Date("2026-09-06") es el 5 en Lima',
+      '// y en linea: new Date("2026-09-06") es el 5 en Lima; un Math.trunc tampoco',
       'export const esNumberish = 1;',
-      "export const toDateString = 'Number(x) // Date'.slice(0, -2);",
+      "export const toDateString = 'Number(x) // Date @ts-ignore'.slice(0, -2);",
       'export const menos = (centimos: bigint): bigint => -centimos + 1n;',
-      'export const largo = (texto: string): number => texto.length - 1;',
+      'export const orden = (a: bigint, b: bigint): number => (a < b ? -1 : 1);',
+      "export const esA = (t: string): t is 'a' | 'b' => t === 'a';",
+      'export const ancho = (dia: string): string | number => dia as string | number;',
+      "export const fijo = ['01', '02'] as const;",
     ].join('\n');
     expect(hallazgosDe([], new Map([[callado, texto]]))).toEqual([]);
     // Y lo contrario, para que la de arriba no pase por no mirar: el mismo archivo virtual, con
     // una linea de codigo mas, si se ve.
     expect(hallazgosDe([], new Map([[callado, `${texto}\nexport const mes = Number(esNumberish);`]]))).toEqual([
-      { archivo: callado, linea: 7, que: 'Number' },
+      { archivo: callado, linea: 10, que: 'Number' },
     ]);
   });
 });

@@ -31,10 +31,15 @@ navegador, y por eso `sin-suponer-un-sistema` no lo barre.
 - `formato-sin-number-ni-date` (#108): pasa el código de producción de `paquetes/formato/` por el
   **comprobador de TypeScript**, no por texto, y denuncia `Number`, `Date`, `Intl`, `parseInt` y
   `parseFloat` como identificador o como cadena exacta, **y la conversión sin la palabra**: un
-  `+`, `-` o `~` unario, o un operador aritmético, sobre lo que no es `number` ni `bigint`, un `as`
-  hacia `number`/`any`/`unknown`/`never`, y una llamada que da `any`. Por texto dejaba pasar
-  `String(+dia)` y un `Number` escondido detrás de un `'//'` dentro de una cadena. Con su centinela
-  archivo por archivo y su muestra, de la que exige archivo, línea y qué de las catorce. Sólo
+  `+`, `-` o `~` unario, o un operador aritmético, sobre lo que no es `number` ni `bigint`, y una
+  llamada que da `any`. Por texto dejaba pasar `String(+dia)` y un `Number` escondido detrás de un
+  `'//'` dentro de una cadena. **Y no se fía del comprobador**: vigila también por dónde se le
+  miente —un `as` que estrecha (`unknown as T`), un predicado `valor is number`, una sobrecarga, un
+  `declare`, un `@ts-expect-error`, un `any` escrito— y dónde se convierte lo mentido —`Math` y la
+  aritmética sobre `number`, que en `formato` es de `bigint`—. Lo que no ve, y lo dice: un
+  `number` que da la covarianza de los arreglos y acaba en un método de texto
+  (`'x'.repeat(cifras[0] ?? 0).length`). Con su centinela archivo por archivo y su muestra, de la
+  que exige archivo, línea y qué de las veintiséis. Sólo
   `formato`: `api` y `ui` usan `Date` y `Number` con todo derecho, y la promesa de «ni uno» es de
   ese paquete.
 - `lo-que-exports-promete-existe`: lee los seis `package.json` **tal cual**, no una lista escrita a

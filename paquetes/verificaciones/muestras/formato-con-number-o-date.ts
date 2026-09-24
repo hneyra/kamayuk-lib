@@ -42,3 +42,25 @@ export const mentira = (dia: string): number => dia as unknown as number;
 export const porUno = (dia: string): number => dia * 1;
 export const sinTipo = (dia: string): unknown => JSON.parse(dia);
 export const porNombre = (): unknown => globalThis['Date'];
+
+// Lo que la guarda con el comprobador dejaba pasar (#108, vuelta 2): un `number` que el
+// comprobador CREE y no es. Por donde se miente —un `as T` generico, un predicado, una
+// sobrecarga, un `declare`, una directiva, un `any` escrito— y donde se convierte: `Math` y la
+// aritmetica sobre un `number`.
+function comoSi<T>(valor: unknown): T {
+  return valor as T;
+}
+export const recortado = (dia: string): number => Math.trunc(comoSi<number>(dia));
+function esCifra(valor: unknown): valor is number {
+  return valor !== undefined;
+}
+export const vuelto = (suelto: unknown): number => (esCifra(suelto) ? -(-suelto) : 0);
+export function sinCero(valor: string): number;
+export function sinCero(valor: unknown): unknown {
+  return valor;
+}
+declare const convertir: (valor: string) => number;
+// @ts-expect-error: el dia llega como texto y se recorta
+export const directo = (dia: string): number => Math.trunc(dia);
+export const suelto = (dia: any): number => dia;
+export const largo = (texto: string): number => texto.length - 1;
