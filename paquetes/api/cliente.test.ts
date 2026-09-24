@@ -232,6 +232,26 @@ describe('ErrorDeLaApi conserva codigo y mensaje del problem+json', () => {
     });
   });
 
+  it.each(['null', '42', '"un texto"'])(
+    '#121 — un cuerpo JSON que no es un objeto (%s) tampoco tapa el error',
+    async (cuerpo) => {
+      // `JSON.parse('null')` NO lanza: da `null`, y `typeof null === 'object'`. Si
+      // `cuerpoDeProblema` lo dejara pasar, el constructor de `ErrorDeLaApi` leeria
+      // `null.mensaje` y la pantalla recibiria un `TypeError` sin estado en lugar del 500.
+      // Las pruebas del cuerpo ilegible usan texto que no es JSON, y ese caso no lo cubren.
+      fetchQueContesta(new Response(cuerpo, { status: 500 }));
+
+      await expect(solicitar('/x')).rejects.toBeInstanceOf(ErrorDeLaApi);
+      await expect(solicitar('/x')).rejects.toMatchObject({
+        estado: 500,
+        codigo: null,
+        mensaje: null,
+        operacion: 'GET /x',
+        message: 'GET /x',
+      });
+    },
+  );
+
   it('#121 — un cuerpo que se corta a mitad de leerlo tampoco tapa el error', async () => {
     // La conexion se cae despues de las cabeceras: `respuesta.text()` rechaza. Sin el segundo
     // argumento de `.then` en `problemaDe`, ese rechazo SUSTITUIRIA al ErrorDeLaApi y la pantalla

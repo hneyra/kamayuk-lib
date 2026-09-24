@@ -588,6 +588,40 @@ describe('la respuesta se interpreta como la de «solicitar», con un caso mas',
     });
   });
 
+  it('#121 — un error cuyo cuerpo es el JSON `null` tampoco tapa el estado', async () => {
+    // `JSON.parse('null')` no lanza, y `typeof null === 'object'`: es el cuerpo que distingue una
+    // lectura del `problem+json` que mira `!== null` de una que no. Sin esa comprobacion el
+    // constructor lee `null.mensaje` y la subida rechaza con un `TypeError`, que `peldanoDe()`
+    // clasificaria como corte de red.
+    //
+    // Y no rechaza con nada: el `TypeError` salta DENTRO del oyente de `load`, que lo traga, y la
+    // promesa se queda pendiente para siempre —la barra quieta, sin fallo que ensenar—. Por eso se
+    // mira el desenlace tras una vuelta del bucle y no con `await subida`, que acabaria en un
+    // `Test timed out` que no dice que paso.
+    const subida = cliente.subir('/cargas', { archivo: unArchivo() });
+    let desenlace: unknown = 'pendiente';
+    subida.then(
+      () => {
+        desenlace = 'resuelta';
+      },
+      (fallo: unknown) => {
+        desenlace = fallo;
+      },
+    );
+    laPeticion().contesta(500, 'null');
+    await new Promise((listo) => setTimeout(listo, 0));
+
+    expect(desenlace, 'la subida no llego a rechazar: se quedo sin desenlace').toBeInstanceOf(
+      ErrorDeLaApi,
+    );
+    expect(desenlace).toMatchObject({
+      estado: 500,
+      codigo: null,
+      mensaje: null,
+      operacion: 'POST /cargas',
+    });
+  });
+
   it('un corte de red lanza un TypeError, que es lo que lanzaria fetch', async () => {
     const subida = cliente.subir('/cargas', { archivo: unArchivo() });
     laPeticion().seCorta();

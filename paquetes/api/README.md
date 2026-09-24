@@ -45,8 +45,12 @@ exporta desde `index.ts`.
 Que `descargar` pase por `pedir()` no lo ve ninguna prueba de conducta —su propio `fetch`
 devolvería lo mismo—, así que lo vigila una guarda sobre el código: `cliente.ts` llama a `fetch`
 **una sola vez**, dentro de `pedir`, y `descargar` llama a `pedir`
-(`la-peticion-se-compone-en-un-solo-sitio.test.ts`). Y si `respuesta.text()` falla al leer el error
-—la conexión se corta a mitad del cuerpo—, sale igual el `ErrorDeLaApi` con su estado.
+(`la-peticion-se-compone-en-un-solo-sitio.test.ts`). Lo mismo vale para lo que `subir.ts` comparte:
+una copia de `cuerpoDeProblema` o de `operacionDe` se porta igual que el original, así que la misma
+guarda exige que `JSON.parse` salga **sólo** en `cuerpoDeProblema` y en el 2xx de `subir.ts`, que
+`` `${metodo} ${ruta}` `` se escriba **sólo** en `operacionDe`, y que `cliente.ts` y `subir.ts` usen
+las dos. Y si `respuesta.text()` falla al leer el error —la conexión se corta a mitad del cuerpo— o
+el cuerpo es JSON pero no un objeto —`null`, un número—, sale igual el `ErrorDeLaApi` con su estado.
 
 **Un 204 no se trata igual en las dos puertas, y es a sabiendas.** `solicitar` rechaza con el
 `SyntaxError` de `respuesta.json()` —`Unexpected end of JSON input`— y `subir` resuelve `undefined`
