@@ -24,7 +24,7 @@ muestra que la viola.
 
 | Paquete | Qué trae | Estado |
 |---|---|---|
-| [`@kamayuk/formato`](paquetes/formato) | fechas, importes y documento de identidad | **Existe.** <!-- cifras:formato -->**67 pruebas** en 3 archivos<!-- /cifras --> |
+| [`@kamayuk/formato`](paquetes/formato) | fechas, importes y documento de identidad | **Existe.** <!-- cifras:formato -->**68 pruebas** en 3 archivos<!-- /cifras --> |
 | [`@kamayuk/api`](paquetes/api) | `solicitar()`, `solicitarRespuesta()`, `descargar()`, `subir()`, la clave de idempotencia y el catálogo de errores | **Existe.** <!-- cifras:api -->**124 pruebas** en 5 archivos<!-- /cifras --> |
 | [`@kamayuk/sesion`](paquetes/sesion) | OIDC con PKCE S256, la sonda del emisor, la consola de la cuenta, quién entró según el `id_token` y la escalera de peldaños | **Existe.** <!-- cifras:sesion -->**117 pruebas** en 3 archivos<!-- /cifras --> |
 | [`@kamayuk/ui`](paquetes/ui) | los 42 tokens, cuatro identidades por dos modos, las piezas de shadcn y el intérprete de pantallas | **Existe.** <!-- cifras:ui -->**533 pruebas** en 25 archivos, más las **3** de capa<!-- /cifras --> |

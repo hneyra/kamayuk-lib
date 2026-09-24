@@ -15,9 +15,16 @@
  * <h2>De donde viene</h2>
  *
  * De `rentas/frontend/src/dominio/`, copiado entero el 2026-09-12 al crear `kamayuk-lib`
- * (ADR-0038). El codigo va **verbatim**: lo unico reescrito es la prosa que citaba archivos de
- * `rentas` que la reimplantacion sobre RentasV8 borra, porque un comentario que manda a mirar
- * un archivo que no existe cuesta una busqueda y no dice nada.
+ * (ADR-0038). **Ese dia** el codigo fue verbatim: lo unico reescrito fue la prosa que citaba
+ * archivos de `rentas` que la reimplantacion sobre RentasV8 borra, porque un comentario que manda a
+ * mirar un archivo que no existe cuesta una busqueda y no dice nada.
+ *
+ * **Desde #108 ya no lo es, y la copia de `rentas` no es la de aqui.** `documento.ts` y
+ * `valores.ts` siguen como llegaron; `formato.ts` y `aritmetica.ts` se reescribieron: el analisis
+ * de lo servido vive en `partir.ts` —que `rentas` no tiene—, `centimosDe` sale de alli,
+ * `compararImportes` compara centimos en `bigint` —devuelve `-1`/`0`/`1`, y `'-0.00'` pesa lo
+ * mismo que `'0.00'`—, `MESES` se indexa por su clave de dos digitos y el dia pierde su cero con
+ * texto: eran los dos `Number` del paquete.
  */
 
 export { sumarImportes, mismosCentimos } from './aritmetica.ts';

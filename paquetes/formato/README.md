@@ -1,6 +1,11 @@
 # `@kamayuk/formato`
 
-Fechas, importes y documento de identidad, copiado **verbatim** de `rentas/frontend/src/dominio/`.
+Fechas, importes y documento de identidad, copiado **verbatim** de `rentas/frontend/src/dominio/`
+el 2026-09-12 (#2) y **reescrito en parte en #108**: el análisis de lo servido y los dos `Number`.
+`documento.ts` y `valores.ts` siguen como llegaron; `formato.ts` y `aritmetica.ts` ya no son la
+copia de `rentas`, y `partir.ts` no existe allí. `compararImportes` compara centimos en `bigint`:
+devuelve `-1`/`0`/`1` —antes, cualquier negativo o positivo, que es lo que `sort` pide— y
+`'-0.00'` pesa lo mismo que `'0.00'`.
 
 Es la **hoja limpia del grafo**: no importa nada de nadie, y no hay ni un `Number` ni un `Date` en
 todo el paquete (regla 1). **Lo vigila una guarda**, `formato-sin-number-ni-date` —con `Intl`,
