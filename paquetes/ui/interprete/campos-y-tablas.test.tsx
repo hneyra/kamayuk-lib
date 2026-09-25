@@ -124,6 +124,169 @@ describe('`tabla-con-vacio` (AC-3): una tabla vacia dice por que, y no inventa u
     expect(tablasSinVacio(def)).toEqual(['Sin clave', 'sin']);
     expect(tablasSinVacio(MUESTRAS_DE_CAMPOS_Y_TABLAS['tabla-con-vacio'].definicion)).toEqual([]);
   });
+
+  // #110: la guarda que cada sistema escribe con esta funcion miraba solo el primer nivel, y una
+  // tabla sin `vacio` dentro de una pestana —abierta o cerrada— o del detalle de un maestro pasaba
+  // en verde y salia en produccion con el aviso «tabla sin motivo».
+  it('`tablasSinVacio` ve la tabla sin `vacio` dentro de una pestana, tambien de la CERRADA (#110)', () => {
+    const def: Definicion = {
+      instruccion: '',
+      bloques: [
+        {
+          tipo: 'pestanas',
+          enLaRuta: 'pestana',
+          rotulo: 'Secciones',
+          pestanas: [
+            { clave: 'a', rotulo: 'A', bloques: [{ titulo: 'a', nota: '', campos: [] }] },
+            {
+              clave: 'b',
+              rotulo: 'B',
+              bloques: [{ titulo: 'b', nota: '', campos: [], tablas: [{ clave: 'escondida', titulo: 'E', columnas: [] }] }],
+            },
+          ],
+        },
+      ],
+    };
+    expect(tablasSinVacio(def)).toEqual(['escondida']);
+  });
+
+  it('`tablasSinVacio` ve la tabla sin `vacio` dentro de `detalle.bloques` de un maestro (#110)', () => {
+    const def: Definicion = {
+      instruccion: '',
+      bloques: [
+        {
+          tipo: 'maestroDetalle',
+          enLaRuta: 'sujeto',
+          maestro: { rotulo: 'Lista', filas: 'lista', fila: { titulo: '{nombre}' }, vacio: 'Ninguno.' },
+          detalle: {
+            sinEleccion: 'Elija uno.',
+            noEstaEnLaLista: 'No esta en la lista.',
+            bloques: [{ titulo: 'd', nota: '', campos: [], tabla: { titulo: 'Del detalle', columnas: [] } }],
+          },
+        },
+      ],
+    };
+    expect(tablasSinVacio(def)).toEqual(['Del detalle']);
+  });
+
+  // #110, vuelta 1 de la verificacion: las dos de arriba bajan UN nivel, y la implementacion ingenua
+  // —el primer nivel mas `hijasDe` de cada pieza— las pasaba en verde. Los tipos admiten anidar sin
+  // tope (`detalle.bloques` y `pestanas[].bloques` son piezas), y unas pestanas dentro del detalle
+  // de un maestro es la forma mas corta de bajar DOS.
+  it('`tablasSinVacio` baja a cualquier profundidad: unas pestanas dentro del detalle de un maestro (#110)', () => {
+    const def: Definicion = {
+      instruccion: '',
+      bloques: [
+        {
+          tipo: 'maestroDetalle',
+          enLaRuta: 'sujeto',
+          maestro: { rotulo: 'Lista', filas: 'lista', fila: { titulo: '{nombre}' }, vacio: 'Ninguno.' },
+          detalle: {
+            sinEleccion: 'Elija uno.',
+            noEstaEnLaLista: 'No esta en la lista.',
+            bloques: [
+              {
+                tipo: 'pestanas',
+                enLaRuta: 'pestana',
+                rotulo: 'Secciones',
+                pestanas: [
+                  {
+                    clave: 'a',
+                    rotulo: 'A',
+                    bloques: [{ titulo: 'a', nota: '', campos: [], tablas: [{ clave: 'honda', titulo: 'H', columnas: [] }] }],
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      ],
+    };
+    expect(tablasSinVacio(def)).toEqual(['honda']);
+  });
+
+  // El orden es contrato: la guarda de cada sistema escribe la lista en su mensaje de error, y el
+  // docblock promete que las de primer nivel salen primero y en el orden de siempre. Recorrido en
+  // profundidad, la anidada del primer sitio saldria antes que el bloque que va DETRAS de ella.
+  it('`tablasSinVacio` recorre en ANCHURA: primero el primer nivel, despues el segundo, despues el tercero (#110)', () => {
+    const def: Definicion = {
+      instruccion: '',
+      bloques: [
+        {
+          tipo: 'maestroDetalle',
+          enLaRuta: 'sujeto',
+          maestro: { rotulo: 'Lista', filas: 'lista', fila: { titulo: '{nombre}' }, vacio: 'Ninguno.' },
+          detalle: {
+            sinEleccion: 'Elija uno.',
+            noEstaEnLaLista: 'No esta en la lista.',
+            bloques: [
+              {
+                tipo: 'pestanas',
+                enLaRuta: 'pestana',
+                rotulo: 'Secciones',
+                pestanas: [
+                  {
+                    clave: 'a',
+                    rotulo: 'A',
+                    bloques: [{ titulo: 'a', nota: '', campos: [], tablas: [{ clave: 'tercero', titulo: 'T', columnas: [] }] }],
+                  },
+                ],
+              },
+              { titulo: 'd', nota: '', campos: [], tablas: [{ clave: 'segundo', titulo: 'S', columnas: [] }] },
+            ],
+          },
+        },
+        { titulo: 'arriba', nota: '', campos: [], tablas: [{ clave: 'primero', titulo: 'P', columnas: [] }] },
+      ],
+    };
+    expect(tablasSinVacio(def)).toEqual(['primero', 'segundo', 'tercero']);
+  });
+
+  // #110, vuelta 1 de la correccion: el «sin repetir» del docblock valia solo si las repetidas
+  // estaban las dos en el primer nivel, que es lo unico que afirmaba la prueba de arriba. Una clave
+  // en el primer nivel Y dentro de una pestana, o en dos pestanas, es la misma tabla dicha dos veces
+  // en el mensaje de error que cada sistema escribe con esta lista.
+  it('`tablasSinVacio` no repite una clave aunque vuelva en OTRO nivel o en otra pestana (#110)', () => {
+    const def: Definicion = {
+      instruccion: '',
+      bloques: [
+        { titulo: 'arriba', nota: '', campos: [], tablas: [{ clave: 'repetida', titulo: 'R', columnas: [] }] },
+        {
+          tipo: 'pestanas',
+          enLaRuta: 'pestana',
+          rotulo: 'Secciones',
+          pestanas: [
+            {
+              clave: 'a',
+              rotulo: 'A',
+              bloques: [{ titulo: 'a', nota: '', campos: [], tablas: [{ clave: 'repetida', titulo: 'R', columnas: [] }] }],
+            },
+            {
+              clave: 'b',
+              rotulo: 'B',
+              bloques: [
+                {
+                  titulo: 'b',
+                  nota: '',
+                  campos: [],
+                  tablas: [
+                    { clave: 'en-dos-pestanas', titulo: 'D', columnas: [] },
+                    { clave: 'repetida', titulo: 'R', columnas: [] },
+                  ],
+                },
+              ],
+            },
+            {
+              clave: 'c',
+              rotulo: 'C',
+              bloques: [{ titulo: 'c', nota: '', campos: [], tablas: [{ clave: 'en-dos-pestanas', titulo: 'D', columnas: [] }] }],
+            },
+          ],
+        },
+      ],
+    };
+    expect(tablasSinVacio(def)).toEqual(['repetida', 'en-dos-pestanas']);
+  });
 });
 
 describe('`marcador`', () => {
@@ -581,6 +744,52 @@ describe('`tabla-de-cabecera-fija` (con teclado)', () => {
     expect(document.activeElement).toBe(region);
   });
 
+  // #110, vuelta 1 de la verificacion: que la pantalla CEDA el alto no lo afirmaba nadie, y `cedeElAlto`
+  // —una de las cuatro copias de «la tabla y sus `tablas`» que #110 sustituyo por `tablasDe`— se
+  // podia romper, o dejar de ver `tablas`, con todo en verde.
+  const raiz = (container: HTMLElement) => container.firstElementChild?.className.split(' ') ?? [];
+
+  it('la pantalla CEDE el alto hasta el marco: `flex-1` y `min-h-0` en su raiz', () => {
+    const { container } = monta(definicion, datos);
+    expect(raiz(container)).toEqual(expect.arrayContaining(['flex-1', 'min-h-0']));
+  });
+
+  it('cede el alto tambien si la cabecera fija es de una de sus `tablas`, no de la `tabla` (#110)', () => {
+    const def: Definicion = {
+      instruccion: '',
+      bloques: [
+        {
+          titulo: 'Bloque',
+          nota: '',
+          campos: [],
+          tabla: { titulo: 'Sin fija', columnas: [{ rotulo: 'A', alineadoDerecha: false }], vacio: 'Nada.' },
+          tablas: [{ ...definicion.bloques[0].tabla, clave: 'catalogo' }],
+        },
+      ],
+    };
+    const { container } = monta(def, datos);
+    expect(container.querySelector('[data-cabecera-fija]')).not.toBeNull();
+    expect(raiz(container)).toEqual(expect.arrayContaining(['flex-1', 'min-h-0']));
+  });
+
+  it('`cabeceraFija` solo se mira en el PRIMER nivel: dentro de una pestana la hoja no cede el alto', () => {
+    const def: Definicion = {
+      instruccion: '',
+      bloques: [
+        {
+          tipo: 'pestanas',
+          enLaRuta: 'pestana',
+          rotulo: 'Secciones',
+          pestanas: [{ clave: 'a', rotulo: 'A', bloques: [definicion.bloques[0]] }],
+        },
+      ],
+    };
+    const { container } = monta(def, datos);
+    expect(container.querySelector('[data-cabecera-fija]'), 'la tabla anidada no se dibujo').not.toBeNull();
+    expect(raiz(container)).not.toContain('flex-1');
+    expect(raiz(container)).not.toContain('min-h-0');
+  });
+
   it('sin `cabeceraFija`, la tabla de siempre: ni region, ni `sticky`', () => {
     const { container } = monta(conTabla({ titulo: 'T', columnas: [{ rotulo: 'A', alineadoDerecha: false }] }), {
       filas: new Map([[0, [['a']]]]),
@@ -588,6 +797,8 @@ describe('`tabla-de-cabecera-fija` (con teclado)', () => {
     expect(container.querySelector('[data-cabecera-fija]')).toBeNull();
     expect(screen.queryByRole('region')).toBeNull();
     expect(screen.getByRole('columnheader').className).not.toContain('sticky');
+    expect(raiz(container)).not.toContain('flex-1');
+    expect(raiz(container)).not.toContain('min-h-0');
   });
 });
 
