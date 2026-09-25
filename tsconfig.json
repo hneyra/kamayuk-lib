@@ -2,7 +2,9 @@
   "extends": "./tsconfig.base.json",
   "include": ["paquetes/**/*.ts", "paquetes/**/*.tsx", "paquetes/**/*.mjs", "*.config.ts", "vitest.setup.ts"],
   // Las muestras violan las reglas A PROPOSITO y varias no compilan. Se lintan desde la
-  // prueba, con su texto y una ruta sintetica; el compilador no tiene nada que hacer aqui.
+  // prueba, con su texto y una ruta sintetica —salvo `switch-sin-agotar.ts`, que necesita tipos y se
+  // lintea en su ruta de verdad, con su propio `allowDefaultProject` (#111)—; el compilador no tiene
+  // nada que hacer aqui.
   "exclude": ["paquetes/verificaciones/muestras/**", "dist", "node_modules"],
   "compilerOptions": {
     "types": ["node", "@testing-library/jest-dom"],

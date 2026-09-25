@@ -109,62 +109,84 @@ export function PiezaDeLaPantalla({
   if (estadoPropio !== undefined) return estadoPropio;
 
   let cuerpo: ReactNode;
-  if (pieza.tipo === 'pestanas') {
-    // Las dos piezas que componen la hoja (#67): dibujan sus hijas por `dibujarHija`, con el mismo
-    // despachador, asi que una pestana hereda `cuando`, `lectura` y `fallosDe` sin hacer nada.
-    cuerpo = (
-      <PestanasDeLaPantalla
-        pieza={pieza}
-        nombrados={datos.nombrados}
-        traducir={traducir}
-        textos={textos}
-        hoja={hoja}
-        dibujarHija={dibujarHija}
-      />
-    );
-  } else if (pieza.tipo === 'maestroDetalle') {
-    cuerpo = (
-      <MaestroDetalle
-        pieza={pieza}
-        datos={datos}
-        nombrados={datos.nombrados}
-        traducir={traducir}
-        textos={textos}
-        tonoDeLaInsignia={tonoDeLaInsignia}
-        hoja={hoja}
-        dibujarHija={dibujarHija}
-      />
-    );
-  } else if (pieza.tipo === 'aviso') {
-    const parrafo = pieza.texto === undefined ? '' : texto(pieza.texto);
-    cuerpo = (
-      <Alerta tono={pieza.tono} titulo={texto(pieza.titulo)}>
-        {parrafo === '' ? undefined : parrafo}
-      </Alerta>
-    );
-  } else if (pieza.tipo === 'acto') {
-    cuerpo = (
-      <ActoDeLaPantalla
-        // Otra apertura, otro formulario: lo escrito para una fila no pasa a la siguiente.
-        key={JSON.stringify(interaccion.abierto?.parametros ?? {})}
-        acto={pieza}
-        datos={datos}
-        traducir={traducir}
-        textos={textos}
-        interaccion={interaccion}
-      />
-    );
-  } else {
-    const Componente = piezas !== undefined && Object.hasOwn(piezas, pieza.clave) ? piezas[pieza.clave] : undefined;
-    cuerpo =
-      Componente === undefined ? (
-        // Nunca un hueco en blanco (AC-2): una clave que nadie registro se ve, y dice cual es.
-        <Alerta tono="atencion" data-pieza-sin-registrar={pieza.clave}>
-          {textos.piezaSinRegistrar(pieza.clave)}
-        </Alerta>
-      ) : (
-        <Componente clave={pieza.clave} indice={indice} datos={datos} traducir={traducir} textos={textos} />
+  // Un `switch` por la clase, y no una cadena de `if` cuyo ultimo `else` se quedaba con **cualquier**
+  // clase como `delConsumidor` (#111): con una octava, compilaba y se dibujaba como una pieza del
+  // consumidor que nadie registro. Ver el `default`.
+  switch (pieza.tipo) {
+    case 'pestanas':
+      // Las dos piezas que componen la hoja (#67): dibujan sus hijas por `dibujarHija`, con el mismo
+      // despachador, asi que una pestana hereda `cuando`, `lectura` y `fallosDe` sin hacer nada.
+      cuerpo = (
+        <PestanasDeLaPantalla
+          pieza={pieza}
+          nombrados={datos.nombrados}
+          traducir={traducir}
+          textos={textos}
+          hoja={hoja}
+          dibujarHija={dibujarHija}
+        />
       );
+      break;
+    case 'maestroDetalle':
+      cuerpo = (
+        <MaestroDetalle
+          pieza={pieza}
+          datos={datos}
+          nombrados={datos.nombrados}
+          traducir={traducir}
+          textos={textos}
+          tonoDeLaInsignia={tonoDeLaInsignia}
+          hoja={hoja}
+          dibujarHija={dibujarHija}
+        />
+      );
+      break;
+    case 'aviso': {
+      const parrafo = pieza.texto === undefined ? '' : texto(pieza.texto);
+      cuerpo = (
+        <Alerta tono={pieza.tono} titulo={texto(pieza.titulo)}>
+          {parrafo === '' ? undefined : parrafo}
+        </Alerta>
+      );
+      break;
+    }
+    case 'acto':
+      cuerpo = (
+        <ActoDeLaPantalla
+          // Otra apertura, otro formulario: lo escrito para una fila no pasa a la siguiente.
+          key={JSON.stringify(interaccion.abierto?.parametros ?? {})}
+          acto={pieza}
+          datos={datos}
+          traducir={traducir}
+          textos={textos}
+          interaccion={interaccion}
+        />
+      );
+      break;
+    case 'delConsumidor': {
+      const Componente = piezas !== undefined && Object.hasOwn(piezas, pieza.clave) ? piezas[pieza.clave] : undefined;
+      cuerpo =
+        Componente === undefined ? (
+          // Nunca un hueco en blanco (AC-2): una clave que nadie registro se ve, y dice cual es.
+          <Alerta tono="atencion" data-pieza-sin-registrar={pieza.clave}>
+            {textos.piezaSinRegistrar(pieza.clave)}
+          </Alerta>
+        ) : (
+          <Componente clave={pieza.clave} indice={indice} datos={datos} traducir={traducir} textos={textos} />
+        );
+      break;
+    }
+    default: {
+      // **Una clase de pieza nueva no compila aqui** (#111): el `bloque` y el `pie` ya salieron
+      // arriba, asi que lo que queda es `never` mientras cada clase tenga su `case`. Con una octava
+      // en `PiezaDeLaPantalla`, esta asignacion es TS2322 con el `tsconfig` de cada consumidor.
+      // Y si llega igual —una definicion sin tipos, o forzada con `as`—, revienta diciendo cual
+      // es, como `tipoDe` con un tipo de campo: dibujarla como otra cosa la esconderia.
+      const desconocida: never = pieza;
+      throw new Error(
+        `«${String((desconocida as { readonly tipo?: unknown }).tipo)}» no es una clase de pieza del interprete.`,
+      );
+    }
   }
 
   return encima === undefined ? (

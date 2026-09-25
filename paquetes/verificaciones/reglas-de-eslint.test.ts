@@ -2,12 +2,12 @@
 //
 // Lintea de verdad con la API de ESLint sobre archivos del disco: no es un DOM lo que necesita.
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { basename, dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { basename, join } from 'node:path';
 import { ESLint } from 'eslint';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { OTRAS_MUESTRAS } from './otras-muestras.ts';
+import { PAQUETES, RAIZ } from './texto.ts';
 import {
   CLIENTE_DE_API,
   DONDE_SE_LLAMA_A_FETCH,
@@ -39,14 +39,30 @@ import {
  *
  * Las muestras estan en `ignores` de la configuracion para que `yarn lint` no las senale;
  * aqui se lintan como TEXTO, con una ruta sintetica dentro de `src/`, que es donde la
- * regla tiene que aplicar de verdad.
+ * regla tiene que aplicar de verdad. La excepcion es `switch-sin-agotar` (#111), que necesita tipos
+ * y se lintea en su ruta de verdad: ver su `describe`, al final.
  */
 
-const AQUI = dirname(fileURLToPath(import.meta.url));
-const RAIZ = join(AQUI, '..', '..');
-const MUESTRAS = join(AQUI, 'muestras');
+const MUESTRAS = join(PAQUETES, 'verificaciones', 'muestras');
 
-const eslint = new ESLint({ cwd: RAIZ });
+/**
+ * **El linter del arbol, sin el bloque con tipos de #111.**
+ *
+ * `eslint.config.js` lleva un bloque con `projectService` para `switch-exhaustiveness-check`, y el
+ * servicio de proyectos **solo sabe tipar archivos que un `tsconfig` incluye y que existen**. Las
+ * muestras de aqui se juzgan con una ruta sintetica —`paquetes/ui/correcto.ts`, que no existe—, y
+ * con el bloque encendido cada una sale con «Parsing error: … was not found by the project service»
+ * (medido: 55 de 68 en rojo, y ninguno por su regla). Asi que estos dos linters apagan ESE bloque y
+ * nada mas: las prohibiciones son `no-restricted-syntax`, que no mira tipos. La regla con tipos se
+ * juzga aparte, con `eslintConTipos`, sobre la muestra en su ruta de verdad.
+ */
+const REGLA_CON_TIPOS = '@typescript-eslint/switch-exhaustiveness-check';
+const SIN_EL_BLOQUE_CON_TIPOS = {
+  languageOptions: { parserOptions: { projectService: false } },
+  rules: { [REGLA_CON_TIPOS]: 'off' },
+} as const;
+
+const eslint = new ESLint({ cwd: RAIZ, overrideConfig: SIN_EL_BLOQUE_CON_TIPOS });
 
 /**
  * El mismo lint del arbol, **con las opcionales encendidas** (#58).
@@ -64,7 +80,9 @@ const eslint = new ESLint({ cwd: RAIZ });
 const eslintConLasOpcionales = new ESLint({
   cwd: RAIZ,
   overrideConfig: {
+    ...SIN_EL_BLOQUE_CON_TIPOS,
     rules: {
+      ...SIN_EL_BLOQUE_CON_TIPOS.rules,
       'no-restricted-syntax': [
         'error',
         ...[...PROHIBICIONES, ...PROHIBICIONES_OPCIONALES].map(({ selector, message }) => ({
@@ -638,5 +656,119 @@ describe('las reglas no senalan codigo correcto', () => {
         'selector ya no busca el atributo que dice buscar, y entonces la prohibicion\n' +
         'senala a todo el mundo — que es indistinguible de no senalar a nadie.',
     ).toEqual([]);
+  });
+});
+
+/**
+ * **LA EXHAUSTIVIDAD DE UN `switch`, EN EL LINT DE ESTE REPOSITORIO** (#111).
+ *
+ * `@typescript-eslint/switch-exhaustiveness-check` no es una prohibicion de `PROHIBICIONES` —es una
+ * regla con tipos, y alli solo caben selectores; y una clave nueva ahi es un cambio coordinado en
+ * cinco repositorios, como el XHR—: vive en un bloque propio de `eslint.config.js`. Que viva aparte
+ * no la exime de su muestra, y aqui se juzga contra el **mismo** linter del arbol, el que corre
+ * `yarn lint`.
+ *
+ * Van las dos mitades: la muestra senalada, y la misma muestra con el `case` que le faltaba, limpia.
+ * Sin la segunda, una regla que senalara todos los `switch` tambien «morderia».
+ */
+describe('la exhaustividad de un switch la senala el lint (#111)', () => {
+  /** La muestra en su ruta de VERDAD: el servicio de proyectos no tipa una ruta que no existe. */
+  const RUTA = 'paquetes/verificaciones/muestras/switch-sin-agotar.ts';
+
+  /**
+   * El config del arbol entero —el bloque con tipos incluido—, con dos cosas mas y solo dos:
+   * `ignore: false`, porque `muestras/` esta en los `ignores`; y la muestra en `allowDefaultProject`,
+   * porque `tsconfig.json` la excluye. El proyecto por omision toma las opciones de ese mismo
+   * `tsconfig.json`, asi que los tipos son los del arbol.
+   */
+  const eslintConTipos = new ESLint({
+    cwd: RAIZ,
+    ignore: false,
+    overrideConfig: {
+      languageOptions: {
+        parserOptions: { projectService: { allowDefaultProject: [RUTA], defaultProject: 'tsconfig.json' } },
+      },
+    },
+  });
+
+  const deLaRegla = async (codigo: string): Promise<string[]> => {
+    const [resultado] = await eslintConTipos.lintText(codigo, { filePath: join(RAIZ, RUTA) });
+    const mensajes = resultado?.messages ?? [];
+    // Un error de analisis no es un verde: si el servicio de proyectos no encuentra la muestra, la
+    // regla no llega a mirarla y la mitad «limpia» pasaria sin haber juzgado nada.
+    expect(mensajes.filter((m) => m.fatal === true).map((m) => m.message)).toEqual([]);
+    return mensajes.filter((m) => m.ruleId === REGLA_CON_TIPOS).map((m) => m.message);
+  };
+
+  const muestra = (): string => readFileSync(join(RAIZ, RUTA), 'utf8');
+
+  // El arranque del servicio de proyectos, fuera del presupuesto de un caso, por lo mismo que el
+  // `beforeAll` de arriba (#36): medido, el primer caso con tipos costaba 3,1 s en frio, y los
+  // siguientes, 20 ms. Dentro del caso, una maquina cargada lo pondria en rojo por la maquina.
+  beforeAll(async () => {
+    await eslintConTipos.lintText(muestra(), { filePath: join(RAIZ, RUTA) });
+  }, 60_000);
+
+  it('la muestra —una rama sin `case` en una funcion que no devuelve nada— sale senalada', async () => {
+    expect(
+      (await deLaRegla(muestra())).join('\n'),
+      `ESLint no senalo la muestra de «${REGLA_CON_TIPOS}». Si la regla se apago o perdio los\n` +
+        'tipos (`projectService`), un `switch` al que le falta una clase vuelve a pasar en verde.',
+    ).toMatch(/"guarda"/);
+  });
+
+  it('y con el `case` que le faltaba, limpia', async () => {
+    const agotada = muestra().replace(
+      "      hechas.push('hace');\n      return;\n",
+      "      hechas.push('hace');\n      return;\n    case 'guarda':\n      hechas.push('guarda');\n      return;\n",
+    );
+    expect(agotada, 'La muestra cambio de forma: el reemplazo no encontro su `case`.').toContain("case 'guarda'");
+    expect(await deLaRegla(agotada)).toEqual([]);
+  });
+
+  it('con un `default` que no agota nada, sigue senalada', async () => {
+    // `considerDefaultExhaustiveForUnions: false` es lo que el config fija a proposito, y la muestra
+    // sin `default` no lo vigilaba: medido en la revision de #111, con `true` estas pruebas seguian
+    // verdes y un `default` sin la asignacion a `never` daba por agotada una octava clase de pieza.
+    const conDefault = muestra().replace(
+      "      hechas.push('hace');\n      return;\n  }\n",
+      "      hechas.push('hace');\n      return;\n    default:\n      return;\n  }\n",
+    );
+    expect(conDefault, 'La muestra cambio de forma: el reemplazo no encontro su final.').toContain('default:');
+    expect(
+      (await deLaRegla(conDefault)).join('\n'),
+      'Un `default` dio por agotada la union: `considerDefaultExhaustiveForUnions` ya no es `false`.',
+    ).toMatch(/"guarda"/);
+  });
+
+  /**
+   * Los archivos donde viven los `switch` del interprete, `.ts` y `.tsx`. La muestra es un `.ts`, y
+   * con ella sola un `files` estrechado —a `*.ts`, o a `verificaciones/`— la seguia senalando y dejaba
+   * sin mirar `pulsar`, en `GrupoDeAcciones.tsx`, que es justo el caso que el compilador no ve
+   * (medido en la revision de #111: con `paquetes/**\/*.ts`, las 68 verdes y `yarn lint` RC=0).
+   */
+  const DONDE_HAY_UN_SWITCH = [
+    'paquetes/ui/interprete/GrupoDeAcciones.tsx',
+    'paquetes/ui/interprete/acciones.ts',
+    'paquetes/ui/interprete/CampoDelBloque.tsx',
+    'paquetes/ui/interprete/EstadoDeLaLectura.tsx',
+    'paquetes/ui/interprete/PiezaDeLaPantalla.tsx',
+  ];
+
+  it.each(DONDE_HAY_UN_SWITCH)('el lint del arbol la aplica, con tipos, en %s', async (archivo) => {
+    // El config SIN ningun `overrideConfig`: el mismo que corre `yarn lint`.
+    const config = (await new ESLint({ cwd: RAIZ }).calculateConfigForFile(join(RAIZ, archivo))) as {
+      rules?: Record<string, unknown>;
+      languageOptions?: { parserOptions?: { projectService?: unknown } };
+    };
+    const regla = config.rules?.[REGLA_CON_TIPOS];
+    expect(regla, `${archivo} no esta en el bloque de «${REGLA_CON_TIPOS}».`).toBeDefined();
+    expect([2, 'error']).toContain(Array.isArray(regla) ? regla[0] : regla);
+    expect(config.languageOptions?.parserOptions?.projectService, 'Sin tipos, la regla no ve la union.').toBeTruthy();
+  });
+
+  it('no es una prohibicion: no se le exige a ningun consumidor', () => {
+    // Si alguien la mudara a `PROHIBICIONES`, los cinco sistemas saldrian rojos pidiendo su muestra.
+    expect(PROHIBICIONES.map((p) => p.clave)).not.toContain('switch-sin-agotar');
   });
 });

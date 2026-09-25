@@ -1,10 +1,13 @@
-import { type Nombrados, seCumple } from './componer.ts';
+import { esBloque, type Nombrados, seCumple } from './componer.ts';
+import { recorrerLasPiezas } from './composicion.ts';
 import type { CeldaDeLaTabla, DatoConNombre, FilaDeLaTabla } from './datos.ts';
 import type {
   AccionDeFila,
   AccionesPorFila,
   ChipDelFiltro,
+  DefinicionDeBloque,
   DefinicionDePantalla,
+  DefinicionDeTabla,
   EleccionDeLaFila,
   FiltroLocalDeLaTabla,
   PaginacionDeLaTabla,
@@ -124,18 +127,39 @@ export function accionesQueOfrece<T extends Texto>(
 }
 
 /**
+ * **Las tablas de un bloque**: la suya, si la tiene, y despues las de `tablas`, en orden (#65).
+ *
+ * Es la unica que lo dice (#110). Antes eran cuatro copias —la pieza del bloque, la pantalla, el
+ * cambio de un filtro y `tablasSinVacio`—, dos de ellas con un `undefined` dentro que cada una
+ * saltaba a su manera: la quinta forma de tabla que se anada entra aqui, y no en cuatro sitios de
+ * los que alguno se olvida. Interna: no sale por el indice.
+ */
+export function tablasDe<T extends Texto>(
+  bloque: Pick<DefinicionDeBloque<T>, 'tabla' | 'tablas'>,
+): readonly DefinicionDeTabla<T>[] {
+  return [...(bloque.tabla === undefined ? [] : [bloque.tabla]), ...(bloque.tablas ?? [])];
+}
+
+/**
  * Las tablas de la definicion que **no dicen por que estarian vacias**: su `clave` o, sin ella, su
  * titulo, en orden y sin repetir (#65, AC-3).
  *
  * La pantalla ya lo dice montada —con un aviso visible—, pero solo en la hoja que alguien abre y
  * solo el dia que la lista llega vacia. Con esto, cada sistema escribe una guarda que recorre sus
  * definiciones sin montar nada, como `piezasSinRegistrar`.
+ *
+ * **Con las anidadas (#110)**, igual que `piezasSinRegistrar`: recorre con `recorrerLasPiezas` —en
+ * anchura, asi que las de primer nivel salen primero y en el orden de siempre— y pregunta a
+ * `esBloque`, que es la unica definicion de «que es un bloque». Mirando solo `definicion.bloques`,
+ * una tabla sin `vacio` dentro de una pestana —abierta o cerrada— o del detalle de un maestro pasaba
+ * la guarda de cada sistema y salia en produccion con el aviso «tabla sin motivo», que es justo lo
+ * que esta funcion existe para impedir.
  */
 export function tablasSinVacio(definicion: DefinicionDePantalla<PiezaDeLaPantalla>): readonly string[] {
   const faltan: string[] = [];
-  for (const pieza of definicion.bloques) {
-    if (pieza.tipo !== undefined && pieza.tipo !== 'bloque') continue;
-    for (const tabla of [...(pieza.tabla === undefined ? [] : [pieza.tabla]), ...(pieza.tablas ?? [])]) {
+  for (const { pieza } of recorrerLasPiezas(definicion)) {
+    if (!esBloque(pieza)) continue;
+    for (const tabla of tablasDe(pieza)) {
       // Una tabla cuyas filas VIAJAN en la definicion (#61) nunca puede llegar vacia: no lee datos.
       if ((tabla.filasDeContenido ?? []).length > 0) continue;
       if (diceElVacio(tabla.vacio, tabla.vacioConSalida)) continue;

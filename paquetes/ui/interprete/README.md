@@ -49,7 +49,13 @@ pueden decir en voz alta sin decir de qué fila es cada uno— y, cuando la fila
   el dato que decide no llegó —pintar `otro` ahí afirmaría un estado que nadie ha leído—;
 - `accionesQueOfrece`, que **revienta** si `segun.ofrece` nombra una acción que `acciones` no
   declara;
-- y `tablasSinVacio`, con la que cada sistema recorre sus definiciones **sin montar nada**.
+- y `tablasSinVacio`, con la que cada sistema recorre sus definiciones **sin montar nada** —**las
+  anidadas incluidas** desde #110: recorre con `recorrerLasPiezas` y pregunta a `esBloque`, como
+  `piezasSinRegistrar`, así que una tabla sin `vacio` dentro de una pestaña, abierta o cerrada, o
+  del detalle de un maestro, ya no pasa la guarda—.
+
+«La tabla del bloque y sus `tablas`» se dice **en un solo sitio**, `tablasDe(bloque)`, interno y
+fuera del índice; «qué es un bloque», sólo en `esBloque` (#110).
 
 ## Cuatro cosas que no se tocan
 
@@ -155,6 +161,25 @@ estado de la tabla. Regla pura `valorDeLaFila`, publicada con `EleccionDeLaFila`
 —cabecera, piezas y cada lectura en el estado que el sistema le ponga— con `sinEleccion` encima, en
 vez de sustituirlo entero; va en un campo aparte porque la unión en `sinEleccion` rompe, medido, a
 quien ya lo lee como `Texto`. Ninguna palabra nueva en ningún saco.
+
+## La exhaustividad la da el compilador (#111)
+
+Añadir una clase —un tipo de campo, un estado de lectura, una clase de pieza o de acción— **no
+compila** hasta que cada sitio que las recorre tenga la suya, y el rojo sale **con el `tsconfig` de
+cada consumidor** (basta `--strict`), porque el que la protege es el código y no un flag de aquí:
+
+- `CampoDelBloque` y `EstadoDeLaLectura` declaran que devuelven `ReactElement`, así que la rama
+  que falta es TS2366. Sin el tipo de retorno compilaban —`tsc` RC=0, medido— y dibujaban un hueco.
+- `PiezaDeLaPantalla` es un `switch` cuyo `default` asigna a `never`: una octava clase es TS2322, y
+  la que llega igual —forzada con `as`— **revienta diciendo cuál**, en vez de dibujarse como una
+  pieza del consumidor, que era lo que hacía el último `else`.
+- `claseDe(accion)`, interno de `acciones.ts`, dice la clase de una acción **una vez**; lo usan los
+  tres sitios que la adivinaban por descarte —`motivoDeLaAccion`, la clave de `data-accion` y
+  `pulsar`—. Una quinta clase es TS2322 en `claseDe`, y no `hace:undefined`.
+
+Lo que el compilador no ve —un `switch` en una función que no devuelve nada, o que admite
+`undefined`— lo señala `@typescript-eslint/switch-exhaustiveness-check` en el lint de **este**
+repositorio, con su muestra; no en `PROHIBICIONES`, por lo mismo que el XHR.
 
 ## Las muestras
 

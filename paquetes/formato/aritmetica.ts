@@ -1,3 +1,4 @@
+import { partirImporte } from './partir.ts';
 import type { Importe } from './valores.ts';
 
 /**
@@ -35,22 +36,19 @@ import type { Importe } from './valores.ts';
  * decide cuanto se debe, comprueba que lo publicado cuadre consigo mismo.
  */
 
-/** Un importe servido por el backend: opcionalmente negativo, con 0..2 decimales. */
-const IMPORTE_SERVIDO = /^-?\d+(\.\d{1,2})?$/;
-
-/** `'587.44'` → `58744n`. Falla ruidosamente con cualquier otra forma. */
-function centimosDe(valor: Importe): bigint {
-  const limpio = valor.trim();
-  if (!IMPORTE_SERVIDO.test(limpio)) {
-    throw new Error(
-      `Importe con una forma que el backend no sirve: «${valor}». ` +
-        'Se espera texto decimal con dos decimales como mucho, sin separador de miles.',
-    );
-  }
-  const negativo = limpio.startsWith('-');
-  const sinSigno = negativo ? limpio.slice(1) : limpio;
-  const [entera, decimales] = sinSigno.split('.');
-  const enCentimos = BigInt(`${entera ?? '0'}${`${decimales ?? ''}00`.slice(0, 2)}`);
+/**
+ * `'587.44'` → `58744n`. Falla ruidosamente con cualquier otra forma, y `para` dice que no se pudo.
+ *
+ * Lo que es un importe servido lo decide `partirImporte`, y solo alli (#108). Se exporta para
+ * `compararImportes`, que compara centimos en vez de reescribir el analisis; `index.ts` no lo
+ * publica.
+ */
+export function centimosDe(
+  valor: Importe,
+  para = 'No se puede sumar ni comparar hasta el centimo.',
+): bigint {
+  const { negativo, entera, decimales } = partirImporte(valor, para);
+  const enCentimos = BigInt(`${entera}${decimales}`);
   return negativo ? -enCentimos : enCentimos;
 }
 

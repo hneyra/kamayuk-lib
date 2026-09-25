@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ABRE, CIERRA, marcarElSaco } from '../verificaciones/marcas.ts';
 import { crearIdentidad, type FallaDeLaPuerta, type Identidad } from './identidad.ts';
+import * as sesion from './index.ts';
+import type { TextosDeLaPuerta as TextosPublicosDeLaPuerta } from './index.ts';
+import { TEXTOS_DE_LA_PUERTA, type TextosDeLaPuerta } from './textos.ts';
 
 /**
  * La puerta de identidad: **PKCE S256, y el token en memoria**.
@@ -745,5 +749,269 @@ describe('«Mi perfil» y «Cambiar la contrasena» llevan a la consola del emis
     identidad.abrirLaCuenta('perfil');
 
     expect(asignar).toHaveBeenCalledWith(identidad.urlDeLaCuenta('perfil'));
+  });
+});
+
+/**
+ * **Lo que la puerta dice cuando no se pudo entrar es DATO** (#118, AC4).
+ *
+ * El arnes de #19 —el saco marcado clave a clave— aplicado a la puerta, como #52 lo aplico a la
+ * escalera: `crearIdentidad` no dibuja, asi que no hay arbol que montar, y lo que se mira es lo que
+ * devuelve para ensenar. Con el saco marcado, **lo que no salga marcado esta escrito dentro de
+ * `identidad.ts`** y no se puede traducir nunca.
+ *
+ * Se recorren **todos** los caminos por los que la puerta explica un fallo —los siete codigos de
+ * OAuth, el estado que no cuadra, el canje sin red, rechazado y sin token, y las dos sondas que no
+ * traen palabras del navegador— y el ultimo caso cierra el circulo: **cada clave del saco sale en
+ * alguno**. Una frase nueva de la puerta que no tenga su camino aqui sale roja con su nombre.
+ */
+describe('#118 AC4 — lo que la puerta dice al no poder entrar sale del saco', () => {
+  const MARCADOS = marcarElSaco(TEXTOS_DE_LA_PUERTA);
+
+  /** La vuelta de Keycloak con `?error=` y sin `error_description`: el detalle es el respaldo. */
+  function vuelveConError(error: string) {
+    ubicacion(`http://localhost:5173/?error=${error}`);
+  }
+
+  /** La vuelta buena de Keycloak, con el canje contestado por lo que se le pase. */
+  function vuelveYElCanje(contesta: () => Promise<Response>) {
+    sessionStorage.setItem(VERIFICADOR, 'el-verificador');
+    sessionStorage.setItem(ESTADO, 'el-estado');
+    ubicacion('http://localhost:5173/?code=un-codigo&state=el-estado');
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(contesta));
+  }
+
+  /** Lo que la puerta ensena en cada camino: el motivo y, cuando lo hay, el detalle. */
+  async function loQueEnsena(puerta: Identidad): Promise<readonly string[]> {
+    const vuelta = await puerta.canjearSiVuelve();
+    if (vuelta.estado !== 'fallo') throw new Error(`se esperaba un fallo, y fue «${vuelta.estado}»`);
+    return [vuelta.motivo, vuelta.detalle];
+  }
+
+  async function loQueEnsenaLaSonda(puerta: Identidad): Promise<readonly string[]> {
+    const falla = await puerta.entrar();
+    if (falla === null) throw new Error('se esperaba que la sonda fallara, y navego');
+    return [falla.motivo];
+  }
+
+  const LOS_CAMINOS: readonly {
+    readonly nombre: string;
+    readonly prepara: () => void;
+    readonly ensena: (puerta: Identidad) => Promise<readonly string[]>;
+  }[] = [
+    ...[
+      'access_denied',
+      'invalid_scope',
+      'unauthorized_client',
+      'invalid_client',
+      'temporarily_unavailable',
+      'server_error',
+      'un_codigo_que_nadie_nombra',
+    ].map((error) => ({
+      nombre: `la vuelta con ?error=${error}`,
+      prepara: () => {
+        vuelveConError(error);
+      },
+      ensena: loQueEnsena,
+    })),
+    {
+      nombre: 'la vuelta sin el estado de la ida',
+      prepara: () => {
+        sessionStorage.setItem(VERIFICADOR, 'el-verificador');
+        sessionStorage.setItem(ESTADO, 'el-estado');
+        ubicacion('http://localhost:5173/?code=un-codigo&state=OTRO');
+      },
+      ensena: loQueEnsena,
+    },
+    {
+      nombre: 'el canje que no llega',
+      prepara: () => {
+        vuelveYElCanje(() => Promise.reject(new TypeError('sin red')));
+      },
+      ensena: loQueEnsena,
+    },
+    {
+      nombre: 'el canje rechazado',
+      prepara: () => {
+        vuelveYElCanje(() => Promise.resolve(new Response(null, { status: 400 })));
+      },
+      ensena: loQueEnsena,
+    },
+    {
+      nombre: 'el canje sin access_token',
+      prepara: () => {
+        vuelveYElCanje(() => Promise.resolve(Response.json({ id_token: 'x' })));
+      },
+      ensena: loQueEnsena,
+    },
+    {
+      nombre: 'la sonda que revienta sin un Error',
+      prepara: () => {
+        ubicacion();
+        elEmisorNoContesta('no es un Error');
+      },
+      ensena: loQueEnsenaLaSonda,
+    },
+    {
+      nombre: 'la sonda que agota la espera',
+      prepara: () => {
+        ubicacion();
+        const agotada = new Error('the operation was aborted');
+        agotada.name = 'TimeoutError';
+        elEmisorNoContesta(agotada);
+      },
+      ensena: loQueEnsenaLaSonda,
+    },
+  ];
+
+  it.each(LOS_CAMINOS)('$nombre dice lo suyo con el saco', async ({ prepara, ensena }) => {
+    prepara();
+
+    for (const frase of await ensena(crearIdentidad(CONFIGURACION, MARCADOS))) {
+      expect(frase.startsWith(ABRE), `«${frase}» no salio del saco`).toBe(true);
+    }
+  });
+
+  it('EL CIRCULO: cada frase del saco sale por algun camino, y ninguna queda sin probar', async () => {
+    const vistas = new Set<string>();
+    for (const { prepara, ensena } of LOS_CAMINOS) {
+      prepara();
+      for (const frase of await ensena(crearIdentidad(CONFIGURACION, MARCADOS))) {
+        vistas.add(frase);
+      }
+      vi.unstubAllGlobals();
+      sessionStorage.clear();
+    }
+
+    const esperadas = Object.keys(TEXTOS_DE_LA_PUERTA).map((clave) => `${ABRE}${clave}${CIERRA}`);
+    const sinCamino = esperadas.filter((marca) => !vistas.has(marca));
+    expect(
+      sinCamino,
+      `Hay frases de la puerta que ningun camino de este bloque ensena: ${sinCamino.join(', ')}. ` +
+        'Si la puerta las dice, falta su camino en LOS_CAMINOS; si no las dice, sobran en el saco.',
+    ).toEqual([]);
+    // Y al reves: nada salio sin marcar, ni marcado con una clave que el saco no tiene.
+    expect([...vistas].sort()).toEqual([...esperadas].sort());
+  });
+
+  it('EL CENTINELA: el saco marcado NO se parece al de por omision', () => {
+    // Sin esto, un `marcarElSaco` que devolviera el saco tal cual dejaria todo lo de arriba
+    // pasando en verde sobre el castellano.
+    expect(MARCADOS.laVueltaNoCuadraConLaIda).not.toBe(TEXTOS_DE_LA_PUERTA.laVueltaNoCuadraConLaIda);
+    expect(MARCADOS.laVueltaNoCuadraConLaIda.startsWith(ABRE)).toBe(true);
+  });
+
+  it('pero lo que dijeron el emisor y el navegador NO sale del saco: es el dato', async () => {
+    // El saco pone el respaldo; lo que Keycloak mando en `error_description` es lo que dijo.
+    ubicacion('http://localhost:5173/?error=access_denied&error_description=lo+cancelo');
+    await expect(crearIdentidad(CONFIGURACION, MARCADOS).canjearSiVuelve()).resolves.toMatchObject({
+      motivo: `${ABRE}noSeCompletoLaEntrada${CIERRA}`,
+      detalle: 'lo cancelo',
+    });
+
+    // Y lo que dijo el navegador es lo que se busca y lo que sale en su consola.
+    ubicacion();
+    elEmisorNoContesta();
+    const falla = await crearIdentidad(CONFIGURACION, MARCADOS).entrar();
+    expect(falla?.motivo).toBe('Failed to fetch');
+  });
+
+  /**
+   * **Y un `Error` del navegador SIN mensaje dice su nombre, que tambien es el dato.**
+   *
+   * Es la unica rama de `enPalabrasDelNavegador` que no sale del saco ni repite un mensaje, y
+   * ninguno de `LOS_CAMINOS` la recorre, asi que EL CIRCULO —que mira las claves del saco— no la
+   * cubre. Y el barrido de `el-texto-visible-es-dato` tampoco la puede cubrir: `FRASE` pide dos
+   * palabras separadas por espacio para no confundir una frase con una clave (`'perfil'`,
+   * `'account/'`), asi que una palabra suelta —`'Desconocido'`— o una frase partida en trozos —
+   * `'Error' + ' ' + 'desconocido'`— escrita en esa rama no la ve. Medido en la vuelta 1 de la
+   * verificacion de #118: con cualquiera de las dos, las 152 de `sesion` pasaban en verde. Lo que
+   * la caza es esto: el motivo tiene que ser **exactamente** el nombre del error.
+   */
+  it('y un Error del navegador SIN mensaje dice su nombre, que tambien es el dato', async () => {
+    ubicacion();
+    const sinMensaje = new Error('');
+    sinMensaje.name = 'NetworkError';
+    elEmisorNoContesta(sinMensaje);
+
+    const falla = await crearIdentidad(CONFIGURACION, MARCADOS).entrar();
+
+    expect(falla?.motivo).toBe('NetworkError');
+  });
+
+  /**
+   * **Las tres funciones reciben SU dato**, y esto el saco marcado no lo ve: `marcarElSaco` hace
+   * que una funcion devuelva su marca sin mirar el argumento, asi que una puerta que le pasara los
+   * milisegundos en vez de los segundos, un `0` en vez del estado o una `'x'` en vez del codigo del
+   * emisor seguiria saliendo marcada y en verde. Aqui cada funcion devuelve lo que recibio.
+   */
+  const QUE_RECIBE: Partial<TextosDeLaPuerta> = {
+    noContestoEn: (segundos) => `noContestoEn(${String(segundos)})`,
+    elEmisorContesto: (error) => `elEmisorContesto(${error})`,
+    elCanjeVolvioCon: (estado) => `elCanjeVolvioCon(${String(estado)})`,
+  };
+
+  it('`noContestoEn` recibe los SEGUNDOS de la espera, no los milisegundos', async () => {
+    ubicacion();
+    const agotada = new Error('the operation was aborted');
+    agotada.name = 'TimeoutError';
+    elEmisorNoContesta(agotada);
+
+    const falla = await crearIdentidad(CONFIGURACION, QUE_RECIBE).entrar();
+
+    // La sonda espera ocho segundos (`ESPERA_DE_LA_SONDA = 8_000` en `identidad.ts`).
+    expect(falla?.motivo).toBe('noContestoEn(8)');
+  });
+
+  it('`elEmisorContesto` recibe el codigo de OAuth que mando el emisor', async () => {
+    ubicacion('http://localhost:5173/?error=temporarily_unavailable');
+
+    const vuelta = await crearIdentidad(CONFIGURACION, QUE_RECIBE).canjearSiVuelve();
+
+    expect(vuelta).toMatchObject({
+      estado: 'fallo',
+      detalle: 'elEmisorContesto(temporarily_unavailable)',
+    });
+  });
+
+  it('`elCanjeVolvioCon` recibe el estado HTTP con el que volvio el canje', async () => {
+    vuelveYElCanje(() => Promise.resolve(new Response(null, { status: 401 })));
+
+    const vuelta = await crearIdentidad(CONFIGURACION, QUE_RECIBE).canjearSiVuelve();
+
+    expect(vuelta).toMatchObject({ estado: 'fallo', detalle: 'elCanjeVolvioCon(401)' });
+  });
+
+  it('el saco y su tipo se publican por `index.ts`: sin ellos, un sistema no puede traducir', async () => {
+    // Un consumidor importa `@kamayuk/sesion`, que es este `index.ts`, y no `textos.ts`. El tipo
+    // lo vigila el compilador —sin la exportacion, `yarn typecheck` sale con TS2724— y el valor,
+    // esta prueba.
+    const traduccion: Partial<TextosPublicosDeLaPuerta> = {
+      laVueltaNoCuadraConLaIda: 'The way back does not match the way in',
+    };
+    expect(sesion.TEXTOS_DE_LA_PUERTA).toBe(TEXTOS_DE_LA_PUERTA);
+
+    sessionStorage.setItem(VERIFICADOR, 'el-verificador');
+    sessionStorage.setItem(ESTADO, 'el-estado');
+    ubicacion('http://localhost:5173/?code=un-codigo&state=OTRO');
+    const vuelta = await sesion.crearIdentidad(CONFIGURACION, traduccion).canjearSiVuelve();
+    expect(vuelta).toMatchObject({ motivo: 'The way back does not match the way in' });
+  });
+
+  it('el `Partial` se funde encima: lo que no se pasa sigue siendo lo de siempre', async () => {
+    sessionStorage.setItem(VERIFICADOR, 'el-verificador');
+    sessionStorage.setItem(ESTADO, 'el-estado');
+    ubicacion('http://localhost:5173/?code=un-codigo&state=OTRO');
+
+    const vuelta = await crearIdentidad(CONFIGURACION, {
+      laVueltaNoCuadraConLaIda: 'The way back does not match the way in',
+    }).canjearSiVuelve();
+
+    expect(vuelta).toEqual({
+      estado: 'fallo',
+      motivo: 'The way back does not match the way in',
+      // Y el detalle, que no se paso, sigue en castellano.
+      detalle: TEXTOS_DE_LA_PUERTA.elCodigoLlegoSinSuEstado,
+    });
   });
 });
