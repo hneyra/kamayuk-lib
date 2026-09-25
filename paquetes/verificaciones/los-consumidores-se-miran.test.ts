@@ -447,7 +447,7 @@ describe('la CI mira a sus consumidores', () => {
     expect(faltas, `El veredicto no esta donde tiene que estar:\n  ${faltas.join('\n  ')}`).toEqual([]);
   });
 
-  it('LA MUESTRA: las tres roturas de #114 salen ROJAS, aunque los comentarios sigan nombrandolas', () => {
+  it('LA MUESTRA: las cuatro roturas de #114 salen ROJAS, aunque los comentarios sigan nombrandolas', () => {
     // El defecto que #114 cierra, puesto sobre el workflow de ESTE arbol y en memoria: antes de
     // #114 las tres salian en verde, porque `consumidores.json`, `fromJSON` y «El veredicto» los
     // siguen diciendo los comentarios de al lado. Se comprueba primero que la rotura se aplico —una
@@ -462,6 +462,15 @@ describe('la CI mira a sus consumidores', () => {
         nombre: 'sin el paso de `jq`',
         romper: (texto) => texto.replace(/^ {6}- name: Quien consume esta libreria\n(?: {8}.*\n)+/m, ''),
         juez: loQueFaltaParaLeerLaLista,
+        loQueDiceElComentario: 'consumidores.json',
+      },
+      {
+        // La que el primer verificador de #114 midio sin muestra: el paso `quien` sigue ahi, con su
+        // `id`, y solo cambia la lista que lee. Sin esta, anular la comprobacion de `jq` salia verde.
+        nombre: 'con el paso de `jq` leyendo otra lista',
+        romper: (texto) => texto.replace(/(jq -c '\.consumidores' )consumidores\.json/, '$1otra-lista.json'),
+        juez: (workflow) =>
+          loQueFaltaParaLeerLaLista(workflow).filter((falta) => falta.includes('no lee `consumidores.json` con `jq`')),
         loQueDiceElComentario: 'consumidores.json',
       },
       {
