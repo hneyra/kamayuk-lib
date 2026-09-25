@@ -181,6 +181,19 @@ Lo que el compilador no ve —un `switch` en una función que no devuelve nada, 
 `undefined`— lo señala `@typescript-eslint/switch-exhaustiveness-check` en el lint de **este**
 repositorio, con su muestra; no en `PROHIBICIONES`, por lo mismo que el XHR.
 
+## Un solo «en vuelo» y un solo «falta el dato» (#117)
+
+- **Lo que está en vuelo** lo lleva `useEnVuelo` (`en-vuelo.ts`, interno), que usan el acto y la
+  fila de acciones. **Una operación que lanza en síncrono acaba mal, como una promesa rechazada**:
+  el botón se suelta y la excepción no sale de la pieza. Decir «falló» no es de la pieza: el acto
+  lo dice con su aviso de rechazo y `alFallar`, y una operación del bloque o de una fila, con lo que
+  el sistema ponga en `lecturas`. Hasta #117 el acto la capturaba y `GrupoDeAcciones` la dejaba
+  escapar del manejador de clic.
+- **Lo que falta** —ausente, `null` o `''`; un `false`, `' '` o `'0'` sí son datos— lo dice
+  `faltaElDato`, interno de `componer.ts`: `seCumple`, `resolverTexto`, las acciones que `va` y
+  `guarda`, la insignia y la fila elegible. Eran cuatro copias, y se midió antes de unificarlas que
+  daban la misma tabla (`falta-el-dato.test.ts`).
+
 ## Las muestras
 
 Un ejemplo por hueco en `interprete/muestras*.ts`, que las pruebas montan uno a uno.
