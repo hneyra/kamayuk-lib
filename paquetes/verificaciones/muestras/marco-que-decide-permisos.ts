@@ -6,11 +6,13 @@
  * y no en `shell/` porque `muestras/` es donde la casa mira, y las rutas estan escritas como
  * si el archivo estuviera alli: aqui no se compila ni se lintea, solo se lee.
  *
- * La primera linea es la unica forma que la expresion regular de antes veia. Las cuatro
- * siguientes se le escapaban: el import de directorio —que con `moduleResolution: bundler`
- * resuelve—, el de efecto, el dinamico y el `export … from`. Las dos `export * as` las anadio
- * la segunda verificacion independiente de #112: la expresion de antes las veia y
- * `ts.preProcessFile` no. La ultima es un comentario y NO cuenta. Si alguien "arregla" este archivo, la guarda se queda sin demostracion y sale roja sola.
+ * La expresion regular de antes —`from\s+['"][./]*\/sesion\/`, y la misma con `api`— veia la
+ * primera linea y la `export type * as cliente from '../api/cliente.ts'`, porque las dos llevan la
+ * barra tras el directorio, y nada mas. Se le escapaban el import de directorio —que con
+ * `moduleResolution: bundler` resuelve—, el de efecto, el dinamico, el `export … from` y el
+ * `export * as sesion from '../sesion'`. Las dos `export * as` las anadio la segunda verificacion
+ * independiente de #112, porque `ts.preProcessFile` no las veia. La ultima es un comentario y NO
+ * cuenta (la expresion de antes SI la contaba). Si alguien "arregla" este archivo, la guarda se queda sin demostracion y sale roja sola.
  */
 import { peldanoDe } from '../sesion/escalera.ts';
 import { crearIdentidad } from '../sesion';

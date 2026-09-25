@@ -86,9 +86,10 @@ describe('EL AC-4 de #67: el marco no decide permisos', () => {
 
   it('LA MUESTRA: ve cada forma de llegar a la sesion y a la api, y no el comentario (#112)', () => {
     // La muestra escribe la sesion y la api de las cinco formas en que un import relativo llega a
-    // ellas. Con la expresion regular de antes solo se veia la primera: `from '../sesion'`
-    // —import de directorio, que con `moduleResolution: bundler` resuelve—, el de efecto, el
-    // dinamico y el `export … from` pasaban en verde.
+    // ellas. La expresion regular de antes solo veia las que llevan barra tras el directorio —la
+    // primera y `export type * as cliente from '../api/cliente.ts'`—: `from '../sesion'` —import
+    // de directorio, que con `moduleResolution: bundler` resuelve—, el de efecto, el dinamico, el
+    // `export … from` y `export * as sesion from '../sesion'` pasaban en verde.
     const muestra = join(PAQUETES, 'verificaciones/muestras/marco-que-decide-permisos.ts');
     const hallado = loQueHace(muestra).map((h) => h.replace(/^\S+:\d+ {2}/u, '')).sort();
     expect(hallado).toEqual(
