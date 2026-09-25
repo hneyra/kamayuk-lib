@@ -265,7 +265,11 @@ describe('LA LISTA DE SISTEMAS dice la verdad: sale de `consumidores.json` (#113
     // en la lista sin que nada lo dijera.
     const consumen = new Set(consumidores.map((c) => nombreDe(c.repositorio)));
     const sinConsumir = SISTEMAS.filter((s) => !consumen.has(s));
-    expect(Object.keys(SISTEMAS_QUE_NO_CONSUMEN).sort()).toEqual([...sinConsumir].sort());
+    expect(
+      Object.keys(SISTEMAS_QUE_NO_CONSUMEN).sort(),
+      '«SISTEMAS_QUE_NO_CONSUMEN» tiene que ser EXACTAMENTE lo que esta en «SISTEMAS» y no en ' +
+        'consumidores.json: ni un consumidor declarado como si no consumiera, ni un sistema sin motivo.',
+    ).toEqual([...sinConsumir].sort());
     for (const motivo of Object.values(SISTEMAS_QUE_NO_CONSUMEN)) expect(motivo?.trim()).not.toBe('');
   });
 
