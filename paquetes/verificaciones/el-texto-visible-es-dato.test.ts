@@ -3,7 +3,7 @@
 // Lee el arbol de archivos y los `package.json`. No es un DOM lo que necesita, y bajo jsdom el
 // `fileURLToPath` de `texto.ts` revienta con «The URL must be of scheme file» (medido en #2).
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import ts from 'typescript';
@@ -85,6 +85,28 @@ const DIBUJAN = ['shell', 'ui'] as const;
  * frases entre por una línea, y para que el recorrido diga cuál mira.
  */
 const HABLAN_SIN_DIBUJAR = ['sesion'] as const;
+
+/**
+ * **Los paquetes que no escriben nada que una persona lea, cada uno con su motivo** (#113).
+ *
+ * Es la tercera clase, y existe para que la clasificacion se compruebe entera: hasta #113 un
+ * paquete que no estuviera en `DIBUJAN` ni en `HABLAN_SIN_DIBUJAR` quedaba fuera del barrido **en
+ * silencio**, y un septimo directorio en `paquetes/` —con un `<p>Hola a todos</p>` y un `i18next` de
+ * `peerDependency`— dejaba esta guarda en verde (medido: 14 de 14). Hoy la guarda exige que las tres
+ * clases juntas sean exactamente `readdir(paquetes)`, y un paquete nuevo sale rojo pidiendo que se
+ * le clasifique.
+ */
+const NO_HABLAN_A_UNA_PERSONA: Readonly<Record<string, string>> = {
+  api:
+    'Sus cadenas son mensajes de excepcion para quien programa —medido el 2026-09-20: 5 hallazgos de la ' +
+    'cuarta forma, todos asi—, y traducirlas seria traducir un `stack trace`.',
+  formato:
+    'Lo mismo que `api`: 14 hallazgos de la cuarta forma ese dia, todos mensajes de excepcion. Lo que ' +
+    'formatea son cifras y fechas, no frases.',
+  verificaciones:
+    'No viaja a un navegador: su trabajo es nombrar lo prohibido y hablarle a quien programa en el ' +
+    'rojo de una guarda.',
+};
 
 /**
  * Los únicos archivos donde el texto literal es legítimo: los sacos.
@@ -447,5 +469,62 @@ describe('EL AC3: los textos como dato NO trajeron ninguna dependencia nueva', (
       );
     });
     expect(importadores.map((a) => rutaDesde(RAIZ, a))).toEqual([]);
+  });
+});
+
+/**
+ * **Cada directorio de `paquetes/` esta clasificado, y las listas no se quedan viejas** (#113).
+ *
+ * `DIBUJAN`, `HABLAN_SIN_DIBUJAR` y `PEER_DECLARADAS` son listas escritas a mano, y el barrido las
+ * recorria **a ellas** y no al disco: un septimo paquete no se barria ni se le miraban las
+ * `peerDependencies`, y nada lo decia. Es el defecto que `lo-que-exports-promete-existe` ya habia
+ * resuelto leyendo el directorio; aqui las listas se quedan —dicen a que se le aplica cada forma— y
+ * se comparan con `readdir(paquetes)` en los dos sentidos.
+ */
+const LOS_PAQUETES = readdirSync(join(RAIZ, 'paquetes'), { withFileTypes: true })
+  .filter((entrada) => entrada.isDirectory())
+  .map((entrada) => entrada.name)
+  .sort((a, b) => a.localeCompare(b));
+
+/** Lo que falta por clasificar y lo que se clasifico sin existir. Pura, para darle un arbol ficticio. */
+function sinClasificar(
+  directorios: readonly string[],
+  clasificados: readonly string[],
+): { readonly faltan: string[]; readonly sobran: string[] } {
+  return {
+    faltan: directorios.filter((d) => !clasificados.includes(d)),
+    sobran: clasificados.filter((c) => !directorios.includes(c)),
+  };
+}
+
+const CLASES: readonly (readonly string[])[] = [DIBUJAN, HABLAN_SIN_DIBUJAR, Object.keys(NO_HABLAN_A_UNA_PERSONA)];
+
+describe('#113: cada paquete de `paquetes/` esta clasificado, y las listas son el disco', () => {
+  it('EL CENTINELA: se leyo el directorio, y tiene los seis', () => {
+    expect(LOS_PAQUETES).toEqual(expect.arrayContaining(['api', 'formato', 'sesion', 'shell', 'ui', 'verificaciones']));
+  });
+
+  it('las tres clases juntas son exactamente `readdir(paquetes)`, sin un paquete en dos', () => {
+    const clasificados = CLASES.flat();
+    expect(
+      sinClasificar(LOS_PAQUETES, clasificados),
+      'Hay paquetes sin clasificar (faltan) o clasificados sin existir (sobran). Cada directorio de ' +
+        '«paquetes/» va en DIBUJAN, en HABLAN_SIN_DIBUJAR o en NO_HABLAN_A_UNA_PERSONA con su motivo: ' +
+        'uno sin clasificar no lo barre nadie.',
+    ).toEqual({ faltan: [], sobran: [] });
+    expect(new Set(clasificados).size, 'un paquete esta en dos clases a la vez').toBe(clasificados.length);
+    for (const motivo of Object.values(NO_HABLAN_A_UNA_PERSONA)) expect(motivo.trim()).not.toBe('');
+  });
+
+  it('y `PEER_DECLARADAS` tiene una entrada por paquete, ni una mas', () => {
+    expect(
+      sinClasificar(LOS_PAQUETES, Object.keys(PEER_DECLARADAS)),
+      'Las «peerDependencies» de un paquete sin entrada en PEER_DECLARADAS no las comprueba nadie.',
+    ).toEqual({ faltan: [], sobran: [] });
+  });
+
+  it('LA MUESTRA: un paquete ficticio sale nombrado, y uno que ya no existe tambien', () => {
+    expect(sinClasificar([...LOS_PAQUETES, 'septimo'], CLASES.flat())).toEqual({ faltan: ['septimo'], sobran: [] });
+    expect(sinClasificar(['api'], ['api', 'fantasma'])).toEqual({ faltan: [], sobran: ['fantasma'] });
   });
 });
