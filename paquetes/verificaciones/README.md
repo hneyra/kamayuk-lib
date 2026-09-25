@@ -95,6 +95,16 @@ navegador, y por eso `sin-suponer-un-sistema` no lo barre.
   registro tiene que cazar. Además le pregunta a git por el árbol **entero** —con los
   `.gitattributes` anidados, que anulan el de la raíz sin tocarlo— que el registro siga en `union`,
   y exige que la CI se dispare con cualquier `.gitattributes`.
+- **Lo que un archivo importa lo dice el analizador de TypeScript, no una expresión regular**
+  (#112): `imports.mjs` —en JavaScript, porque lo carga el guion del arnés— saca el especificador
+  de cada import recorriendo el árbol sintáctico (`ts.createSourceFile`), y así ven el import de
+  efecto, el dinámico, el `export … from` —también `export * as x from`, que `ts.preProcessFile`,
+  lo primero que se usó, no devuelve—, el `require`, el tipo `import('x')` y el subcamino
+  (`@kamayuk/ui/estilos.css`), sin contar los comentarios, las cadenas ni el texto JSX; el `@import` de los `.css` va aparte, en todas sus formas —también
+  `url(x)` sin comillas, que se escapaba—. Lo usan
+  `sin-nombre-publico-entre-paquetes`, `el-marco-no-decide-permisos` —con su muestra,
+  `marco-que-decide-permisos.ts`— y el guion del arnés. Lo que no ve, y lo dice: un
+  `import(variable)`.
 
 ## Los guiones
 
@@ -111,7 +121,10 @@ navegador, y por eso `sin-suponer-un-sistema` no lo barre.
 lo que permite a los cinco correr sobre jsdom con Node 24, y **esta librería lo importa desde ahí**,
 por ruta relativa, en su `vitest.setup.ts`. Lo vigilan `el-arnes-del-request-se-publica.test.ts` con
 su muestra y el guion `el-arnes-del-request-no-se-copia.mjs`, que **el consumidor ejecuta contra su
-propio árbol** porque esta librería no lo tiene clonado.
+propio árbol** porque esta librería no lo tiene clonado. Desde #112 el guion reconoce el enchufe por
+el analizador de TypeScript, y lo busca junto a esta librería y, si no, **en el árbol mirado**: en
+la CI de un consumidor la librería es un clon sin `node_modules`. Sin `typescript` en ninguno de los
+dos sale con RC=2 diciéndolo; sus argumentos, su RC=0/1 y sus líneas no cambian.
 
 ## Lo que le falta
 

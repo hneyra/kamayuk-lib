@@ -3,11 +3,22 @@
 // Lee el DISCO, no un DOM: en `jsdom`, `import.meta.url` no es una URL `file:` y `fileURLToPath`
 // revienta con «The URL must be of scheme file».
 
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { PAQUETES, RAIZ, archivosDeLosPaquetes, leer, lineasQueCasan, type Hallazgo } from './texto.ts';
+import {
+  PAQUETES,
+  RAIZ,
+  archivosDeLosPaquetes,
+  importsDe,
+  importsDelCss,
+  importsQueCasan,
+  leer,
+  type ImportHallado,
+} from './texto.ts';
 
 /**
  * **Ningun paquete importa a otro por su nombre publico.**
@@ -33,10 +44,23 @@ import { PAQUETES, RAIZ, archivosDeLosPaquetes, leer, lineasQueCasan, type Halla
  * habia que escribirla.
  */
 
-const ALCANCE = /from\s+['"]@kamayuk\/[a-z-]+['"]|require\(\s*['"]@kamayuk\/[a-z-]+['"]\s*\)|import\(\s*['"]@kamayuk\/[a-z-]+['"]\s*\)/;
+/**
+ * **Un especificador que nombra un paquete de la casa por su nombre publico**, con subcamino o sin
+ * el: `@kamayuk/api`, `@kamayuk/ui/estilos.css`, `@kamayuk/verificaciones/prohibiciones`.
+ *
+ * Se mira el ESPECIFICADOR que el analizador de TypeScript saca de cada import (`imports.mjs`), no
+ * la linea (#112). Hasta #112 era una expresion regular sobre el texto —`from '@kamayuk/<x>'`,
+ * `require(…)` o `import(…)`— y se le escapaban el import de efecto (`import '@kamayuk/ui';`) y
+ * cualquier subcamino, porque `[a-z-]+['"]` no lo admitia.
+ */
+const NOMBRE_PUBLICO = /^@kamayuk\/[a-z-]+(?:\/|$)/u;
 
-function hallazgosDe(archivos: readonly string[]): Hallazgo[] {
-  return lineasQueCasan(archivos, ALCANCE, RAIZ);
+function esNombrePublico(especificador: string): boolean {
+  return NOMBRE_PUBLICO.test(especificador);
+}
+
+function hallazgosDe(archivos: readonly string[]): ImportHallado[] {
+  return importsQueCasan(archivos, esNombrePublico, RAIZ);
 }
 
 const TODOS = archivosDeLosPaquetes();
@@ -75,6 +99,124 @@ describe('ningun paquete importa a otro por su nombre publico', () => {
     // nombrando ese archivo.
     expect(TODOS.filter((a) => a.includes(`${sep}muestras${sep}`))).toEqual([]);
     expect(hallazgosDe(muestra).length).toBeGreaterThan(0);
+  });
+
+  it('LA MUESTRA: halla CADA forma de importar, una por una, y no el comentario (#112)', () => {
+    // Que la muestra de positivo no basta: con la expresion regular de antes, la primera linea
+    // bastaba para el verde y las tres del medio pasaban sin que nada lo dijera.
+    const muestra = [join(PAQUETES, 'verificaciones/muestras/nombre-publico-entre-paquetes.ts')];
+    expect(hallazgosDe(muestra).map((h) => h.texto)).toEqual([
+      "import { ErrorDeLaApi } from '@kamayuk/api';",
+      "import '@kamayuk/ui';",
+      "import '@kamayuk/ui/estilos.css';",
+      "import { PROHIBICIONES } from '@kamayuk/verificaciones/prohibiciones';",
+      "export { crearCliente } from '@kamayuk/api';",
+      "export * as api from '@kamayuk/api';",
+      "export type * as ui from '@kamayuk/ui';",
+      "export const laSesion = () => import('@kamayuk/sesion');",
+    ]);
+  });
+
+  it('un import en un comentario NO se denuncia, ni una cadena con su forma (#112)', () => {
+    // Lo descarta el propio analizador, que mira nodos y no texto: no hace falta quitar los
+    // comentarios antes.
+    const texto = [
+      "// import '@kamayuk/ui';",
+      "/* import { x } from '@kamayuk/api'; */",
+      "const linea = \"import '@kamayuk/ui/estilos.css';\";",
+      "import { formatear } from '../formato/index.ts';",
+    ].join('\n');
+    expect(importsDe(texto).map((i) => i.especificador)).toEqual(['../formato/index.ts']);
+  });
+
+  it('el analizador ve CADA forma de import que el lenguaje tiene, una por linea (#112)', () => {
+    // Las muestras de las guardas llevan las formas que se escriben; esta lista lleva TODAS, para
+    // que lo que decide que es un import no pierda una sin que nada lo diga. Medido en la segunda
+    // verificacion independiente: `ts.preProcessFile` devolvia `[]` para `export * as x from` y
+    // `export type * as x from`, que la expresion regular de antes si veia.
+    const formas = [
+      ["import x from 'a';", 'a'],
+      ["import 'b';", 'b'],
+      ["import * as c from 'c';", 'c'],
+      ["import type { D } from 'd';", 'd'],
+      ["import { type E } from 'e';", 'e'],
+      ["export { f } from 'f';", 'f'],
+      ["export * from 'g';", 'g'],
+      ["export * as h from 'h';", 'h'],
+      ["export type * as i from 'i';", 'i'],
+      ["export type { J } from 'j';", 'j'],
+      ["export type * from 'k';", 'k'],
+      ["const l = import('l');", 'l'],
+      ["const m = require('m');", 'm'],
+      ["import n = require('n');", 'n'],
+      ["type O = typeof import('o');", 'o'],
+      ["let p: import('p').P;", 'p'],
+      ["import q from 'q' with { type: 'json' };", 'q'],
+      ["export { t as default } from 't';", 't'],
+      ["const u = await import(/* x */ 'u');", 'u'],
+    ] as const;
+    const texto = formas.map(([linea]) => linea).join('\n');
+    expect(importsDe(texto).map((i) => [i.linea, i.especificador])).toEqual(
+      formas.map(([, especificador], indice) => [indice + 1, especificador]),
+    );
+  });
+
+  it('y el texto JSX con la forma de un import NO es un import (#112)', () => {
+    const texto = ["import { x } from '../ui/index.ts';", "export const P = () => <p>import '@kamayuk/ui'</p>;"];
+    expect(importsDe(texto.join('\n'), undefined, 'pieza.tsx').map((i) => i.especificador)).toEqual([
+      '../ui/index.ts',
+    ]);
+    // Y el barrido le pasa al analizador el nombre de cada archivo: leido como `.ts`, esa linea es
+    // un cast seguido de un import de efecto, y la guarda se pondria roja con un parrafo.
+    const carpeta = mkdtempSync(join(tmpdir(), 'kamayuk-jsx-'));
+    try {
+      const pieza = join(carpeta, 'Pieza.tsx');
+      writeFileSync(pieza, texto.join('\n'));
+      expect(hallazgosDe([pieza])).toEqual([]);
+    } finally {
+      rmSync(carpeta, { recursive: true, force: true });
+    }
+  });
+
+  it('y en una hoja de estilos, el `@import` por el nombre publico tambien (#112)', () => {
+    // El recorrido lee los `.css`, y el analizador de TypeScript no los entiende: van aparte.
+    const hoja = [
+      '/* Un consumidor hace `@import \'@kamayuk/ui/estilos.css\'` y eso no cuenta. */',
+      '@import "tailwindcss";',
+      "@import '@kamayuk/ui/estilos.css' layer(base);",
+      '@import url("./temas.css");',
+    ].join('\n');
+    expect(importsDelCss(hoja).map((i) => [i.linea, i.especificador])).toEqual([
+      [2, 'tailwindcss'],
+      [3, '@kamayuk/ui/estilos.css'],
+      [4, './temas.css'],
+    ]);
+    expect(importsDelCss(hoja).filter((i) => esNombrePublico(i.especificador)).length).toBe(1);
+  });
+
+  it('y en una hoja de estilos, CADA forma del `@import`, con `url()` sin comillas tambien (#112)', () => {
+    // La verificacion independiente de #112 midio el hueco: `@import url(@kamayuk/ui/estilos.css);`
+    // —CSS valido— como primera linea de `clasico.css` dejaba esta guarda en verde, porque la
+    // expresion exigia comillas. Una linea por forma, y la ultima NO es un import: `@importurl`
+    // es otra palabra para el tokenizador de CSS.
+    const hoja = [
+      '@import url(@kamayuk/ui/estilos.css);',
+      '@import url(  @kamayuk/ui/temas.css  ) layer(base);',
+      "@import url( '@kamayuk/ui' );",
+      '@IMPORT URL(@kamayuk/shell/estilos.css);',
+      '@import"@kamayuk/ui/estilos.css";',
+      "@import '@kamayuk/ui/estilos.css' supports(display: grid);",
+      '@importurl(@kamayuk/ui/estilos.css);',
+    ].join('\n');
+    expect(importsDelCss(hoja).map((i) => [i.linea, i.especificador])).toEqual([
+      [1, '@kamayuk/ui/estilos.css'],
+      [2, '@kamayuk/ui/temas.css'],
+      [3, '@kamayuk/ui'],
+      [4, '@kamayuk/shell/estilos.css'],
+      [5, '@kamayuk/ui/estilos.css'],
+      [6, '@kamayuk/ui/estilos.css'],
+    ]);
+    expect(importsDelCss(hoja).every((i) => esNombrePublico(i.especificador))).toBe(true);
   });
 
   it('y no confunde el nombre publico con una mencion en prosa', () => {

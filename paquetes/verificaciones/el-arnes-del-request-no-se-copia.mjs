@@ -49,6 +49,10 @@
  *     node paquetes/verificaciones/el-arnes-del-request-no-se-copia.mjs [--raiz <directorio>]
  *
  * Sin `--raiz` mira el directorio desde el que se invoca.
+ *
+ * Los imports los lee el analizador de TypeScript (`imports.mjs`, #112), y ese `typescript` se
+ * busca primero junto a esta libreria y despues en el arbol mirado, que es donde esta en la CI de
+ * un consumidor. Si no esta en ninguno de los dos, sale con RC=2 diciendolo: no midio nada.
  */
 
 import { readFileSync } from 'node:fs';
@@ -56,7 +60,7 @@ import { join, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { APARTADAS, archivosDe, lineasDelTextoQueCasan, rutaDesde } from './archivos.mjs';
-import { sinComentarios } from './comentarios.mjs';
+import { SinAnalizador, elAnalizador, importsDe } from './imports.mjs';
 
 /** La subruta publicada. Lo que un consumidor escribe, y lo que resuelve por su `exports`. */
 export const EL_MODULO = '@kamayuk/verificaciones/arnes-del-request';
@@ -88,16 +92,17 @@ export const INSTALAR_EL_REQUEST = [
 
 /**
  * Como se reconoce que un archivo ENCHUFA el arnes publicado, por su nombre publico o por una ruta
- * relativa a el.
+ * relativa a el: un especificador que termina en el modulo.
  *
  * Tiene que ser un `import`/`require` de verdad y no la cadena a secas: **medido**, con el patron
  * suelto este mismo guion se contaba entre los que lo enchufan —declara la subruta en `EL_MODULO`,
  * no la importa— y esa lista es lo que decide si se avisa de que a un arbol le falta la linea.
+ *
+ * Desde #112 lo que es un import lo decide el analizador de TypeScript (`imports.mjs`) y no una
+ * expresion regular sobre el texto, que es como la decidian las otras dos guardas de imports y
+ * como se les escapaban formas reales. Esta expresion solo mira el especificador ya sacado.
  */
-const IMPORTA_EL_ARNES = [
-  /\b(?:import|require)\s*\(?\s*['"`][^'"`]*arnes-del-request(?:\.ts)?['"`]/,
-  /\bfrom\s+['"`][^'"`]*arnes-del-request(?:\.ts)?['"`]/,
-];
+const ES_EL_ARNES = /arnes-del-request(?:\.ts)?$/;
 
 /**
  * Lo que no se mira: lo que no es codigo de este arbol, y las muestras, que violan a proposito.
@@ -136,11 +141,13 @@ export function copiasEn(texto) {
  * Si un texto enchufa el arnes publicado, por su nombre publico o por una ruta relativa a el.
  *
  * @param {string} texto
+ * @param {import('./imports.mjs').Analizador} [analizador] el `typescript` con el que se lee. Por
+ *   omision, el de junto a esta libreria; `barrer` pasa el que encontro tambien en el arbol
+ * @param {string} [nombre] el nombre del archivo, que decide si se lee con JSX (ver `imports.mjs`)
  * @returns {boolean}
  */
-export function enchufaElArnes(texto) {
-  const limpio = sinComentarios(texto);
-  return IMPORTA_EL_ARNES.some((patron) => patron.test(limpio));
+export function enchufaElArnes(texto, analizador = elAnalizador(), nombre = 'texto.ts') {
+  return importsDe(texto, analizador, nombre).some(({ especificador }) => ES_EL_ARNES.test(especificador));
 }
 
 /**
@@ -182,11 +189,14 @@ export function barrer(raiz) {
   const copias = [];
   /** @type {string[]} */
   const enchufan = [];
+  // El `typescript` del arbol que se barre sirve si esta libreria no tiene el suyo: en la CI de un
+  // consumidor no lo tiene (ver `imports.mjs`).
+  const analizador = elAnalizador([raiz]);
   const archivos = archivosDelArbol(raiz);
   for (const archivo of archivos) {
     const texto = readFileSync(archivo, 'utf8');
     const como = rutaDesde(raiz, archivo);
-    if (enchufaElArnes(texto)) enchufan.push(como);
+    if (enchufaElArnes(texto, analizador, archivo)) enchufan.push(como);
     if (archivo.endsWith(`${sep}${EL_SITIO_LEGITIMO}`)) continue;
     for (const hallazgo of copiasEn(texto)) {
       copias.push({ archivo: como, linea: hallazgo.linea, texto: hallazgo.texto });
@@ -203,7 +213,17 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 
 function principal() {
   const raiz = resolve(leerLaRaiz(process.argv.slice(2)));
-  const { copias, enchufan, mirados } = barrer(raiz);
+  /** @type {Barrido} */
+  let barrido;
+  try {
+    barrido = barrer(raiz);
+  } catch (error) {
+    // Sin analizador no se midio nada: ni verde ni «hay copias» (RC=1), sino RC=2 diciendolo.
+    if (!(error instanceof SinAnalizador)) throw error;
+    console.error(`FALLO: ${error.message}`);
+    process.exit(2);
+  }
+  const { copias, enchufan, mirados } = barrido;
 
   console.log(`Arbol mirado: ${raiz}  (${String(mirados)} archivos de codigo)`);
 
