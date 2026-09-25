@@ -7,7 +7,16 @@ import { join, sep } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { PAQUETES, RAIZ, archivosDeLosPaquetes, leer, lineasQueCasan, type Hallazgo } from './texto.ts';
+import {
+  PAQUETES,
+  RAIZ,
+  archivosDeLosPaquetes,
+  importsDe,
+  importsDelCss,
+  importsQueCasan,
+  leer,
+  type ImportHallado,
+} from './texto.ts';
 
 /**
  * **Ningun paquete importa a otro por su nombre publico.**
@@ -33,10 +42,23 @@ import { PAQUETES, RAIZ, archivosDeLosPaquetes, leer, lineasQueCasan, type Halla
  * habia que escribirla.
  */
 
-const ALCANCE = /from\s+['"]@kamayuk\/[a-z-]+['"]|require\(\s*['"]@kamayuk\/[a-z-]+['"]\s*\)|import\(\s*['"]@kamayuk\/[a-z-]+['"]\s*\)/;
+/**
+ * **Un especificador que nombra un paquete de la casa por su nombre publico**, con subcamino o sin
+ * el: `@kamayuk/api`, `@kamayuk/ui/estilos.css`, `@kamayuk/verificaciones/prohibiciones`.
+ *
+ * Se mira el ESPECIFICADOR que el analizador de TypeScript saca de cada import (`imports.mjs`), no
+ * la linea (#112). Hasta #112 era una expresion regular sobre el texto —`from '@kamayuk/<x>'`,
+ * `require(…)` o `import(…)`— y se le escapaban el import de efecto (`import '@kamayuk/ui';`) y
+ * cualquier subcamino, porque `[a-z-]+['"]` no lo admitia.
+ */
+const NOMBRE_PUBLICO = /^@kamayuk\/[a-z-]+(?:\/|$)/u;
 
-function hallazgosDe(archivos: readonly string[]): Hallazgo[] {
-  return lineasQueCasan(archivos, ALCANCE, RAIZ);
+function esNombrePublico(especificador: string): boolean {
+  return NOMBRE_PUBLICO.test(especificador);
+}
+
+function hallazgosDe(archivos: readonly string[]): ImportHallado[] {
+  return importsQueCasan(archivos, esNombrePublico, RAIZ);
 }
 
 const TODOS = archivosDeLosPaquetes();
@@ -75,6 +97,47 @@ describe('ningun paquete importa a otro por su nombre publico', () => {
     // nombrando ese archivo.
     expect(TODOS.filter((a) => a.includes(`${sep}muestras${sep}`))).toEqual([]);
     expect(hallazgosDe(muestra).length).toBeGreaterThan(0);
+  });
+
+  it('LA MUESTRA: halla CADA forma de importar, una por una, y no el comentario (#112)', () => {
+    // Que la muestra de positivo no basta: con la expresion regular de antes, la primera linea
+    // bastaba para el verde y las tres del medio pasaban sin que nada lo dijera.
+    const muestra = [join(PAQUETES, 'verificaciones/muestras/nombre-publico-entre-paquetes.ts')];
+    expect(hallazgosDe(muestra).map((h) => h.texto)).toEqual([
+      "import { ErrorDeLaApi } from '@kamayuk/api';",
+      "import '@kamayuk/ui';",
+      "import '@kamayuk/ui/estilos.css';",
+      "import { PROHIBICIONES } from '@kamayuk/verificaciones/prohibiciones';",
+      "export { crearCliente } from '@kamayuk/api';",
+      "export const laSesion = () => import('@kamayuk/sesion');",
+    ]);
+  });
+
+  it('un import en un comentario NO se denuncia, ni una cadena con su forma (#112)', () => {
+    // Lo descarta el propio analizador, que tokeniza: no hace falta quitar los comentarios antes.
+    const texto = [
+      "// import '@kamayuk/ui';",
+      "/* import { x } from '@kamayuk/api'; */",
+      "const linea = \"import '@kamayuk/ui/estilos.css';\";",
+      "import { formatear } from '../formato/index.ts';",
+    ].join('\n');
+    expect(importsDe(texto).map((i) => i.especificador)).toEqual(['../formato/index.ts']);
+  });
+
+  it('y en una hoja de estilos, el `@import` por el nombre publico tambien (#112)', () => {
+    // El recorrido lee los `.css`, y el analizador de TypeScript no los entiende: van aparte.
+    const hoja = [
+      '/* Un consumidor hace `@import \'@kamayuk/ui/estilos.css\'` y eso no cuenta. */',
+      '@import "tailwindcss";',
+      "@import '@kamayuk/ui/estilos.css' layer(base);",
+      '@import url("./temas.css");',
+    ].join('\n');
+    expect(importsDelCss(hoja).map((i) => [i.linea, i.especificador])).toEqual([
+      [2, 'tailwindcss'],
+      [3, '@kamayuk/ui/estilos.css'],
+      [4, './temas.css'],
+    ]);
+    expect(importsDelCss(hoja).filter((i) => esNombrePublico(i.especificador)).length).toBe(1);
   });
 
   it('y no confunde el nombre publico con una mencion en prosa', () => {

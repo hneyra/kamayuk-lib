@@ -19,4 +19,6 @@ export const OTRAS_MUESTRAS: Readonly<Record<string, string>> = {
   'formato-con-number-o-date': 'formato-sin-number-ni-date',
   // La regla con tipos que vive en `eslint.config.js` y no en `PROHIBICIONES` (#111).
   'switch-sin-agotar': 'reglas-de-eslint',
+  // Las cinco formas de llegar a la sesion y a la api desde el marco (#112).
+  'marco-que-decide-permisos': 'el-marco-no-decide-permisos',
 };
