@@ -1,7 +1,8 @@
 # `kamayuk-lib` — Contexto para agentes
 
-Las **librerías comunes del producto Kamayuk**: lo que vale igual en los cuatro sistemas y por eso
-no puede vivir en ninguno. Seis paquetes npm, **sólo fuente**, consumidos por `link:` desde un clon
+Las **librerías comunes del producto Kamayuk**: lo que vale igual en los seis sistemas que la consumen
+—los de [`consumidores.json`](consumidores.json), que es quien los cuenta (#113)— y por eso no puede
+vivir en ninguno. Seis paquetes npm, **sólo fuente**, consumidos por `link:` desde un clon
 hermano.
 
 Es el **sexto repositorio**. Los otros son [`rentas`](https://github.com/hneyra/rentas),
@@ -105,12 +106,12 @@ demostrado al revés: apartado `node_modules/@kamayuk` entero, `tsc` da RC=0 y l
 
 ## Reglas que no se negocian
 
-Son las del producto, y valen aquí igual que en los cinco sistemas. Las que este repositorio puede
+Son las del producto, y valen aquí igual que en los seis sistemas. Las que este repositorio puede
 romper, y por eso vigila:
 
 **Las prohibiciones de ESLint viven aquí**, en `paquetes/verificaciones/prohibiciones.mjs`: **nueve
-obligatorias** en `PROHIBICIONES`, que este repositorio se aplica a sí mismo y los cinco sistemas
-derivan, y **las opcionales** en `PROHIBICIONES_OPCIONALES`, que enciende quien las quiera y aquí no
+obligatorias** en `PROHIBICIONES`, que este repositorio se aplica a sí mismo y de las que derivan
+los sistemas que las enlazan, y **las opcionales** en `PROHIBICIONES_OPCIONALES`, que enciende quien las quiera y aquí no
 se encienden. Que estén aquí y no en cada sistema tapa un hueco
 medido: el código enlazado **no lo linta nadie** —el config de cada sistema ignora `node_modules`,
 que es donde el `link:` lo deja—, así que entraba al bundle código que formatea dinero y compone
@@ -122,7 +123,7 @@ peticiones sin ninguna de las cuatro prohibiciones de importes.
 | 2 | **Ningún método recibe `municipalidadId`** | prohibición `municipalidad-en-el-cliente`, más una prueba que espía lo que sale por el cable |
 | 8 | **`alicuota`, nunca `tasa`** | prohibición `tasa-en-vez-de-alicuota` |
 | — | **`fetch` sólo donde debe** | `fetch-fuera-del-cliente`, con **dos** excepciones declaradas |
-| — | **`XMLHttpRequest` sólo donde debe** | `el-xhr-vive-en-un-solo-sitio.test.ts`, sobre el árbol de la librería. **No es una décima prohibición de ESLint, y está medido por qué**: cada sistema le exige a cada clave **su muestra en SU árbol**, y una prohibición con `salvo` que el consumidor no sitúe en su `SALVO_EN_ESTE_ARBOL` **lanza al cargar el config** — o sea que añadirla es, por construcción, un cambio coordinado en cinco repositorios. El `src/` de los cuatro sistemas queda fuera; hoy no hay ni una llamada que vigilar |
+| — | **`XMLHttpRequest` sólo donde debe** | `el-xhr-vive-en-un-solo-sitio.test.ts`, sobre el árbol de la librería. **No es una décima prohibición de ESLint, y está medido por qué**: cada sistema le exige a cada clave **su muestra en SU árbol**, y una prohibición con `salvo` que el consumidor no sitúe en su `SALVO_EN_ESTE_ARBOL` **lanza al cargar el config** — o sea que añadirla es, por construcción, un cambio coordinado con cada consumidor que las derive. El `src/` de los sistemas queda fuera; el día que se midió, en los cuatro que entonces había, no había ni una llamada que vigilar |
 | — | **Sin tildes ni enie en identificadores** | `identificador-con-tilde` |
 | — | **Una clase nueva no compila hasta que cada `switch` tenga la suya** | los retornos anotados y los `never` del intérprete —TS2366/TS2322 con el `tsconfig` de cada consumidor, y lo vigila `la-exhaustividad-viaja.test.ts` compilando con las opciones mínimas de uno— y, para lo que el compilador no ve, `switch-exhaustiveness-check` en el lint de aquí, con su muestra. **No es una prohibición**, por lo mismo que el XHR (#111) |
 | — | **Nada supone un sistema** | `sin-suponer-un-sistema`, con su muestra |
