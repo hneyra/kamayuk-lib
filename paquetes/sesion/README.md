@@ -50,6 +50,17 @@ uno solo dice lo de siempre—, igual que las de la escalera. Lo que dijeron el 
 `identidad.ts` era la única excepción de la cuarta forma de `el-texto-visible-es-dato`; ya no hay
 ninguna, y una frase escrita dentro sale roja con su línea.
 
+**Y está en piezas** (#122): `crearIdentidad` compone y no calcula. Las cuentas del PKCE —los
+aleatorios, el reto S256 y `base64url` en los dos sentidos, que `quien-entro.ts` también usa— viven
+en `pkce.ts`; las cinco claves del rebote, en `rebote.ts`, un almacén con nombre (`guardarIda`,
+`tomarIda` —que **lee y borra**—, `contarIda`, `marcarSalida`…) en vez de dieciocho llamadas
+sueltas a `sessionStorage`. **Los dos `fetch` —la sonda y el canje— se quedan en `identidad.ts`**,
+que es el sitio declarado, y no se inyecta `fetch` como parámetro: uno con su forma y otro nombre se
+saltaría `fetch-fuera-del-cliente`. Un `fetch` en una pieza sale rojo del lint, también como `globalThis.fetch`, `window.fetch`, `fetch.call`, un alias o un `typeof fetch`. Los números tienen
+nombre —`ESPERA_DE_LA_SONDA`, `ESPERA_DEL_CANJE`, `LARGO_DEL_VERIFICADOR`, `LARGO_DEL_ESTADO`,
+`TOPE_DE_IDAS_POR_OMISION`— y `la-puerta-en-piezas.test.ts` mide los topes: 180 líneas la fábrica
+y 60 el canje. Nada de esto se exporta: la API de `crearIdentidad` no cambia.
+
 ## Quién entró: `quienEntro()` (#70)
 
 El `nombre`, el `usuario` y la `municipalidad` que el emisor puso en el `id_token` del último canje
