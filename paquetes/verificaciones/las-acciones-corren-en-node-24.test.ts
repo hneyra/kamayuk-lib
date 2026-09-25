@@ -7,6 +7,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { RAIZ } from './texto.ts';
 import { usesConSuLinea } from './workflow.ts';
 
 /**
@@ -174,12 +175,14 @@ export const lasQueSeQuedanCortas = (
     ];
   });
 
-const archivosDeWorkflow = readdirSync(DIRECTORIO_DE_WORKFLOWS)
+// Desde la raiz del repositorio y no desde el directorio de trabajo (#114): vitest puede
+// arrancar en otro sitio, y entonces el centinela saldria rojo por la ruta y no por los workflows.
+const archivosDeWorkflow = readdirSync(join(RAIZ, DIRECTORIO_DE_WORKFLOWS))
   .filter((nombre) => nombre.endsWith('.yml') || nombre.endsWith('.yaml'))
   .sort();
 
 const referencias = archivosDeWorkflow.flatMap((nombre) =>
-  referenciasDeAcciones(nombre, readFileSync(join(DIRECTORIO_DE_WORKFLOWS, nombre), 'utf8')),
+  referenciasDeAcciones(nombre, readFileSync(join(RAIZ, DIRECTORIO_DE_WORKFLOWS, nombre), 'utf8')),
 );
 
 describe('las acciones de la CI corren en Node 24', () => {

@@ -67,7 +67,7 @@ interface Consumidor {
   readonly orden: string;
 }
 
-const declarado = JSON.parse(readFileSync(JSON_DE_CONSUMIDORES, 'utf8')) as {
+const declarado = JSON.parse(readFileSync(join(RAIZ, JSON_DE_CONSUMIDORES), 'utf8')) as {
   consumidores: Consumidor[];
 };
 const textoDelWorkflow = readFileSync(join(RAIZ, WORKFLOW), 'utf8');
