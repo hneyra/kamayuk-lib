@@ -9,6 +9,8 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { PAQUETES, sinComentarios } from '../../verificaciones/texto.ts';
+
 /**
  * **El `--radius` es el del producto, no el de shadcn** (#8).
  *
@@ -18,8 +20,8 @@ import { describe, expect, it } from 'vitest';
  * escrito sin nada que lo lea es una afirmacion sin sujeto.
  */
 
-const estilos = readFileSync('paquetes/ui/estilos/estilos.css', 'utf8');
-const DONDE = 'paquetes/ui/shadcn';
+const estilos = readFileSync(join(PAQUETES, 'ui/estilos/estilos.css'), 'utf8');
+const DONDE = join(PAQUETES, 'ui/shadcn');
 
 describe('el radio es el del producto, no el de shadcn', () => {
   it('`--radius` esta declarado y vale lo que el artboard dice', () => {
@@ -48,6 +50,15 @@ describe('el radio es el del producto, no el de shadcn', () => {
     .filter((n) => n.endsWith('.tsx') && !n.includes('.test.'))
     .map((n) => [n, readFileSync(join(DONDE, n), 'utf8')] as const);
 
+  it('una URL no se corta como si fuera un comentario (#126)', () => {
+    // Hasta #126 esta guarda se escribia su propio quitador, `/\/\/.*$/gm` sin el `(?<!:)`, y
+    // volvia el defecto que `comentarios.mjs` documenta: medido, dejaba `const u = 'https: ` y lo
+    // que viniera detras de la URL no lo miraba nadie. Ahora usa el comun.
+    const linea = "const u = 'https://x' // comentario";
+    expect(sinComentarios(linea)).toContain("'https://x'");
+    expect(sinComentarios(linea)).not.toContain('comentario');
+  });
+
   it('EL CENTINELA: hay piezas que mirar', () => {
     // Sin esto, cambiar la extension o mover el directorio dejaria la comprobacion de abajo
     // recorriendo la lista vacia y pasando en verde.
@@ -57,7 +68,7 @@ describe('el radio es el del producto, no el de shadcn', () => {
   it('ninguna pieza se escribe su propio radio: todas salen del token', () => {
     const culpables = PIEZAS.flatMap(([nombre, fuente]) =>
       // El comentario se quita antes: una pieza puede EXPLICAR por que no escribe un radio a mano.
-      [...fuente.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/.*$/gm, ' ')
+      [...sinComentarios(fuente)
         .matchAll(/rounded-\[[^\]]+\]|border-radius:\s*[^v][^;]*/g)]
         .map((m) => `  ${nombre}: «${m[0]}»`),
     );

@@ -1,3 +1,5 @@
+import { centimosDe } from './aritmetica.ts';
+import { partirFecha, partirImporte } from './partir.ts';
 import type { Fecha, Importe } from './valores.ts';
 
 /**
@@ -30,12 +32,6 @@ const DECIMAL = '.';
 /** Los soles, como el artboard los escribe: simbolo, espacio, cifra. */
 const MONEDA = 'S/';
 
-/** Un importe servido por el backend: opcionalmente negativo, con 0..2 decimales. */
-const IMPORTE_SERVIDO = /^-?\d+(\.\d{1,2})?$/;
-
-/** Una fecha ISO sin hora. */
-const FECHA_SERVIDA = /^(\d{4})-(\d{2})-(\d{2})$/;
-
 /**
  * `"1842.6"` -> `"S/ 1,842.60"`.
  *
@@ -43,28 +39,12 @@ const FECHA_SERVIDA = /^(\d{4})-(\d{2})-(\d{2})$/;
  * un importe de quince digitos sale igual de exacto que uno de tres.
  */
 export function formatearImporte(valor: Importe): string {
-  const limpio = valor.trim();
-
-  if (!IMPORTE_SERVIDO.test(limpio)) {
-    // Falla ruidosamente y nombra el valor. La alternativa —devolver el texto
-    // tal cual— pinta «412880.005» en una columna de importes y nadie lo mira
-    // dos veces; la otra —recortar— pierde el centimo en silencio.
-    throw new Error(
-      `Importe con una forma que el backend no sirve: «${valor}». ` +
-        'Se espera texto decimal con dos decimales como mucho, sin separador de miles. ' +
-        'Redondear aqui seria aritmetica sobre dinero (regla 1, RNF-055).',
-    );
-  }
-
-  const negativo = limpio.startsWith('-');
-  const sinSigno = negativo ? limpio.slice(1) : limpio;
-  const [enteraCruda, decimalesCrudos] = sinSigno.split(DECIMAL);
-
-  // `?? ''` y no `!`: con `noUncheckedIndexedAccess` el compilador no da por
-  // hecho que `split` devolvio algo, y tiene razon aunque la expresion regular
-  // ya lo garantice.
-  const entera = (enteraCruda ?? '').replace(/^0+(?=\d)/, '');
-  const decimales = `${decimalesCrudos ?? ''}00`.slice(0, 2);
+  // Si no es un importe servido, `partirImporte` falla y nombra el valor: ni se devuelve tal cual
+  // ni se recorta.
+  const { negativo, entera, decimales } = partirImporte(
+    valor,
+    'Redondear aqui seria aritmetica sobre dinero (regla 1, RNF-055).',
+  );
   const agrupada = entera.replace(/\B(?=(\d{3})+(?!\d))/g, MILES);
 
   return `${negativo ? '-' : ''}${MONEDA} ${agrupada}${DECIMAL}${decimales}`;
@@ -74,15 +54,7 @@ export function formatearImporte(valor: Importe): string {
  * `"2026-09-06"` -> `"06/09/2026"`, que es como el artboard escribe las fechas.
  */
 export function formatearFecha(fecha: Fecha): string {
-  const partes = FECHA_SERVIDA.exec(fecha.trim());
-
-  if (partes === null) {
-    throw new Error(
-      `Fecha con una forma que el backend no sirve: «${fecha}». Se espera ISO 8601 sin hora, «2026-09-06».`,
-    );
-  }
-
-  const [, anio, mes, dia] = partes;
+  const { anio, mes, dia } = partirFecha(fecha);
   return `${dia}/${mes}/${anio}`;
 }
 
@@ -95,63 +67,53 @@ export function formatearFecha(fecha: Fecha): string {
  * diecisiete digitos comparan iguales, y ordenar por una comparacion que a veces dice «iguales»
  * cuando no lo son cambia el orden de la lista segun por donde se empiece.
  *
- * Se compara como texto y sale exacto: primero el signo, luego la parte entera **por longitud**
- * —«100» pesa mas que «99» aunque «1» < «9»— y a igual longitud lexicograficamente, que para
- * digitos es el orden numerico; despues los decimales, completados a dos.
+ * Se comparan **centimos enteros en `bigint`**, con el mismo `centimosDe` que suma (#108), y sale
+ * exacto a cualquier longitud. Hasta #108 se comparaba como texto —signo, longitud de la parte
+ * entera, lexicografico, decimales— con un tercer analisis del importe escrito aqui dentro; ahora
+ * lo que es un importe servido lo decide `partir.ts` y solo alli. Por lo mismo, `'-0.00'` y
+ * `'0.00'` pesan igual: son la misma cifra, como dice `mismosCentimos`.
  *
  * Devuelve el negativo/cero/positivo que espera `Array.prototype.sort`.
  */
 export function compararImportes(a: Importe, b: Importe): number {
-  const parteDe = (valor: Importe) => {
-    const limpio = valor.trim();
-    if (!IMPORTE_SERVIDO.test(limpio)) {
-      throw new Error(
-        `Importe con una forma que el backend no sirve: «${valor}». No se puede ordenar por el.`,
-      );
-    }
-    const negativo = limpio.startsWith('-');
-    const sinSigno = negativo ? limpio.slice(1) : limpio;
-    const [entera, decimales] = sinSigno.split(DECIMAL);
-    return {
-      signo: negativo ? -1 : 1,
-      entera: (entera ?? '').replace(/^0+(?=\d)/, ''),
-      decimales: `${decimales ?? ''}00`.slice(0, 2),
-    };
-  };
+  const para = 'No se puede ordenar por el.';
+  const uno = centimosDe(a, para);
+  const otro = centimosDe(b, para);
 
-  const uno = parteDe(a);
-  const otro = parteDe(b);
-
-  if (uno.signo !== otro.signo) {
-    return uno.signo - otro.signo;
-  }
-  if (uno.entera.length !== otro.entera.length) {
-    return uno.signo * (uno.entera.length - otro.entera.length);
-  }
-  if (uno.entera !== otro.entera) {
-    return uno.signo * (uno.entera < otro.entera ? -1 : 1);
-  }
-  if (uno.decimales === otro.decimales) {
+  if (uno === otro) {
     return 0;
   }
-  return uno.signo * (uno.decimales < otro.decimales ? -1 : 1);
+  return uno < otro ? -1 : 1;
 }
 
-/** Los doce meses, en minuscula, como los escribe el artboard: «al 31 de agosto». */
-const MESES = [
-  'enero',
-  'febrero',
-  'marzo',
-  'abril',
-  'mayo',
-  'junio',
-  'julio',
-  'agosto',
-  'septiembre',
-  'octubre',
-  'noviembre',
-  'diciembre',
-];
+/** Un mes como lo sirve una fecha ISO: dos digitos, del `01` al `12`. */
+type Mes = '01' | '02' | '03' | '04' | '05' | '06' | '07' | '08' | '09' | '10' | '11' | '12';
+
+/**
+ * Los doce meses, en minuscula, como los escribe el artboard: «al 31 de agosto».
+ *
+ * **Por su clave de dos digitos, y no por posicion** (#108): la lista por posicion obligaba a
+ * convertir `'08'` en el numero 7 para indexarla, y eso era un `Number` en el unico paquete que
+ * promete no tener ninguno. Con la clave tal cual llega no hay nada que convertir.
+ */
+const MESES: Readonly<Record<Mes, string>> = {
+  '01': 'enero',
+  '02': 'febrero',
+  '03': 'marzo',
+  '04': 'abril',
+  '05': 'mayo',
+  '06': 'junio',
+  '07': 'julio',
+  '08': 'agosto',
+  '09': 'septiembre',
+  '10': 'octubre',
+  '11': 'noviembre',
+  '12': 'diciembre',
+};
+
+function esMes(texto: string): texto is Mes {
+  return Object.hasOwn(MESES, texto);
+}
 
 /**
  * `"2026-08-31"` -> `"31 de agosto"`.
@@ -164,20 +126,12 @@ const MESES = [
  * local — en Lima sale el 30 de agosto—. Una tabla de doce nombres no tiene ese problema.
  */
 export function formatearFechaEnPalabras(fecha: Fecha): string {
-  const partes = FECHA_SERVIDA.exec(fecha.trim());
-
-  if (partes === null) {
-    throw new Error(
-      `Fecha con una forma que el backend no sirve: «${fecha}». Se espera ISO 8601 sin hora, «2026-09-06».`,
-    );
-  }
-
-  const [, , mes, dia] = partes;
-  const nombre = MESES[Number(mes) - 1];
-  if (nombre === undefined) {
+  const { mes, dia } = partirFecha(fecha);
+  if (!esMes(mes)) {
     throw new Error(`Fecha con un mes que no existe: «${fecha}».`);
   }
 
-  // Sin el cero de la izquierda: «1 de enero», no «01 de enero».
-  return `${String(Number(dia))} de ${nombre}`;
+  // Sin el cero de la izquierda: «1 de enero», no «01 de enero». Uno solo, y con texto: el dia
+  // siempre trae dos digitos, asi que `'01'` da `'1'` y `'10'` se queda como esta.
+  return `${dia.replace(/^0/, '')} de ${MESES[mes]}`;
 }

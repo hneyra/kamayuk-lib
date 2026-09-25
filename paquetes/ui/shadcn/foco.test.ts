@@ -2,13 +2,14 @@
 //
 // Compila CSS de verdad y lee la paleta del disco. No es un DOM lo que necesita.
 
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { compile } from 'tailwindcss';
 import { describe, expect, it } from 'vitest';
 
+import { PAQUETES, RAIZ, archivosDe, rutaDesde } from '../../verificaciones/texto.ts';
 import { apilar, contraste, ratioQueNoLlega } from '../color.ts';
 import { leerLosOrigenes } from '../temas/base.ts';
 import { COMBINACIONES, derivar } from '../temas/derivar.ts';
@@ -214,27 +215,12 @@ describe('y nadie lo reescribe por su cuenta: el codigo, barrido', () => {
    * de siempre: pasaria todo, y ese componente seguiria con 1.13:1. Es exactamente como estaban
    * los seis que #37 encontro.
    */
-  const RAIZ = fileURLToPath(new URL('../../', import.meta.url));
-
-  /** Todos los `.ts`/`.tsx` de produccion de los paquetes. Ni pruebas ni `node_modules`. */
-  function fuentes(dir: string): string[] {
-    const salida: string[] = [];
-    for (const entrada of readdirSync(dir, { withFileTypes: true })) {
-      const ruta = `${dir}/${entrada.name}`;
-      if (entrada.isDirectory()) {
-        if (entrada.name === 'node_modules' || entrada.name === 'dist') continue;
-        salida.push(...fuentes(ruta));
-        continue;
-      }
-      if (!/\.tsx?$/.test(entrada.name)) continue;
-      if (/\.test\.tsx?$/.test(entrada.name)) continue;
-      salida.push(ruta);
-    }
-    return salida;
-  }
-
-  const archivos = fuentes(RAIZ).map((ruta) => ({
-    ruta: ruta.slice(RAIZ.length),
+  /**
+   * Todos los `.ts`/`.tsx` de produccion de los paquetes. Ni pruebas, ni `node_modules`, ni
+   * `muestras/`, que violan otras reglas a proposito: el recorrido comun (#126).
+   */
+  const archivos = archivosDe(PAQUETES, { extensiones: ['.ts', '.tsx'] }).map((ruta) => ({
+    ruta: rutaDesde(RAIZ, ruta),
     texto: readFileSync(ruta, 'utf8'),
   }));
 
@@ -242,12 +228,12 @@ describe('y nadie lo reescribe por su cuenta: el codigo, barrido', () => {
     // Sin esto, un cambio de disposicion dejaria la lista vacia y las dos de abajo pasarian sobre
     // el conjunto vacio.
     expect(archivos.length).toBeGreaterThan(30);
-    expect(archivos.map((a) => a.ruta)).toContain('/ui/shadcn/boton.tsx');
+    expect(archivos.map((a) => a.ruta)).toContain('paquetes/ui/shadcn/boton.tsx');
   });
 
   it('el anillo blando no se escribe a mano en ningun sitio', () => {
     const aMano = archivos
-      .filter((a) => a.ruta !== '/ui/shadcn/foco.ts' && a.texto.includes('focus-visible:ring-foco'))
+      .filter((a) => a.ruta !== 'paquetes/ui/shadcn/foco.ts' && a.texto.includes('focus-visible:ring-foco'))
       .map((a) => `  ${a.ruta}`);
     expect(
       aMano,

@@ -1,9 +1,23 @@
 # `@kamayuk/formato`
 
-Fechas, importes y documento de identidad, copiado **verbatim** de `rentas/frontend/src/dominio/`.
+Fechas, importes y documento de identidad, copiado **verbatim** de `rentas/frontend/src/dominio/`
+el 2026-09-12 (#2) y **reescrito en parte en #108**: el análisis de lo servido y los dos `Number`.
+`documento.ts` y `valores.ts` siguen como llegaron; `formato.ts` y `aritmetica.ts` ya no son la
+copia de `rentas`, y `partir.ts` no existe allí. `compararImportes` compara centimos en `bigint`:
+devuelve `-1`/`0`/`1` —antes, cualquier negativo o positivo, que es lo que `sort` pide— y
+`'-0.00'` pesa lo mismo que `'0.00'`.
 
 Es la **hoja limpia del grafo**: no importa nada de nadie, y no hay ni un `Number` ni un `Date` en
-todo el paquete (regla 1).
+todo el paquete (regla 1). **Lo vigila una guarda**, `formato-sin-number-ni-date` —con `Intl`,
+`parseInt`, `parseFloat` y `Math`, y con el comprobador de TypeScript, así que tampoco pasa un
+`+dia`, un `as unknown as number` ni lo que le miente al comprobador: un `as T`, un predicado, una
+sobrecarga, un `declare` o un `@ts-expect-error`—: hasta #108 se cumplía por costumbre, y había dos
+`Number` que la CI dejaba pasar. La aritmética de este paquete es de `bigint`; sobre `number`, sólo
+el signo de un literal.
+
+Lo que es un importe o una fecha **servidos** se decide en un solo sitio, `partir.ts`, interno y sin
+exportar: `formatearImporte`, `compararImportes`, `sumarImportes` y las dos fechas lo usan, y
+`compararImportes` compara centimos en `bigint` con el mismo `centimosDe` que suma.
 
 ## Lo que le falta
 

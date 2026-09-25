@@ -6,7 +6,7 @@
 import { spawnSync } from 'node:child_process';
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
@@ -112,7 +112,11 @@ function conUnaRaiz<T>(
       writeFileSync(join(raiz, 'paquetes', paquete, 'package.json'), '{}');
     }
     mkdirSync(join(raiz, 'paquetes/verificaciones'), { recursive: true });
-    copyFileSync(GUION, join(raiz, 'paquetes/verificaciones/cifras.mjs'));
+    // El guion y lo que importa: desde #126 normaliza las rutas con `rutaDesde`, de `archivos.mjs`,
+    // que a su vez importa `comentarios.mjs`. Sin ellos el proceso muere en `ERR_MODULE_NOT_FOUND`.
+    for (const modulo of ['cifras.mjs', 'archivos.mjs', 'comentarios.mjs']) {
+      copyFileSync(join(dirname(GUION), modulo), join(raiz, 'paquetes/verificaciones', modulo));
+    }
     mkdirSync(join(raiz, 'node_modules/vitest'), { recursive: true });
     writeFileSync(
       join(raiz, 'node_modules/vitest/package.json'),

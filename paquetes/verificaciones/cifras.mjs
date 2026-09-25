@@ -42,8 +42,10 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { dirname, join, relative, sep } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+
+import { rutaDesde } from './archivos.mjs';
 
 /** La raiz de `kamayuk-lib`: el padre de `paquetes/`. */
 const RAIZ = fileURLToPath(new URL('../..', import.meta.url));
@@ -227,7 +229,7 @@ export function agrupar(pruebas, raiz) {
   /** @type {Map<string, { pruebas: number, archivos: Set<string> }>} */
   const grupos = new Map();
   for (const prueba of pruebas) {
-    const ruta = relative(raiz, prueba.file).split(sep).join('/');
+    const ruta = rutaDesde(raiz, prueba.file);
     const paquete = /^paquetes\/([^/]+)\//.exec(ruta)?.[1];
     if (paquete === undefined) {
       // Hoy `vitest.config.ts` solo incluye `paquetes/**`, asi que esto no pasa. El dia que pase,
