@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 
 import { ArchivoRechazado, ErrorDeLaApi, NoEsUnDocumento } from '../api/index.ts';
 import { ABRE, marcarElSaco } from '../verificaciones/marcas.ts';
-import { peldanoDe, type Peldano } from './escalera.ts';
+import { cubre, peldanoDe, REGLAS, type Condicion, type Peldano, type Regla } from './escalera.ts';
 import { TEXTOS_DE_LA_ESCALERA } from './textos.ts';
 
 /**
@@ -799,5 +799,66 @@ describe('#123 AC3 — la salida de peldanoDe es la de antes de la tabla de regl
       'La salida de `peldanoDe` ya no es la de la instantanea. Si el cambio es deliberado:\n\n' +
         '    KAMAYUK_REGENERAR=1 yarn vitest run paquetes/sesion/escalera.test.ts\n',
     ).toEqual(JSON.parse(readFileSync(RUTA, 'utf8')));
+  });
+});
+
+/**
+ * **Ninguna regla queda tapada por otra anterior mas general** (#123, AC2).
+ *
+ * `REGLAS` se recorre en orden y gana la primera que se cumple, asi que el orden tiene
+ * significado: un 403 a secas puesto antes que el 403 `SIN_PRIVILEGIO` se lo come. Hasta #123 ese
+ * orden no estaba escrito en ningun sitio, y romperlo daba siete rojas en esta misma prueba
+ * —`expected 'no-permitido' to be 'sin-privilegio'`— sin que ninguna dijera QUE regla tapaba a
+ * cual. Esta lo dice con las dos.
+ */
+describe('#123 AC2 — ninguna regla queda tapada por otra anterior mas general', () => {
+  function nombreDe(regla: Regla): string {
+    const { clase, motivo, estado, codigo } = regla.cuando;
+    const cuando = [clase?.name, motivo, estado, codigo].filter((v) => v !== undefined).join(' ');
+    return `${regla.clave} (${cuando})`;
+  }
+
+  it('cada regla la alcanza algun fallo: ninguna anterior la cubre', () => {
+    const tapadas = REGLAS.flatMap((despues, j) =>
+      REGLAS.slice(0, j)
+        .filter((antes) => cubre(antes.cuando, despues.cuando))
+        .map((antes) => `«${nombreDe(antes)}» tapa a «${nombreDe(despues)}», que va despues`),
+    );
+
+    expect(tapadas).toEqual([]);
+  });
+
+  it('EL CENTINELA: `cubre` ve una tapada donde la hay, y solo ahi', () => {
+    // Sin esto, un `cubre` que devolviera siempre `false` dejaria la prueba de arriba en verde
+    // sobre cualquier orden.
+    const casos: readonly (readonly [Condicion, Condicion, boolean])[] = [
+      [{ estado: 403 }, { estado: 403, codigo: 'SIN_PRIVILEGIO' }, true],
+      [{ estado: 403, codigo: 'SIN_PRIVILEGIO' }, { estado: 403 }, false],
+      [{ estado: 422 }, { estado: 422, codigo: 'ORDEN_NO_ADMITIDO' }, true],
+      [{ estado: 403, codigo: 'SIN_PRIVILEGIO' }, { estado: 403, codigo: 'SIN_PRIVILEGIO' }, true],
+      [{ estado: 403, codigo: 'SIN_MUNICIPALIDAD' }, { estado: 403, codigo: 'SIN_PRIVILEGIO' }, false],
+      [{}, { estado: 401 }, true],
+      [{ clase: ErrorDeLaApi }, { clase: NoEsUnDocumento }, true],
+      [{ clase: ArchivoRechazado }, { clase: ArchivoRechazado, motivo: 'tipo-no-admitido' }, true],
+      [{ clase: ArchivoRechazado }, { clase: NoEsUnDocumento }, false],
+      [{ clase: NoEsUnDocumento }, { clase: ErrorDeLaApi }, false],
+      // Un 422 no tapa a un archivo rechazado: en su condicion el estado no esta fijado.
+      [{ estado: 422 }, { clase: ArchivoRechazado }, false],
+      [
+        { clase: ArchivoRechazado, motivo: 'demasiado-grande' },
+        { clase: ArchivoRechazado, motivo: 'tipo-no-admitido' },
+        false,
+      ],
+    ];
+
+    for (const [general, especifica, esperado] of casos) {
+      expect(cubre(general, especifica), JSON.stringify([general, especifica])).toBe(esperado);
+    }
+  });
+
+  it('y la tabla trae once reglas, que dan todos los peldanos menos la averia', () => {
+    // La averia no es una fila: es lo que queda cuando ninguna se cumple.
+    expect(REGLAS).toHaveLength(11);
+    expect(new Set(REGLAS.map((r) => r.clave)).size).toBe(8);
   });
 });
