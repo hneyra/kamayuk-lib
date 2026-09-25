@@ -6,6 +6,7 @@
 
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, sep } from 'node:path';
 
@@ -221,5 +222,95 @@ describe('el guion, en un arbol de consumidor fabricado', () => {
       '  · src/a/b/c/hondo.ts:1  globalThis.Request = ElArnes;',
     ]);
     expect(salida.stderr).toContain(LA_LINEA);
+  });
+});
+
+/**
+ * **Lo que es enchufar el arnes lo decide el analizador de TypeScript, no una expresion regular**
+ * (#112, AC-4): las formas que el guion reconocia las sigue reconociendo, y lo que no es un import
+ * sigue sin contar.
+ */
+describe('el guion reconoce el enchufe por el analizador (#112)', () => {
+  it('las formas de enchufarlo cuentan: la linea, la ruta relativa, el `require` y el dinamico', () => {
+    for (const forma of [
+      LA_LINEA,
+      "import './paquetes/verificaciones/arnes-del-request.ts';",
+      "import '../../kamayuk-lib/paquetes/verificaciones/arnes-del-request';",
+      "require('@kamayuk/verificaciones/arnes-del-request');",
+      "await import('@kamayuk/verificaciones/arnes-del-request');",
+    ]) {
+      expect(enchufaElArnes(forma), forma).toBe(true);
+    }
+  });
+
+  it('y lo que no es un import no cuenta: un comentario, una cadena, ni el propio guion', () => {
+    expect(enchufaElArnes(`// ${LA_LINEA}`)).toBe(false);
+    expect(enchufaElArnes(`const linea = "${LA_LINEA}";`)).toBe(false);
+    // El caso medido en #92: el guion DECLARA la subruta en `EL_MODULO` y no la importa.
+    const guion = join(RAIZ, 'paquetes/verificaciones/el-arnes-del-request-no-se-copia.mjs');
+    expect(enchufaElArnes(leer(guion))).toBe(false);
+  });
+});
+
+/**
+ * **El guion corre en la CI de un consumidor, donde esta libreria no tiene `node_modules`** (#112).
+ *
+ * El trabajo `consumidores` solo instala el consumidor, y `node` resuelve el guion enlazado a su
+ * ruta real: un `typescript` que solo se buscara junto a la libreria no aparece. Se ensaya con una
+ * COPIA del guion y de lo que importa en un directorio sin `node_modules` alrededor, contra dos
+ * arboles de consumidor: uno sin `typescript`, que tiene que salir con RC=2 diciendolo —y que
+ * demuestra, de paso, que la copia de verdad no encuentra el de esta libreria—, y otro con el suyo,
+ * que tiene que medir. El `typescript` del segundo es un paquete de una linea que reexporta el de
+ * aqui: sin enlaces, que dentro de un `node_modules` ya rompieron un arbol de trabajo.
+ */
+describe('el guion, sin los `node_modules` de esta libreria (#112)', () => {
+  let base = '';
+  const LO_QUE_CARGA = [
+    'el-arnes-del-request-no-se-copia.mjs',
+    'archivos.mjs',
+    'comentarios.mjs',
+    'imports.mjs',
+  ];
+
+  beforeAll(() => {
+    base = mkdtempSync(join(tmpdir(), 'kamayuk-sin-node-modules-'));
+    const copia = join(base, 'kamayuk-lib/paquetes/verificaciones');
+    mkdirSync(copia, { recursive: true });
+    for (const archivo of LO_QUE_CARGA) {
+      writeFileSync(join(copia, archivo), leer(join(RAIZ, 'paquetes/verificaciones', archivo)));
+    }
+    for (const consumidor of ['sin-typescript', 'con-typescript']) {
+      mkdirSync(join(base, consumidor), { recursive: true });
+      writeFileSync(join(base, consumidor, 'vitest.setup.ts'), `${LA_LINEA}\n`);
+    }
+    const suyo = join(base, 'con-typescript/node_modules/typescript');
+    mkdirSync(suyo, { recursive: true });
+    writeFileSync(join(suyo, 'package.json'), '{ "name": "typescript", "main": "index.js" }\n');
+    const elDeAqui = createRequire(import.meta.url).resolve('typescript');
+    writeFileSync(join(suyo, 'index.js'), `module.exports = require(${JSON.stringify(elDeAqui)});\n`);
+  });
+
+  afterAll(() => {
+    if (base !== '') rmSync(base, { recursive: true, force: true });
+  });
+
+  function correr(consumidor: string) {
+    const guion = join(base, 'kamayuk-lib/paquetes/verificaciones', LO_QUE_CARGA[0] ?? '');
+    return spawnSync(process.execPath, [guion, '--raiz', join(base, consumidor)], {
+      encoding: 'utf8',
+    });
+  }
+
+  it('sin `typescript` en ningun sitio, RC=2 y lo dice: no mide en verde lo que no pudo leer', () => {
+    const salida = correr('sin-typescript');
+    expect(salida.status, salida.stderr).toBe(2);
+    expect(salida.stderr).toContain('FALLO: no se encontro `typescript`');
+  });
+
+  it('con el `typescript` del consumidor, mide igual que aqui', () => {
+    const salida = correr('con-typescript');
+    expect(salida.status, salida.stderr).toBe(0);
+    expect(salida.stdout).toContain('(1 archivos de codigo)');
+    expect(salida.stdout).toContain('Lo enchufa: vitest.setup.ts');
   });
 });
