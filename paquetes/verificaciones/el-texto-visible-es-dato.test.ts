@@ -533,3 +533,105 @@ describe('#113: cada paquete de `paquetes/` esta clasificado, y las listas son e
     expect(sinClasificar(['api'], ['api', 'fantasma'])).toEqual({ faltan: [], sobran: ['fantasma'] });
   });
 });
+
+/**
+ * **Lo que no esta en `DIBUJAN` no dibuja: ni un JSX fuera de las dos clases que se miran** (#113,
+ * vuelta 1 de la verificacion).
+ *
+ * Que las tres clases sumen el disco no basta: la clase de un paquete se escribe a mano, y pasar
+ * `shell` de `DIBUJAN` a `NO_HABLAN_A_UNA_PERSONA` con una linea de motivo lo eximia del barrido
+ * **entero**. Medido: con eso y un `<p>Hola a todos</p>` en `paquetes/shell/Armazon.tsx`, esta
+ * guarda y `yarn test` enteros en verde. Lo que distingue a un paquete que dibuja es de **forma**
+ * —tiene JSX— y eso se lee del codigo, no de la lista: se le pregunta al analizador por cada archivo
+ * de produccion de los paquetes que NO estan en `DIBUJAN`, y se exige que no haya ninguno.
+ *
+ * **La unica excepcion es una barrera de tipo**, `barreras-de-tipos.tsx`, que monta las piezas de
+ * `ui` para que el compilador diga si un tipo se aflojo: no se ejecuta, no viaja a un navegador y
+ * nadie la lee en una pantalla. Se comprueba **entera y en los dos sentidos**, como la lista de `fetch`: una
+ * excepcion sin JSX sale roja pidiendo que se la quite. Y lo hizo al escribirla: la primera version
+ * declaraba tambien `barreras-de-campos-y-tablas.tsx`, que es `.tsx` y no tiene ni un JSX (medido).
+ *
+ * **Lo que no ve**: un `createElement` a pelo. `paquetes/api/entregar.ts` llama a
+ * `document.createElement('a')` para entregar un documento, y eso no es dibujar una pantalla; una
+ * guarda que lo contara mentiria en la otra direccion.
+ */
+const JSX_FUERA_DE_LO_QUE_DIBUJA: Readonly<Record<string, string>> = {
+  'paquetes/verificaciones/tipos/barreras-de-tipos.tsx':
+    'Barrera de tipo: monta las piezas de `ui` para que el compilador falle si un tipo se afloja. No se ejecuta.',
+};
+
+/** Las lineas de un codigo donde hay un elemento o un fragmento JSX. Pura, para darle una muestra. */
+function lineasConJsx(archivo: string, codigo: string): number[] {
+  const tipo = archivo.endsWith('.tsx')
+    ? ts.ScriptKind.TSX
+    : archivo.endsWith('.jsx')
+      ? ts.ScriptKind.JSX
+      : archivo.endsWith('.js') || archivo.endsWith('.mjs')
+        ? ts.ScriptKind.JS
+        : ts.ScriptKind.TS;
+  const fuente = ts.createSourceFile(archivo, codigo, ts.ScriptTarget.Latest, true, tipo);
+  const lineas: number[] = [];
+  const visitar = (nodo: ts.Node): void => {
+    if (ts.isJsxElement(nodo) || ts.isJsxSelfClosingElement(nodo) || ts.isJsxFragment(nodo)) {
+      lineas.push(fuente.getLineAndCharacterOfPosition(nodo.getStart(fuente)).line + 1);
+      return;
+    }
+    ts.forEachChild(nodo, visitar);
+  };
+  visitar(fuente);
+  return lineas;
+}
+
+/** Los archivos de codigo (sin CSS) de un paquete que tienen JSX, relativos a la raiz. */
+function archivosConJsx(paquete: string): string[] {
+  return archivosDeProduccion(join(RAIZ, 'paquetes', paquete))
+    .filter((a) => !a.endsWith('.css'))
+    .filter((a) => lineasConJsx(a, readFileSync(a, 'utf8')).length > 0)
+    .map((a) => rutaDesde(RAIZ, a));
+}
+
+const DIBUJAN_DE_VERDAD = new Set<string>(DIBUJAN);
+const LOS_QUE_NO_DIBUJAN = LOS_PAQUETES.filter((p) => !DIBUJAN_DE_VERDAD.has(p));
+
+describe('#113: un paquete que no esta en `DIBUJAN` no tiene ni un JSX, y la clase no se escribe a ciegas', () => {
+  it('EL CENTINELA: hay paquetes fuera de `DIBUJAN`, y el detector ve el JSX donde lo hay', () => {
+    expect(LOS_QUE_NO_DIBUJAN.length, 'no quedo ningun paquete que mirar').toBeGreaterThan(2);
+    expect(archivosConJsx('ui').length, 'el detector no ve el JSX NI DONDE LO HAY').toBeGreaterThan(10);
+  });
+
+  it('fuera de `DIBUJAN` no hay JSX, salvo las barreras de tipo declaradas, y la lista es entera', () => {
+    const conJsx = LOS_QUE_NO_DIBUJAN.flatMap(archivosConJsx);
+    const sinDeclarar = conJsx.filter((a) => !(a in JSX_FUERA_DE_LO_QUE_DIBUJA));
+    expect(
+      sinDeclarar,
+      'Estos archivos DIBUJAN y su paquete no esta en DIBUJAN, asi que el barrido del texto visible ' +
+        'no los mira:\n' +
+        sinDeclarar.map((a) => `  ${a}`).join('\n') +
+        '\n\n  Si el paquete dibuja, va en DIBUJAN; una linea de motivo en otra clase no lo exime.',
+    ).toEqual([]);
+    expect(
+      Object.keys(JSX_FUERA_DE_LO_QUE_DIBUJA).filter((a) => !conJsx.includes(a)),
+      'Estas excepciones ya no tienen JSX, o su paquete paso a DIBUJAN: quitalas de la lista.',
+    ).toEqual([]);
+    for (const motivo of Object.values(JSX_FUERA_DE_LO_QUE_DIBUJA)) expect(motivo.trim()).not.toBe('');
+  });
+
+  it('y cada paquete de `DIBUJAN` dibuja: una clase que ya no se cumple tambien es una lista vieja', () => {
+    expect(DIBUJAN.filter((p) => archivosConJsx(p).length === 0)).toEqual([]);
+  });
+
+  it('LA MUESTRA: el JSX sale con su linea, y lo que solo se le parece no', () => {
+    expect(lineasConJsx('dibuja.tsx', 'export const Saludo = () => <p>Hola a todos</p>;')).toEqual([1]);
+    expect(lineasConJsx('solo.tsx', 'export const Salto = () => <br />;')).toEqual([1]);
+    expect(lineasConJsx('fragmento.tsx', 'const a = 1;\nexport const F = () => <></>;')).toEqual([2]);
+    expect(lineasConJsx('anidado.tsx', 'export const A = () => (\n  <div>\n    <br />\n  </div>\n);')).toEqual([2]);
+    // Un generico, una comparacion y un `createElement` no son JSX.
+    expect(
+      lineasConJsx(
+        'no-dibuja.tsx',
+        "export const id = <T,>(x: T): T => x;\nexport const menor = 1 < 2 && 3 > 1;\ndocument.createElement('a');",
+      ),
+    ).toEqual([]);
+    expect(lineasConJsx('tipos.ts', 'const n = <number>(1 as unknown);')).toEqual([]);
+  });
+});

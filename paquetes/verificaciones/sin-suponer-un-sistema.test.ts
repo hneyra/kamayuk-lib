@@ -229,19 +229,32 @@ function consumidoresFuera(lista: readonly string[], repositorios: readonly stri
 
 /** Los numeros que se escriben con letra delante de «sistemas» o de «consumidores». */
 const NUMEROS = ['uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve', 'diez'];
-const CUANTOS = new RegExp(`\\b(${NUMEROS.join('|')})\\s+(?:sistemas|consumidores)\\b`, 'gi');
+
+/**
+ * «N sistemas» o «N consumidores», con N escrito **con letra o con cifras**.
+ *
+ * Las cifras entraron en la vuelta 1 de la verificacion: con solo las letras, «los 5 sistemas»
+ * escrito en `CLAUDE.md` pasaba en verde y el archivo volvia a contradecirse (medido).
+ */
+const CUANTOS = new RegExp(`\\b(\\d+|${NUMEROS.join('|')})\\s+(?:sistemas|consumidores)\\b`, 'gi');
+
+/** El numero que dice una cuenta: `'seis'` y `'6'` dicen 6. `undefined` si no es ninguno. */
+function numeroDe(palabra: string): number | undefined {
+  if (/^\d+$/.test(palabra)) return Number.parseInt(palabra, 10);
+  const indice = NUMEROS.indexOf(palabra.toLowerCase());
+  return indice === -1 ? undefined : indice + 1;
+}
 
 /**
  * Las veces que un texto cuenta los sistemas con un numero que NO es `cuantos`. Pura, por lo mismo.
  *
- * Solo mira «N sistemas» y «N consumidores» escritos con letra, que es como `CLAUDE.md` los cuenta.
- * Hasta #113 los contaba de tres maneras —«cuatro sistemas» arriba, «cinco sistemas» en las reglas y
- * seis entradas en el JSON— y ninguna la leia nadie.
+ * Mira «N sistemas» y «N consumidores», con letra —que es como `CLAUDE.md` los cuenta— y con
+ * cifras. Hasta #113 los contaba de tres maneras —«cuatro sistemas» arriba, «cinco sistemas» en las
+ * reglas y seis entradas en el JSON— y ninguna la leia nadie.
  */
 function cuentasQueNoCuadran(texto: string, cuantos: number): string[] {
-  const esperado = NUMEROS[cuantos - 1];
   return [...texto.matchAll(CUANTOS)]
-    .filter((casa) => casa[1]?.toLowerCase() !== esperado)
+    .filter((casa) => numeroDe(casa[1] ?? '') !== cuantos)
     .map((casa) => casa[0]);
 }
 
@@ -315,5 +328,9 @@ describe('`CLAUDE.md` cuenta los sistemas con UN numero, el que sale del JSON (#
   it('LA MUESTRA: la cuenta que no cuadra sale, y la que cuadra no', () => {
     const muestra = 'Vale en los cuatro sistemas. Vale en los seis sistemas. Y en los cinco consumidores.';
     expect(cuentasQueNoCuadran(muestra, 6)).toEqual(['cuatro sistemas', 'cinco consumidores']);
+    // Y con cifras (vuelta 1): «5 sistemas» no cuadra, «6 consumidores» si.
+    expect(cuentasQueNoCuadran('En los 5 sistemas. En los 6 consumidores. En los Seis sistemas.', 6)).toEqual([
+      '5 sistemas',
+    ]);
   });
 });
