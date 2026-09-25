@@ -9,7 +9,7 @@ import { join, sep } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { PAQUETES, archivosDeProduccion, leer, sinComentarios } from './texto.ts';
+import { PAQUETES, RAIZ, archivosDeProduccion, leer, lineasQueCasan, sinComentarios, type Hallazgo } from './texto.ts';
 import { SUPOSICIONES, type Suposicion } from './suposiciones.ts';
 
 /**
@@ -30,23 +30,8 @@ import { SUPOSICIONES, type Suposicion } from './suposiciones.ts';
  * y es el monolito otra vez, repartido y sin que el build lo vea»*.
  */
 
-interface Hallazgo {
-  readonly archivo: string;
-  readonly linea: number;
-  readonly texto: string;
-}
-
 function hallazgosDe(suposicion: Suposicion, archivos: readonly string[]): Hallazgo[] {
-  const salida: Hallazgo[] = [];
-  for (const archivo of archivos) {
-    const limpio = sinComentarios(leer(archivo));
-    limpio.split('\n').forEach((linea, indice) => {
-      if (suposicion.patron.test(linea)) {
-        salida.push({ archivo: archivo.replace(PAQUETES, 'paquetes'), linea: indice + 1, texto: linea.trim() });
-      }
-    });
-  }
-  return salida;
+  return lineasQueCasan(archivos, suposicion.patron, RAIZ);
 }
 
 /**

@@ -25,16 +25,16 @@ se repite. **Y las cifras de pruebas no se escriben a mano**: las escribe `yarn 
 
 | Pieza | Estado |
 |---|---|
-| [`paquetes/formato`](paquetes/formato/README.md) — `@kamayuk/formato` | **Existe.** Fechas, importes y documento de identidad: la hoja limpia del grafo. <!-- cifras:formato -->**67 pruebas** en 3 archivos<!-- /cifras -->. Le faltan `codigo predial` y `placa` |
-| [`paquetes/api`](paquetes/api/README.md) — `@kamayuk/api` | **Existe.** `crearCliente` y sus cuatro operaciones —`solicitar`, `solicitarRespuesta`, `descargar` y `subir`—, `entregarAlNavegador` y `ErrorDeLaApi` con las cinco extensiones del contrato. <!-- cifras:api -->**124 pruebas** en 5 archivos<!-- /cifras --> |
-| [`paquetes/sesion`](paquetes/sesion/README.md) — `@kamayuk/sesion` | **Existe.** `crearIdentidad` con PKCE S256, la sonda del emisor y `quienEntro()`; `peldanoDe()` con sus nueve peldaños; las palabras de las dos, como dato. <!-- cifras:sesion -->**139 pruebas** en 3 archivos<!-- /cifras --> |
-| [`paquetes/ui`](paquetes/ui/README.md) — `@kamayuk/ui` | **Existe.** Los 42 tokens, cuatro identidades × dos modos, las piezas de shadcn y el `ProveedorDeTema`; no escribe ni una palabra. <!-- cifras:ui -->**533 pruebas** en 25 archivos, más las **3** de capa<!-- /cifras --> y las barreras de tipo. Le faltan los tokens contra el artboard y el contraste |
+| [`paquetes/formato`](paquetes/formato/README.md) — `@kamayuk/formato` | **Existe.** Fechas, importes y documento de identidad: la hoja limpia del grafo. <!-- cifras:formato -->**68 pruebas** en 3 archivos<!-- /cifras -->. Le faltan `codigo predial` y `placa` |
+| [`paquetes/api`](paquetes/api/README.md) — `@kamayuk/api` | **Existe.** `crearCliente` y sus cuatro operaciones —`solicitar`, `solicitarRespuesta`, `descargar` y `subir`—, `entregarAlNavegador` y `ErrorDeLaApi` con las cinco extensiones del contrato. <!-- cifras:api -->**146 pruebas** en 6 archivos<!-- /cifras --> |
+| [`paquetes/sesion`](paquetes/sesion/README.md) — `@kamayuk/sesion` | **Existe.** `crearIdentidad` con PKCE S256, la sonda del emisor y `quienEntro()`; `peldanoDe()` con sus nueve peldaños y sus palabras como dato. <!-- cifras:sesion -->**145 pruebas** en 3 archivos<!-- /cifras --> |
+| [`paquetes/ui`](paquetes/ui/README.md) — `@kamayuk/ui` | **Existe.** Los 42 tokens, cuatro identidades × dos modos, las piezas de shadcn y el `ProveedorDeTema`; no escribe ni una palabra. <!-- cifras:ui -->**535 pruebas** en 25 archivos, más las **3** de capa<!-- /cifras --> y las barreras de tipo. Le faltan los tokens contra el artboard y el contraste |
 | [`paquetes/ui/interprete`](paquetes/ui/interprete/README.md) — el intérprete de pantallas | **Existe**, y dibuja una hoja entera como **dato**: bloques, avisos, pie, actos, maestro-detalle, pestañas y piezas del consumidor, con lo elegido en la ruta. Sus pruebas cuentan en `paquetes/ui` |
 | [`paquetes/shell`](paquetes/shell/README.md) — `@kamayuk/shell` | **Existe.** El armazón de V8, con el catálogo por parámetro y el estado de la hoja en la ruta; no decide permisos ni escribe una palabra. <!-- cifras:shell -->**124 pruebas** en 10 archivos<!-- /cifras --> |
-| [`paquetes/verificaciones`](paquetes/verificaciones/README.md) — `@kamayuk/verificaciones` | **Existe.** Las prohibiciones de ESLint con sus muestras, las guardas del árbol, los guiones de la CI y el arnés del `Request`. <!-- cifras:verificaciones -->**239 pruebas** en 16 archivos<!-- /cifras -->. Le faltan los tokens contra el artboard y el contraste |
+| [`paquetes/verificaciones`](paquetes/verificaciones/README.md) — `@kamayuk/verificaciones` | **Existe.** Las prohibiciones de ESLint con sus muestras, las guardas del árbol, los guiones de la CI y el arnés del `Request`. <!-- cifras:verificaciones -->**262 pruebas** en 18 archivos<!-- /cifras -->. Le faltan los tokens contra el artboard y el contraste |
 | La guarda de la fila del registro | **Existe**, con su autoprueba de **catorce muestras**, adaptada a la forma de este repositorio; desde #128 exige además una fila por issue |
 
-<!-- cifras:total -->**En total: 1226 pruebas en 62 archivos, más las 3 de capa.**<!-- /cifras -->
+<!-- cifras:total -->**En total: 1280 pruebas en 65 archivos, más las 3 de capa.**<!-- /cifras -->
 
 ## La regla que gobierna este repositorio
 
@@ -66,7 +66,8 @@ borrarla estaría pidiendo falsificar el registro.
 
 ```
 paquetes/
-  formato/   valores.ts, formato.ts, aritmetica.ts, documento.ts
+  formato/   valores.ts, formato.ts, aritmetica.ts, documento.ts, partir.ts (el UNICO analisis de lo
+             servido, interno)
   api/       errores.ts (ErrorDeLaApi + NoEsUnDocumento + ArchivoRechazado), cliente.ts (crearCliente),
              subir.ts (el multipart, y el UNICO XMLHttpRequest), entregar.ts (entregarAlNavegador)
   sesion/    identidad.ts (crearIdentidad), quien-entro.ts (leerQuienEntro),
@@ -75,7 +76,8 @@ paquetes/
              el interprete (hoja.ts, composicion.ts y sus piezas) y textos.tsx
   shell/     el armazon: catalogo.ts, ruta.ts, busqueda.ts, acciones.ts, navegacion.tsx, contexto.tsx,
              textos.ts y las siete piezas
-  verificaciones/  texto.ts, comentarios.mjs, suposiciones.ts, marcas.ts, rama-del-consumidor.mjs,
+  verificaciones/  texto.ts, comentarios.mjs, archivos.mjs (el recorredor, el escaner de lineas y el
+                   unico Hallazgo de las guardas), suposiciones.ts, marcas.ts, rama-del-consumidor.mjs,
                    las-acciones-corren-en-node-24.test.ts, arnes-del-request.ts (el arnes que se
                    publica) y el-arnes-del-request-no-se-copia.mjs (el guion que el consumidor corre
                    contra su arbol), cifras.mjs (yarn cifras), tabla-de-estado.ts (lo que mide
@@ -116,7 +118,7 @@ peticiones sin ninguna de las cuatro prohibiciones de importes.
 
 | # | Regla | Dónde muerde |
 |---|---|---|
-| 1 | **Importes en texto decimal, jamás `number`** | cuatro prohibiciones, más `@kamayuk/formato`: ni un `Number` ni un `Date` en todo el paquete |
+| 1 | **Importes en texto decimal, jamás `number`** | cuatro prohibiciones, más `@kamayuk/formato`: ni un `Number`, un `Date`, un `Intl`, un `parseInt` ni un `parseFloat` en todo el paquete, ni un `Math`, ni una conversión sin la palabra —un `+` unario, un `as unknown as number`, un `as T` o un predicado que le mienten al comprobador—, que lo vigila `formato-sin-number-ni-date` con el comprobador de TypeScript y su muestra —hasta #108 se cumplía por costumbre: había dos `Number` y la CI salía verde— |
 | 2 | **Ningún método recibe `municipalidadId`** | prohibición `municipalidad-en-el-cliente`, más una prueba que espía lo que sale por el cable |
 | 8 | **`alicuota`, nunca `tasa`** | prohibición `tasa-en-vez-de-alicuota` |
 | — | **`fetch` sólo donde debe** | `fetch-fuera-del-cliente`, con **dos** excepciones declaradas |

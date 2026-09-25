@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { PAQUETES, archivosDeProduccion, leer, sinComentarios } from '../verificaciones/texto.ts';
+import { RAIZ, archivosDeProduccion, lineasQueCasan, type Hallazgo } from '../verificaciones/texto.ts';
 
 /**
  * **`XMLHttpRequest` se construye en UN archivo, y es `paquetes/api/subir.ts`.**
@@ -37,11 +37,6 @@ const EL_SITIO = 'paquetes/api/subir.ts';
 /** `new XMLHttpRequest()`, escrito como se escriba. */
 const CONSTRUIR_UNO = /new\s+XMLHttpRequest\b/;
 
-interface Hallazgo {
-  readonly archivo: string;
-  readonly linea: number;
-}
-
 /**
  * Los sitios donde el codigo de produccion construye un `XMLHttpRequest`, **sin comentarios**.
  *
@@ -50,20 +45,7 @@ interface Hallazgo {
  * nombrarla para decir por que esta.
  */
 function donde(): Hallazgo[] {
-  const salida: Hallazgo[] = [];
-  for (const archivo of archivosDeProduccion()) {
-    sinComentarios(leer(archivo))
-      .split('\n')
-      .forEach((linea, indice) => {
-        if (CONSTRUIR_UNO.test(linea)) {
-          salida.push({
-            archivo: archivo.replace(PAQUETES, 'paquetes').replaceAll('\\', '/'),
-            linea: indice + 1,
-          });
-        }
-      });
-  }
-  return salida;
+  return lineasQueCasan(archivosDeProduccion(), CONSTRUIR_UNO, RAIZ);
 }
 
 describe('el transporte de la subida vive encerrado', () => {

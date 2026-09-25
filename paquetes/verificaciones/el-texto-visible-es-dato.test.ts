@@ -4,12 +4,12 @@
 // `fileURLToPath` de `texto.ts` revienta con «The URL must be of scheme file» (medido en #2).
 
 import { readFileSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join } from 'node:path';
 
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
-import { RAIZ, archivosDeProduccion } from './texto.ts';
+import { RAIZ, archivosDeProduccion, rutaDesde, type Hallazgo } from './texto.ts';
 
 /**
  * **El texto visible entra como DATO, y no cuesta una dependencia** (#19, AC1 y AC3).
@@ -93,9 +93,9 @@ const HABLAN_SIN_DIBUJAR = ['sesion'] as const;
  * autoexceptuarse por llamarse así.
  */
 const LOS_SACOS = new Set([
-  join('paquetes', 'shell', 'textos.ts'),
-  join('paquetes', 'ui', 'textos.tsx'),
-  join('paquetes', 'sesion', 'textos.ts'),
+  'paquetes/shell/textos.ts',
+  'paquetes/ui/textos.tsx',
+  'paquetes/sesion/textos.ts',
 ]);
 
 /**
@@ -143,16 +143,14 @@ const ANUNCIADOS = new Set([
 const PROPS_DE_TEXTO =
   /^(rotulo|rotulos|marcador|titulo|nota|texto|textos|aviso|avisos|label|placeholder|mensaje|instruccion|leyenda|marcaDeOpcional|rotuloDeLaFecha)$/;
 
-interface Hallazgo {
-  readonly archivo: string;
-  readonly linea: number;
+/** El `Hallazgo` comun (#126), mas **por que** se hallo: el analizador distingue la puerta. */
+interface HallazgoDelAnalizador extends Hallazgo {
   readonly por: string;
-  readonly texto: string;
 }
 
 /** El texto literal visible de un archivo, preguntándole al analizador de TypeScript. */
-function textoLiteralVisible(archivo: string): readonly Hallazgo[] {
-  const relativo = relative(RAIZ, archivo);
+function textoLiteralVisible(archivo: string): readonly HallazgoDelAnalizador[] {
+  const relativo = rutaDesde(RAIZ, archivo);
   const fuente = ts.createSourceFile(
     archivo,
     readFileSync(archivo, 'utf8'),
@@ -160,7 +158,7 @@ function textoLiteralVisible(archivo: string): readonly Hallazgo[] {
     true,
     archivo.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
   );
-  const hallazgos: Hallazgo[] = [];
+  const hallazgos: HallazgoDelAnalizador[] = [];
   const enLaLinea = (nodo: ts.Node): number =>
     fuente.getLineAndCharacterOfPosition(nodo.getStart(fuente)).line + 1;
 
@@ -214,8 +212,8 @@ function textoLiteralVisible(archivo: string): readonly Hallazgo[] {
 const FRASE = /[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]\s+[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/;
 
 /** Las frases literales de un archivo: cadenas y trozos de plantilla, preguntándole al analizador. */
-function frasesLiterales(archivo: string): readonly Hallazgo[] {
-  const relativo = relative(RAIZ, archivo);
+function frasesLiterales(archivo: string): readonly HallazgoDelAnalizador[] {
+  const relativo = rutaDesde(RAIZ, archivo);
   const fuente = ts.createSourceFile(
     archivo,
     readFileSync(archivo, 'utf8'),
@@ -223,7 +221,7 @@ function frasesLiterales(archivo: string): readonly Hallazgo[] {
     true,
     archivo.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
   );
-  const hallazgos: Hallazgo[] = [];
+  const hallazgos: HallazgoDelAnalizador[] = [];
 
   const visitar = (nodo: ts.Node): void => {
     // Los cinco nodos por los que una frase puede estar escrita: una cadena, una plantilla sin
@@ -252,7 +250,7 @@ function frasesLiterales(archivo: string): readonly Hallazgo[] {
 
 const ARCHIVOS = DIBUJAN.flatMap((paquete) => archivosDeProduccion(join(RAIZ, 'paquetes', paquete)));
 
-const FUERA_DEL_SACO = ARCHIVOS.filter((a) => !LOS_SACOS.has(relative(RAIZ, a))).flatMap(
+const FUERA_DEL_SACO = ARCHIVOS.filter((a) => !LOS_SACOS.has(rutaDesde(RAIZ, a))).flatMap(
   textoLiteralVisible,
 );
 
@@ -261,7 +259,7 @@ const LOS_QUE_HABLAN = HABLAN_SIN_DIBUJAR.flatMap((paquete) =>
 );
 
 /** Lo que la cuarta forma barre: todo `sesion` menos su saco. Sin excepciones desde #118. */
-const BARRIDOS_POR_FRASE = LOS_QUE_HABLAN.filter((a) => !LOS_SACOS.has(relative(RAIZ, a)));
+const BARRIDOS_POR_FRASE = LOS_QUE_HABLAN.filter((a) => !LOS_SACOS.has(rutaDesde(RAIZ, a)));
 
 const FRASES_SUELTAS = BARRIDOS_POR_FRASE.flatMap(frasesLiterales);
 
@@ -272,14 +270,14 @@ describe('EL AC1: el texto literal visible vive SOLO en los dos sacos', () => {
     // sujeto sin que nadie la borre.
     expect(ARCHIVOS.length, 'el barrido no encontro ni un archivo').toBeGreaterThan(20);
     expect(
-      ARCHIVOS.some((a) => relative(RAIZ, a).includes(join('ui', 'shadcn'))),
+      ARCHIVOS.some((a) => rutaDesde(RAIZ, a).includes(join('ui', 'shadcn'))),
       'el recorrido no bajo de un nivel: esta listando, no recorriendo',
     ).toBe(true);
     // Y baja tambien al interprete (#27), que es la pieza con mas palabras de todo el paquete:
     // todas vienen de la definicion, y la unica forma de saber que ninguna se escribio dentro es
     // que el barrido lo mire.
     expect(
-      ARCHIVOS.some((a) => relative(RAIZ, a).includes(join('ui', 'interprete'))),
+      ARCHIVOS.some((a) => rutaDesde(RAIZ, a).includes(join('ui', 'interprete'))),
       'el barrido no llego al interprete de pantallas',
     ).toBe(true);
     // Y que el analizador ve texto cuando lo hay: los sacos lo tienen, a proposito.
@@ -335,7 +333,7 @@ describe('EL AC5 de #52: en «sesion» las frases viven SOLO en su saco', () => 
     // La que hubo —`identidad.ts`, declarada en #52— sobrevivio a su motivo y se borro. Esto es
     // lo que impide que vuelva sin que se lea: un filtro que eximiera a cualquiera de los dos lo
     // saca de aqui, y sale rojo con su nombre.
-    const barridos = BARRIDOS_POR_FRASE.map((a) => relative(RAIZ, a));
+    const barridos = BARRIDOS_POR_FRASE.map((a) => rutaDesde(RAIZ, a));
     for (const archivo of HABLAN_A_LA_PERSONA) {
       expect(
         barridos,
@@ -448,6 +446,6 @@ describe('EL AC3: los textos como dato NO trajeron ninguna dependencia nueva', (
         new RegExp(`from ['"]${motor}['"]`).test(codigo),
       );
     });
-    expect(importadores.map((a) => relative(RAIZ, a))).toEqual([]);
+    expect(importadores.map((a) => rutaDesde(RAIZ, a))).toEqual([]);
   });
 });
