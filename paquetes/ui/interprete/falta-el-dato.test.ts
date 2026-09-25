@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { TEXTOS_DE_LAS_PIEZAS, TEXTOS_DEL_INTERPRETE } from '../textos.tsx';
 import { peticionDe } from './acciones.ts';
-import { resolverTexto, seCumple, type Nombrados } from './componer.ts';
+import { faltaElDato, resolverTexto, seCumple, type Nombrados } from './componer.ts';
 import type { DatoConNombre } from './datos.ts';
 import { valorDeLaFila } from './reglas-de-las-tablas.ts';
 
@@ -14,7 +14,8 @@ import { valorDeLaFila } from './reglas-de-las-tablas.ts';
  * `reglas-de-las-tablas.ts` (la insignia y la fila elegible) y dos en `componer.ts` (el dato como
  * texto de `resolverTexto` y el `hay` de `seCumple`). Antes de unificarlas se midio que las cuatro
  * daban la MISMA tabla, por sus funciones publicas y sin tocar nada suyo: es la mitad de abajo de
- * este archivo, que se queda para que ninguna de las cuatro se aparte de `faltaElDato`.
+ * este archivo, que se queda para que ninguna de las cuatro se aparte de `faltaElDato`, que es la
+ * mitad de arriba.
  */
 
 const TEXTOS = { ...TEXTOS_DEL_INTERPRETE, ...TEXTOS_DE_LAS_PIEZAS };
@@ -43,6 +44,12 @@ const LAS_CUATRO: Readonly<Record<string, (valor: DatoConNombre | undefined) => 
   'componer.ts, resolverTexto (desde)': (valor) => resolverTexto({ desde: 'x' }, conElDato(valor), (t) => t, AUSENTE) === AUSENTE,
   'componer.ts, seCumple (hay)': (valor) => !seCumple({ dato: 'x', hay: true }, conElDato(valor)),
 };
+
+describe('`faltaElDato`: la tabla de verdad (#117)', () => {
+  it.each(TABLA)('%s', (_nombre, valor, esperado) => {
+    expect(faltaElDato(valor)).toBe(esperado);
+  });
+});
 
 describe('las cuatro reglas que dicen «falta el dato» dan la misma tabla (#117)', () => {
   for (const [regla, falta] of Object.entries(LAS_CUATRO)) {
