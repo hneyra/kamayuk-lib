@@ -4,7 +4,7 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
-import { PROHIBICIONES } from './paquetes/verificaciones/prohibiciones.mjs';
+import { PROHIBICIONES, PUERTA_DE_IDENTIDAD } from './paquetes/verificaciones/prohibiciones.mjs';
 
 /**
  * El lint de las librerias comunes.
@@ -78,6 +78,24 @@ export default tseslint.config(
     },
   },
   ...bloquesDeExcepcion,
+  {
+    // **DENTRO DE LA PUERTA, `fetch` VIVE EN UN SOLO ARCHIVO** (#122).
+    //
+    // La excepcion de `fetch-fuera-del-cliente` es un DIRECTORIO —`PUERTA_DE_IDENTIDAD`,
+    // `paquetes/sesion/`— y no cambia: cada consumidor la situa en su `SALVO_EN_ESTE_ARBOL`, y
+    // tocar su valor es un cambio coordinado en cinco repositorios. Pero el sitio legitimo es UN
+    // archivo, `identidad.ts`, con la sonda y el canje; y desde que la puerta se partio en piezas
+    // (`pkce.ts`, `rebote.ts`), un `fetch` en cualquiera de ellas pasaba el lint entero. Medido: un
+    // `fetch` anadido a `rebote.ts` daba `eslint` RC=0.
+    //
+    // Este bloque le devuelve la prohibicion al resto del directorio, en este arbol y solo en el:
+    // la lista de excepciones de `PROHIBICIONES` es la misma, y ningun consumidor ve este config.
+    // Va DESPUES de las excepciones —en el config plano, el ultimo `no-restricted-syntax` gana— y
+    // ANTES del bloque de las pruebas, que la apaga.
+    files: [`${PUERTA_DE_IDENTIDAD}**/*.{ts,tsx}`],
+    ignores: [`${PUERTA_DE_IDENTIDAD}identidad.ts`],
+    rules: { 'no-restricted-syntax': ['error', ...EN_TODAS_PARTES] },
+  },
   {
     // **LA EXHAUSTIVIDAD, TAMBIEN EN EL LINT** (#111).
     //

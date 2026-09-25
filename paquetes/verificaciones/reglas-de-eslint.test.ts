@@ -13,6 +13,7 @@ import {
   DONDE_SE_LLAMA_A_FETCH,
   PROHIBICIONES,
   PROHIBICIONES_OPCIONALES,
+  PUERTA_DE_IDENTIDAD,
   REGLAS_EXIGIDAS,
   REGLAS_OPCIONALES,
 } from './prohibiciones.mjs';
@@ -521,6 +522,14 @@ describe('lo que la union deja fuera, medido en codigo que existe', () => {
 describe('las excepciones son exactamente las declaradas, y son dos', () => {
   const conExcepcion = PROHIBICIONES.filter((p) => p.salvo !== undefined);
 
+  /**
+   * El archivo que se juzga dentro de cada directorio exceptuado. En la puerta es `identidad.ts`,
+   * y no uno cualquiera, porque dentro de `paquetes/sesion/` la excepcion vale solo para el (#122).
+   */
+  const ARCHIVO_EXCEPTUADO: Readonly<Record<string, string>> = {
+    [PUERTA_DE_IDENTIDAD]: 'identidad.ts',
+  };
+
   it('solo `fetch` esta exceptuado, y solo en los dos sitios declarados', () => {
     // Se comprueba la LISTA ENTERA, no su tamano. Y son dos desde #4: el cliente HTTP y la
     // puerta de identidad. El canje PKCE no puede pasar por «solicitar» —va a Keycloak, con
@@ -542,9 +551,29 @@ describe('las excepciones son exactamente las declaradas, y son dos', () => {
     ),
   )('«$clave» no se senala dentro de $directorio', async ({ clave, message, directorio }) => {
     const archivo = archivoDeLaMuestra(clave);
-    const mensajes = await mensajesDe(archivo as string, join(RAIZ, directorio, 'x.ts'));
+    const mensajes = await mensajesDe(
+      archivo as string,
+      join(RAIZ, directorio, ARCHIVO_EXCEPTUADO[directorio] ?? 'x.ts'),
+    );
 
     expect(mensajes).not.toContain(message);
+  });
+
+  it('dentro de la puerta, `fetch` solo pasa en identidad.ts: en sus piezas sale rojo (#122)', async () => {
+    // La excepcion es el DIRECTORIO `paquetes/sesion/`, y no cambia —los consumidores la situan en
+    // su arbol—, pero el sitio legitimo es un archivo. Desde que la puerta se partio en `pkce.ts` y
+    // `rebote.ts`, un `fetch` en una pieza pasaba el lint: medido, RC=0. Lo cierra un bloque de
+    // `eslint.config.js` que devuelve la prohibicion al resto del directorio.
+    for (const pieza of ['rebote.ts', 'pkce.ts', 'escalera.ts', 'pieza-nueva.ts']) {
+      const mensajes = await mensajesDe(
+        archivoDeLaMuestra('fetch-fuera-del-cliente') as string,
+        join(RAIZ, PUERTA_DE_IDENTIDAD, pieza),
+      );
+
+      expect(mensajes.join('\n'), `${pieza} admite un fetch`).toMatch(
+        /Las peticiones pasan por «solicitar»/,
+      );
+    }
   });
 
   it('pero fuera de ellos, si', async () => {
