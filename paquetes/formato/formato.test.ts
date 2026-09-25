@@ -88,6 +88,10 @@ describe('ordenar por importe se hace con texto, no con numeros (F-5)', () => {
     ['412.00', '412.00'],
     ['412', '412.00'],
     ['0007.50', '7.5'],
+    // Desde #108 se comparan centimos, y el cero no tiene signo: hasta entonces el signo se miraba
+    // antes que la cifra y `'-0.00'` salia menor que `'0.00'`, cuando `mismosCentimos` dice que son
+    // la misma.
+    ['-0.00', '0.00'],
   ])('«%s» y «%s» pesan igual', (uno, otro) => {
     expect(compararImportes(uno, otro)).toBe(0);
   });

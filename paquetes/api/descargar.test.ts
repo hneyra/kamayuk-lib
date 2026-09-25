@@ -105,6 +105,21 @@ describe('«descargar» sale por la misma puerta que «solicitar»', () => {
     expect(cabeceras['Accept']).toBeUndefined();
   });
 
+  it('#121 — las cabeceras son EXACTAMENTE {Authorization} con token, y NINGUNA sin el', async () => {
+    // Medido antes de que `descargar` pasara por `pedir()`: `{}` sin token y
+    // `{"Authorization":"Bearer t"}` con el. Es la lista entera y no «no trae Accept»: `pedir()`
+    // es la puerta de `solicitar`, que SI pone `Accept` y, con cuerpo, `Content-Type`, y lo que
+    // aqui se fija es que al compartirla no se cuela ninguna de las dos.
+    const espia = fetchQueContesta(unPdf());
+
+    await cliente.descargar('/reportes/42/resumen.pdf');
+    elToken = 'un-token';
+    await cliente.descargar('/reportes/42/resumen.pdf');
+
+    expect(espia.mock.calls[0]?.[1]?.headers).toEqual({});
+    expect(espia.mock.calls[1]?.[1]?.headers).toEqual({ Authorization: 'Bearer un-token' });
+  });
+
   it('pasa la senal de cancelacion', async () => {
     const espia = fetchQueContesta(unPdf());
     const controlador = new AbortController();

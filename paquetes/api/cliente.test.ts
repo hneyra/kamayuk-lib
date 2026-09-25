@@ -231,6 +231,55 @@ describe('ErrorDeLaApi conserva codigo y mensaje del problem+json', () => {
       operacion: 'GET /seguridad/sesion',
     });
   });
+
+  it.each(['null', '42', '"un texto"'])(
+    '#121 — un cuerpo JSON que no es un objeto (%s) tampoco tapa el error',
+    async (cuerpo) => {
+      // `JSON.parse('null')` NO lanza: da `null`, y `typeof null === 'object'`. Si
+      // `cuerpoDeProblema` lo dejara pasar, el constructor de `ErrorDeLaApi` leeria
+      // `null.mensaje` y la pantalla recibiria un `TypeError` sin estado en lugar del 500.
+      // Las pruebas del cuerpo ilegible usan texto que no es JSON, y ese caso no lo cubren.
+      fetchQueContesta(new Response(cuerpo, { status: 500 }));
+
+      await expect(solicitar('/x')).rejects.toBeInstanceOf(ErrorDeLaApi);
+      await expect(solicitar('/x')).rejects.toMatchObject({
+        estado: 500,
+        codigo: null,
+        mensaje: null,
+        operacion: 'GET /x',
+        message: 'GET /x',
+      });
+    },
+  );
+
+  it('#121 — un cuerpo que se corta a mitad de leerlo tampoco tapa el error', async () => {
+    // La conexion se cae despues de las cabeceras: `respuesta.text()` rechaza. Sin el segundo
+    // argumento de `.then` en `problemaDe`, ese rechazo SUSTITUIRIA al ErrorDeLaApi y la pantalla
+    // recibiria un `Error` sin estado ni codigo — sin poder decir si era un 500 o un 403.
+    //
+    // Un `Response` nuevo en cada llamada, y no `fetchQueContesta`: un cuerpo que ya dio error
+    // no se puede clonar sin arrastrar el error al clon, y lo que se mide es el corte al LEER.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>(() => {
+        const cuerpo = new ReadableStream<Uint8Array>({
+          start(controlador) {
+            controlador.enqueue(new TextEncoder().encode('{"codigo":"ERROR_INT'));
+            controlador.error(new Error('conexion cortada'));
+          },
+        });
+        return Promise.resolve(new Response(cuerpo, { status: 500 }));
+      }),
+    );
+
+    await expect(solicitar('/x')).rejects.toBeInstanceOf(ErrorDeLaApi);
+    await expect(solicitar('/x')).rejects.toMatchObject({
+      estado: 500,
+      codigo: null,
+      mensaje: null,
+      operacion: 'GET /x',
+    });
+  });
 });
 
 describe('«solicitarRespuesta» devuelve los bytes que llegaron, y no una reserializacion', () => {
@@ -307,6 +356,20 @@ describe('«solicitarRespuesta» devuelve los bytes que llegaron, y no una reser
       estado: 204,
       texto: '',
     });
+  });
+
+  it('#121 — y «solicitar» con un 204 SI revienta: rechaza con el SyntaxError, y no se cambia aqui', async () => {
+    // Es la inconsistencia que #121 midio y deja escrita en el docblock de `solicitar()`: `subir()`
+    // resuelve `undefined` ante un 2xx vacio y esta rechaza. Igualarlas es un cambio de conducta
+    // publico y se decide aparte; hasta entonces esta prueba dice lo que pasa HOY, para que nadie
+    // lo cambie de paso ni lo documente al reves.
+    fetchQueContesta(new Response(null, { status: 204 }));
+
+    const fallo = await solicitar('/recursos/42', { metodo: 'DELETE' }).catch((e: unknown) => e);
+
+    expect(fallo).toBeInstanceOf(SyntaxError);
+    expect(fallo).not.toBeInstanceOf(ErrorDeLaApi);
+    expect((fallo as SyntaxError).message).toBe('Unexpected end of JSON input');
   });
 
   it('comparte el prefijo y el token con «solicitar», porque es la misma peticion', async () => {
