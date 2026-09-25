@@ -526,7 +526,10 @@ describe('#113: cada paquete de `paquetes/` esta clasificado, y las listas son e
   it('LA MUESTRA: un paquete ficticio sale nombrado, y uno que ya no existe tambien', () => {
     // Contra el disco de hoy y no contra `CLASES`: si no, una clase rota saldria roja aqui tambien y
     // el rojo de la muestra taparia el de verdad.
-    expect(sinClasificar([...LOS_PAQUETES, 'septimo'], LOS_PAQUETES)).toEqual({ faltan: ['septimo'], sobran: [] });
+    expect(sinClasificar([...LOS_PAQUETES, 'paquete-ficticio'], LOS_PAQUETES)).toEqual({
+      faltan: ['paquete-ficticio'],
+      sobran: [],
+    });
     expect(sinClasificar(['api'], ['api', 'fantasma'])).toEqual({ faltan: [], sobran: ['fantasma'] });
   });
 });
