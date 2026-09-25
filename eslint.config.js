@@ -54,7 +54,8 @@ const bloquesDeExcepcion = EXCEPCIONES.map((directorio) => ({
 export default tseslint.config(
   {
     // Las muestras violan las reglas A PROPOSITO: se lintan desde la prueba, con su texto y una
-    // ruta sintetica. Aqui no tienen nada que hacer.
+    // ruta sintetica —salvo `switch-sin-agotar.ts`, que necesita tipos y se lintea en su ruta de
+    // verdad, con `ignore: false` (#111)—. Aqui no tienen nada que hacer.
     ignores: ['node_modules/**', 'dist/**', 'paquetes/verificaciones/muestras/**'],
   },
   js.configs.recommended,
@@ -77,6 +78,40 @@ export default tseslint.config(
     },
   },
   ...bloquesDeExcepcion,
+  {
+    // **LA EXHAUSTIVIDAD, TAMBIEN EN EL LINT** (#111).
+    //
+    // Un `switch` sobre una union que se deja una rama sin `case` lo senala
+    // `switch-exhaustiveness-check`, que necesita los tipos: por eso este bloque —y solo este— lleva
+    // `projectService`. Cubre lo que el compilador no ve: un `switch` en una funcion que no devuelve
+    // nada (el `pulsar` de `GrupoDeAcciones`) o que admite `undefined` (`motivoDeLaAccion`), donde la
+    // rama que falta no es TS2366 sino un boton que no hace nada o una accion que «se puede pulsar».
+    //
+    // **NO es una prohibicion de `PROHIBICIONES`, y es a proposito**, por lo mismo que el XHR: cada
+    // sistema le exige a cada clave su muestra en SU arbol, y una regla nueva ahi es un cambio
+    // coordinado en cinco repositorios. Ademas no es `no-restricted-syntax` —es una regla con tipos—,
+    // y `PROHIBICIONES` solo sabe llevar selectores. Vive en el config de este repositorio; su muestra
+    // esta en `verificaciones/muestras/switch-sin-agotar.ts` y la juzga `reglas-de-eslint.test.ts`.
+    //
+    // A los consumidores los protege otra cosa, que si viaja: los tipos de retorno anotados y los
+    // `never` de `CampoDelBloque`, `EstadoDeLaLectura`, `PiezaDeLaPantalla` y `claseDe`, que dan su
+    // rojo con el `tsconfig` de cada uno. Eso lo vigila `verificaciones/la-exhaustividad-viaja.test.ts`,
+    // que compila el interprete con las opciones minimas de un consumidor y un miembro de mas en cada
+    // union; y que este bloque cubra los `.tsx` y no cuente un `default` como agotado lo vigila
+    // `reglas-de-eslint.test.ts`.
+    files: ['paquetes/**/*.{ts,tsx}'],
+    languageOptions: {
+      parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
+    },
+    rules: {
+      '@typescript-eslint/switch-exhaustiveness-check': [
+        'error',
+        // Explicitas, aunque sean las de omision: con `true`, un `default` daria por agotada una
+        // union a la que le falta un `case`, que es justo lo que se viene a cazar.
+        { considerDefaultExhaustiveForUnions: false, allowDefaultCaseForExhaustiveSwitch: true },
+      ],
+    },
+  },
   {
     // En las pruebas la prohibicion se apaga, y no por comodidad: varias NOMBRAN lo que
     // verifican —un `localStorage.setItem('token', …)` que tiene que salir rojo, un importe

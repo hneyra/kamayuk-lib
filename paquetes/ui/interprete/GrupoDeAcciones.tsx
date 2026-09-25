@@ -3,7 +3,7 @@ import { useId, useRef, useState } from 'react';
 import { entregarAlNavegador } from '../../api/entregar.ts';
 import { BotonConMotivo } from '../shadcn/boton-con-motivo.tsx';
 import type { TextosDeLaPantalla } from '../textos.tsx';
-import { motivoDeLaAccion, peticionDe, resolverTodos, textoQueSeGuarda } from './acciones.ts';
+import { claseDe, motivoDeLaAccion, peticionDe, resolverTodos, textoQueSeGuarda } from './acciones.ts';
 import { type Nombrados, resolverTexto } from './componer.ts';
 import type { InteraccionDeLaPantalla } from './interaccion.ts';
 import type { DefinicionDeAccion } from './tipos-de-los-actos.ts';
@@ -33,12 +33,23 @@ import type { DefinicionDeAccion } from './tipos-de-los-actos.ts';
  * #65 (`acciones-por-fila`) puede montar esta misma pieza con los `nombrados` de la fila.
  */
 
-/** `abre:x`, `va:x`, `hace:x` o `guarda:x`: lo que deja a una guarda encontrar el boton sin leer su rotulo. */
+/**
+ * `abre:x`, `va:x`, `hace:x` o `guarda:x`: lo que deja a una guarda encontrar el boton sin leer su
+ * rotulo. Por `claseDe` y con el retorno anotado (#111): hasta #111 la ultima rama era la que sobraba,
+ * y una quinta clase salia `hace:undefined` sin ningun error; ahora la que falte es TS2366 aqui.
+ */
 function claveDeLaAccion(accion: DefinicionDeAccion): string {
-  if (accion.abre !== undefined) return `abre:${accion.abre}`;
-  if (accion.va !== undefined) return `va:${accion.va.hoja}`;
-  if (accion.guarda !== undefined) return `guarda:${accion.guarda.texto.desde}`;
-  return `hace:${accion.hace}`;
+  const clase = claseDe(accion);
+  switch (clase.clase) {
+    case 'abre':
+      return `abre:${clase.accion.abre}`;
+    case 'va':
+      return `va:${clase.accion.va.hoja}`;
+    case 'guarda':
+      return `guarda:${clase.accion.guarda.texto.desde}`;
+    case 'hace':
+      return `hace:${clase.accion.hace}`;
+  }
 }
 
 /**
@@ -92,47 +103,53 @@ export function GrupoDeAcciones({ acciones, nombrados, traducir, textos, interac
   const idDe = (motivo: string) => `${raiz}-motivo-${String(motivos.indexOf(motivo))}`;
 
   const pulsar = (accion: DefinicionDeAccion, indice: number) => {
-    if (accion.abre !== undefined) {
-      interaccion.abrirActo(accion.abre, resolverTodos(accion.con, nombrados, traducir, textos));
-      return;
-    }
-    if (accion.va !== undefined) {
-      const resuelta = peticionDe(accion.va, nombrados, traducir, textos);
-      if ('peticion' in resuelta) interaccion.navegacion?.ir(resuelta.peticion);
-      return;
-    }
-    if (accion.guarda !== undefined) {
-      const { guarda } = accion;
-      const texto = textoQueSeGuarda(guarda, nombrados);
-      if (texto === undefined) return;
-      try {
-        // El texto TAL CUAL, en un `Blob` de su tipo: ni `traducir`, ni `trim`, ni otra peticion.
-        entregarAlNavegador({
-          nombre: resolverTexto(guarda.nombre, nombrados, traducir, textos.datoAusente),
-          tipoDeMedio: guarda.tipoDeMedio,
-          contenido: new Blob([texto], { type: guarda.tipoDeMedio }),
-        });
-      } catch {
-        setSinEntrega((antes) => new Set(antes).add(indice));
+    // Por `claseDe` (#111): una clase que falte aqui la senala `switch-exhaustiveness-check`.
+    const clase = claseDe(accion);
+    switch (clase.clase) {
+      case 'abre':
+        interaccion.abrirActo(clase.accion.abre, resolverTodos(clase.accion.con, nombrados, traducir, textos));
+        return;
+      case 'va': {
+        const resuelta = peticionDe(clase.accion.va, nombrados, traducir, textos);
+        if ('peticion' in resuelta) interaccion.navegacion?.ir(resuelta.peticion);
+        return;
       }
-      return;
+      case 'guarda': {
+        const { guarda } = clase.accion;
+        const texto = textoQueSeGuarda(guarda, nombrados);
+        if (texto === undefined) return;
+        try {
+          // El texto TAL CUAL, en un `Blob` de su tipo: ni `traducir`, ni `trim`, ni otra peticion.
+          entregarAlNavegador({
+            nombre: resolverTexto(guarda.nombre, nombrados, traducir, textos.datoAusente),
+            tipoDeMedio: guarda.tipoDeMedio,
+            contenido: new Blob([texto], { type: guarda.tipoDeMedio }),
+          });
+        } catch {
+          setSinEntrega((antes) => new Set(antes).add(indice));
+        }
+        return;
+      }
+      case 'hace': {
+        const operacion = interaccion.alHacer?.[clase.accion.hace];
+        if (operacion === undefined || enVuelo.current.has(indice)) return;
+        const resultado = operacion();
+        if (!(resultado instanceof Promise)) return;
+        enVuelo.current.add(indice);
+        setPendientes((antes) => new Set(antes).add(indice));
+        const soltar = () => {
+          enVuelo.current.delete(indice);
+          setPendientes((antes) => {
+            const quedan = new Set(antes);
+            quedan.delete(indice);
+            return quedan;
+          });
+        };
+        // Rechazada, el boton vuelve a estar libre: el fallo lo dice el sistema en `lecturas`.
+        resultado.then(soltar, soltar);
+        return;
+      }
     }
-    const operacion = interaccion.alHacer?.[accion.hace];
-    if (operacion === undefined || enVuelo.current.has(indice)) return;
-    const resultado = operacion();
-    if (!(resultado instanceof Promise)) return;
-    enVuelo.current.add(indice);
-    setPendientes((antes) => new Set(antes).add(indice));
-    const soltar = () => {
-      enVuelo.current.delete(indice);
-      setPendientes((antes) => {
-        const quedan = new Set(antes);
-        quedan.delete(indice);
-        return quedan;
-      });
-    };
-    // Rechazada, el boton vuelve a estar libre: el fallo lo dice el sistema en `lecturas`.
-    resultado.then(soltar, soltar);
   };
 
   return (

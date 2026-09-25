@@ -17,4 +17,6 @@ export const OTRAS_MUESTRAS: Readonly<Record<string, string>> = {
   'frase-que-sale-del-saco': 'el-texto-visible-es-dato',
   'arnes-del-request-copiado': 'el-arnes-del-request-se-publica',
   'formato-con-number-o-date': 'formato-sin-number-ni-date',
+  // La regla con tipos que vive en `eslint.config.js` y no en `PROHIBICIONES` (#111).
+  'switch-sin-agotar': 'reglas-de-eslint',
 };
