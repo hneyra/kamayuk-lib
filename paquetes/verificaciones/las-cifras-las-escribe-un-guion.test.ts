@@ -26,6 +26,7 @@ import {
 } from './cifras.mjs';
 import { leerElWorkflow, listasDeRutas } from './rutas-de-la-ci.ts';
 import { RAIZ, archivosDe, rutaDesde } from './texto.ts';
+import { leerWorkflow, ordenDe, pasosDe, trabajoDe } from './workflow.ts';
 
 /**
  * **Las cifras de pruebas las escribe un guion** (#128).
@@ -320,11 +321,12 @@ describe('el arbol de verdad', () => {
     }
     expect(eslabones).toContain('yarn cifras --comprobar');
     expect(manifiesto.scripts.cifras).toBe('node paquetes/verificaciones/cifras.mjs');
-    const ordenes = leerElWorkflow()
-      .split('\n')
-      .filter((linea) => !linea.trim().startsWith('#'))
-      .join('\n');
-    expect(ordenes).toMatch(/run: yarn verificar\s*$/m);
+    // Del YAML analizado (#114): el paso tiene que CORRER `yarn verificar`, y un comentario que lo
+    // nombre no cuenta.
+    const ordenes = pasosDe(trabajoDe(leerWorkflow('.github/workflows/paquetes.yml'), 'verificar')).map((paso) =>
+      ordenDe(paso).trim(),
+    );
+    expect(ordenes).toContain('yarn verificar');
   });
 
   it('y la CI se dispara cuando cambia un archivo con cifras, en `push` y en `pull_request`', () => {

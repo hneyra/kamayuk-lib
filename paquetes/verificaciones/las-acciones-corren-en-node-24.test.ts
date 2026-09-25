@@ -7,6 +7,9 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { RAIZ } from './texto.ts';
+import { usesConSuLinea } from './workflow.ts';
+
 /**
  * **Las acciones de la CI corren en Node 24** (#93).
  *
@@ -40,6 +43,14 @@ import { describe, expect, it } from 'vitest';
  * SHA, una rama—, cuya mayor no se puede comparar con nada. Las dos salen rojas diciendolo, que es
  * el mismo criterio con el que `lo-que-exports-promete-existe` trata una forma de `exports` que no
  * sabe leer (#24).
+ *
+ * <h2>Y los `uses:` salen del YAML analizado, no de un patron sobre cada linea (#114)</h2>
+ *
+ * Hasta #114 se buscaban con un patron anclado linea a linea, que es la cuarta forma distinta de
+ * decidir que es comentario en el mismo archivo. Hoy los da `usesConSuLinea` de `workflow.ts`: los
+ * de `jobs.<id>.steps[]` y el de `jobs.<id>` —un workflow reutilizable—, que son los unicos que
+ * GitHub ejecuta. Un `# - uses: …` comentado o un `uses:` dentro del texto de un `run: |` ya no
+ * cuentan, y un `steps` que no es una lista sale como ilegible en vez de saltarse.
  */
 
 /** Donde viven los workflows. Se lee el DIRECTORIO, no una lista escrita: un workflow nuevo entra solo. */
@@ -77,16 +88,13 @@ const MAYOR_MINIMA_POR_ACCION: Readonly<Record<string, MayorMedida>> = {
 interface Referencia {
   readonly archivo: string;
   readonly linea: number;
-  /** Lo que venia detras de `uses:`, tal cual. */
+  /** Lo que venia detras de `uses:`, tal cual lo dejo el YAML (sin sus comillas). */
   readonly talCual: string;
   /** El nombre de la accion, o `null` si la forma no se sabe leer. */
   readonly accion: string | null;
   /** La mayor de la referencia, o `null` si no es `@vN`: un SHA o una rama no se pueden comparar. */
   readonly mayor: number | null;
 }
-
-/** `- uses: x` y `  uses: x` son la misma cosa. Un comentario detras no entra: `\S+` para en el espacio. */
-const LINEA_DE_USES = /^\s*(?:-\s+)?uses:\s*(\S+)/;
 
 /** `@v7`, `@v7.0`, `@v7.0.0`. Un SHA o una rama NO casan, y eso los manda a «no se leerlo». */
 const ETIQUETA_DE_MAYOR = /^v(\d+)(?:\.\d+)*$/;
@@ -95,28 +103,29 @@ const ETIQUETA_DE_MAYOR = /^v(\d+)(?:\.\d+)*$/;
  * Saca las referencias a acciones de un workflow.
  *
  * Recibe el TEXTO y no lo lee del disco para que las muestras puedan ensenar un workflow que este
- * arbol no tiene, sin escribir un archivo.
+ * arbol no tiene, sin escribir un archivo. Lo que no es una cadena —un `uses:` vacio, un mapa, un
+ * `steps` que no es una lista— entra con `accion: null`, y eso lo manda a «no se leerlo».
  */
 export const referenciasDeAcciones = (archivo: string, texto: string): Referencia[] =>
-  texto.split('\n').flatMap((renglon, indice): Referencia[] => {
-    const capturado = LINEA_DE_USES.exec(renglon)?.[1];
-    if (capturado === undefined) return [];
+  usesConSuLinea(texto, archivo).map(({ linea, valor }): Referencia => {
+    if (typeof valor !== 'string') {
+      const talCual = valor === undefined ? '(no es un `uses:` que se sepa leer)' : JSON.stringify(valor);
+      return { archivo, linea, talCual, accion: null, mayor: null };
+    }
 
-    const talCual = capturado.replace(/^['"]|['"]$/g, '');
+    const talCual = valor;
     const corte = talCual.lastIndexOf('@');
-    const base = { archivo, linea: indice + 1, talCual };
+    const base = { archivo, linea, talCual };
 
     // Sin `@` no hay version que comparar: una accion local (`./...`) o un `docker://` caen aqui.
-    if (corte <= 0) return [{ ...base, accion: null, mayor: null }];
+    if (corte <= 0) return { ...base, accion: null, mayor: null };
 
     const etiqueta = ETIQUETA_DE_MAYOR.exec(talCual.slice(corte + 1));
-    return [
-      {
-        ...base,
-        accion: talCual.slice(0, corte),
-        mayor: etiqueta === null ? null : Number(etiqueta[1]),
-      },
-    ];
+    return {
+      ...base,
+      accion: talCual.slice(0, corte),
+      mayor: etiqueta === null ? null : Number(etiqueta[1]),
+    };
   });
 
 const renglonDe = (referencia: Referencia, porque: string): string =>
@@ -166,12 +175,14 @@ export const lasQueSeQuedanCortas = (
     ];
   });
 
-const archivosDeWorkflow = readdirSync(DIRECTORIO_DE_WORKFLOWS)
+// Desde la raiz del repositorio y no desde el directorio de trabajo (#114): vitest puede
+// arrancar en otro sitio, y entonces el centinela saldria rojo por la ruta y no por los workflows.
+const archivosDeWorkflow = readdirSync(join(RAIZ, DIRECTORIO_DE_WORKFLOWS))
   .filter((nombre) => nombre.endsWith('.yml') || nombre.endsWith('.yaml'))
   .sort();
 
 const referencias = archivosDeWorkflow.flatMap((nombre) =>
-  referenciasDeAcciones(nombre, readFileSync(join(DIRECTORIO_DE_WORKFLOWS, nombre), 'utf8')),
+  referenciasDeAcciones(nombre, readFileSync(join(RAIZ, DIRECTORIO_DE_WORKFLOWS, nombre), 'utf8')),
 );
 
 describe('las acciones de la CI corren en Node 24', () => {
@@ -249,7 +260,8 @@ describe('las acciones de la CI corren en Node 24', () => {
 
   it('LA MUESTRA: y la otra direccion — un workflow al dia no saca ni un renglon', () => {
     // Sin esto, una guarda que devolviera SIEMPRE la referencia pasaria la muestra de arriba.
-    const alDia = referenciasDeAcciones('muestra.yml', '      - uses: actions/checkout@v7.0.0');
+    const alDia = referenciasDeAcciones('muestra.yml', conPasos('      - uses: actions/checkout@v7.0.0'));
+    expect(alDia, 'el `uses:` no se reconocio').toHaveLength(1);
     expect(lasQueSeQuedanCortas(alDia)).toEqual([]);
     expect(lasDesconocidas(alDia)).toEqual([]);
     expect(lasQueNoSeSabenLeer(alDia)).toEqual([]);
@@ -258,7 +270,7 @@ describe('las acciones de la CI corren en Node 24', () => {
   it('LA MUESTRA: una accion que la tabla no conoce sale roja, en vez de pasar por no saber', () => {
     // El caso que `caja` midio: `actions/upload-artifact@v5` TODAVIA declaraba `node20`. Una mayor
     // alta no dice nada por si sola, asi que lo que no se ha medido no pasa.
-    const muestra = referenciasDeAcciones('muestra.yml', '      - uses: actions/upload-artifact@v5');
+    const muestra = referenciasDeAcciones('muestra.yml', conPasos('      - uses: actions/upload-artifact@v5'));
     expect(
       lasQueSeQuedanCortas(muestra),
       'el numero alto la dejo pasar por la otra puerta',
@@ -268,14 +280,18 @@ describe('las acciones de la CI corren en Node 24', () => {
     expect(desconocidas[0]).toContain('actions/upload-artifact@v5');
   });
 
-  it('LA MUESTRA: una fijada por SHA o sin `@` sale roja DICIENDOLO, y no en verde', () => {
+  it('LA MUESTRA: una fijada por SHA, sin `@` o que no es una cadena sale roja DICIENDOLO, y no en verde', () => {
     for (const forma of [
       '      - uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3',
       '      - uses: actions/checkout@main',
       '      - uses: ./.github/actions/lo-nuestro',
       '      - uses: docker://alpine:3.20',
+      // Las dos que solo existen desde que se lee el YAML (#114): lo que viene detras de `uses:` no
+      // es una cadena, y de eso no se puede sacar ni accion ni mayor.
+      '      - uses:',
+      '      - uses: { accion: actions/checkout, version: 7 }',
     ]) {
-      const muestra = referenciasDeAcciones('muestra.yml', forma);
+      const muestra = referenciasDeAcciones('muestra.yml', conPasos(forma));
       expect(muestra, `«${forma.trim()}» no se reconocio como un \`uses:\``).toHaveLength(1);
       expect(lasQueNoSeSabenLeer(muestra), `«${forma.trim()}» paso en silencio`).toHaveLength(1);
       // Y no se cuela ademas por las otras dos puertas, que compararian con una mayor que no hay.
@@ -284,18 +300,83 @@ describe('las acciones de la CI corren en Node 24', () => {
     }
   });
 
+  it('LA MUESTRA: unos `steps` que no son una lista salen rojos, y no como un trabajo sin acciones', () => {
+    // Lo que el analizador no sabe recorrer no se salta: se dice, en la linea donde esta (#114).
+    const muestra = referenciasDeAcciones(
+      'muestra.yml',
+      ['jobs:', '  x:', '    steps:', '      uses: actions/checkout@v4'].join('\n'),
+    );
+    const ilegibles = lasQueNoSeSabenLeer(muestra);
+    expect(ilegibles, 'un `steps` que es un mapa paso en silencio').toHaveLength(1);
+    expect(ilegibles[0], 'el rojo no dice donde').toContain('muestra.yml:4');
+  });
+
+  it('LA MUESTRA: un paso que no es un mapa sale rojo, y no como un paso sin `uses:`', () => {
+    // La otra rama que el docblock de `usesConSuLinea` promete no saltar: la lista esta, pero un
+    // elemento es un escalar —el `uses:` escrito sin su clave—, y GitHub no lo ejecutaria.
+    const muestra = referenciasDeAcciones(
+      'muestra.yml',
+      conPasos('      - actions/checkout@v4', '      - uses: actions/setup-node@v7'),
+    );
+    const ilegibles = lasQueNoSeSabenLeer(muestra);
+    expect(ilegibles, 'un paso escalar paso en silencio').toHaveLength(1);
+    expect(ilegibles[0], 'el rojo no dice donde').toContain('muestra.yml:4');
+    expect(muestra.map((r) => r.talCual), 'el paso bueno de al lado se perdio').toContain('actions/setup-node@v7');
+  });
+
+  it('LA MUESTRA: un YAML que no se puede analizar revienta nombrando el archivo', () => {
+    // Una clave repetida la resolveria GitHub quedandose con una; aqui no se adivina cual.
+    expect(() => referenciasDeAcciones('roto.yml', 'jobs: [')).toThrow(/«roto\.yml» no es un YAML/);
+    expect(() =>
+      referenciasDeAcciones(
+        'repetido.yml',
+        conPasos('      - uses: actions/checkout@v7', '        uses: actions/checkout@v4'),
+      ),
+    ).toThrow(/«repetido\.yml» no es un YAML/);
+  });
+
   it('LA MUESTRA: el barrido coge el `uses:` con guion y sin el, y no se come el comentario', () => {
     // Las dos formas estan en `paquetes.yml`: `- uses:` en un paso suelto y `uses:` bajo un `name:`.
     const muestra = referenciasDeAcciones(
       'muestra.yml',
-      [
+      conPasos(
         '      - uses: actions/checkout@v7',
-        '        uses: actions/setup-node@v7 # con algo detras',
-      ].join('\n'),
+        '      - name: Con nombre',
+        '        uses: "actions/setup-node@v7" # con algo detras',
+      ),
     );
     expect(muestra.map((r) => r.talCual)).toEqual([
       'actions/checkout@v7',
       'actions/setup-node@v7',
     ]);
+    expect(muestra.map((r) => r.linea), 'la linea de cada `uses:` no es la del archivo').toEqual([4, 6]);
+  });
+
+  it('LA MUESTRA: lo que GitHub no ejecuta no cuenta, y lo que si ejecuta fuera de `steps` si (#114)', () => {
+    // Un `uses:` comentado y otro dentro del texto de un `run: |` los veia el patron de linea de
+    // antes, y ninguno corre. El de un trabajo que llama a un workflow reutilizable corre, y un
+    // barrido que solo mirara `steps` se lo saltaria.
+    const muestra = referenciasDeAcciones(
+      'muestra.yml',
+      [
+        'jobs:',
+        '  x:',
+        '    steps:',
+        '      # - uses: actions/checkout@v4',
+        '      - run: |',
+        '          echo "uses: actions/checkout@v4"',
+        '  reutilizado:',
+        '    uses: actions/otro/.github/workflows/uno.yml@v4',
+      ].join('\n'),
+    );
+    expect(muestra.map((r) => `${r.linea} ${r.talCual}`)).toEqual([
+      '8 actions/otro/.github/workflows/uno.yml@v4',
+    ]);
+    expect(lasDesconocidas(muestra), 'el workflow reutilizado sin medir paso en verde').toHaveLength(1);
   });
 });
+
+/** Un workflow minimo con un trabajo y estos pasos, cada uno ya sangrado como paso de `steps`. */
+function conPasos(...pasos: readonly string[]): string {
+  return ['jobs:', '  x:', '    steps:', ...pasos].join('\n');
+}
