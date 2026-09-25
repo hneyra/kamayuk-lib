@@ -15,6 +15,7 @@ import { hijasDe, indicesDeLasPiezas, nombradosConLaHoja } from './composicion.t
 import type { CambioDeLoTecleado, HojaDelMarco, LoTecleado, TecleadoDeUnActo } from './hoja.ts';
 import { PiezaDeLaPantalla, type PiezasDelConsumidor } from './PiezaDeLaPantalla.tsx';
 import { GrupoDeAcciones } from './GrupoDeAcciones.tsx';
+import { tablasDe } from './reglas-de-las-tablas.ts';
 import type { ActoAbierto, InteraccionDeLaPantalla, TecleadoDeLosActos } from './interaccion.ts';
 import type {
   ManejadoresDeLasAcciones,
@@ -428,11 +429,7 @@ function tecleadoDeLosActos(
 
 /** Si alguna tabla de la pantalla tiene la cabecera fija: su marco necesita el alto de la hoja (#65). */
 function cedeElAlto(definicion: DefinicionDePantalla<Pieza>): boolean {
-  return definicion.bloques.some(
-    (pieza) =>
-      esBloque(pieza) &&
-      [pieza.tabla, ...(pieza.tablas ?? [])].some((tabla) => tabla?.cabeceraFija === true),
-  );
+  return definicion.bloques.some((pieza) => esBloque(pieza) && tablasDe(pieza).some((tabla) => tabla.cabeceraFija === true));
 }
 
 /**

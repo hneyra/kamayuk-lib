@@ -2,12 +2,12 @@
 //
 // Lintea de verdad con la API de ESLint sobre archivos del disco: no es un DOM lo que necesita.
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { basename, dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { basename, join } from 'node:path';
 import { ESLint } from 'eslint';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { OTRAS_MUESTRAS } from './otras-muestras.ts';
+import { PAQUETES, RAIZ } from './texto.ts';
 import {
   CLIENTE_DE_API,
   DONDE_SE_LLAMA_A_FETCH,
@@ -43,9 +43,7 @@ import {
  * y se lintea en su ruta de verdad: ver su `describe`, al final.
  */
 
-const AQUI = dirname(fileURLToPath(import.meta.url));
-const RAIZ = join(AQUI, '..', '..');
-const MUESTRAS = join(AQUI, 'muestras');
+const MUESTRAS = join(PAQUETES, 'verificaciones', 'muestras');
 
 /**
  * **El linter del arbol, sin el bloque con tipos de #111.**

@@ -35,6 +35,29 @@ del paquete que toca el DOM**.
 
 Las clases de error viven en `errores.ts`, aparte del cliente, porque juntas cerraban un ciclo.
 
+**El camino de errores es uno para las cuatro operaciones** (#121). `solicitar`,
+`solicitarRespuesta` y `descargar` pasan por `pedir()` —`descargar` le pide que no mande `Accept`—,
+y `subir`, que va por `XMLHttpRequest`, comparte con ellas lo que no depende del transporte:
+`cuerpoDeProblema(texto)`, **la única lectura del `problem+json`**, `operacionDe(metodo, ruta)`, la
+única forma de escribir `VERBO /ruta`, y el orden `mensaje ?? detail ?? title` de `ErrorDeLaApi` y
+`ArchivoRechazado`, que es uno y trata un miembro `null` como no dicho. Ninguna de las tres se
+exporta desde `index.ts`.
+Que `descargar` pase por `pedir()` no lo ve ninguna prueba de conducta —su propio `fetch`
+devolvería lo mismo—, así que lo vigila una guarda sobre el código: `cliente.ts` llama a `fetch`
+**una sola vez**, dentro de `pedir`, y `descargar` llama a `pedir`
+(`la-peticion-se-compone-en-un-solo-sitio.test.ts`). Lo mismo vale para lo que `subir.ts` comparte:
+una copia de `cuerpoDeProblema` o de `operacionDe` se porta igual que el original, así que la misma
+guarda exige que `JSON.parse` salga **sólo** en `cuerpoDeProblema` y en el 2xx de `subir.ts`, que
+`` `${metodo} ${ruta}` `` se escriba **sólo** en `operacionDe`, y que `cliente.ts` y `subir.ts` usen
+las dos. Y si `respuesta.text()` falla al leer el error —la conexión se corta a mitad del cuerpo— o
+el cuerpo es JSON pero no un objeto —`null`, un número—, sale igual el `ErrorDeLaApi` con su estado.
+
+**Un 204 no se trata igual en las dos puertas, y es a sabiendas.** `solicitar` rechaza con el
+`SyntaxError` de `respuesta.json()` —`Unexpected end of JSON input`— y `subir` resuelve `undefined`
+ante un 2xx vacío. Igualarlas cambia una conducta pública y se decide aparte; lo que no trae cuerpo
+se pide hoy con `solicitarRespuesta`, que devuelve el texto vacío. Las dos conductas las fija una
+prueba.
+
 **Y desde #52 `ErrorDeLaApi` conserva las CINCO extensiones del contrato y no dos**: `codigo`,
 `mensaje`, `detalles` —`[]` cuando no llega, porque el backend no escribe el miembro con la lista
 vacía—, `incidencia` —el identificador con el que soporte encuentra la causa, sólo en los 5xx— y

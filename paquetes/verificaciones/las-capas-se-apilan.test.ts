@@ -3,10 +3,12 @@
 // Lee el arbol de archivos como texto. No es un DOM lo que necesita — y ese es justo el punto:
 // el DOM de jsdom no podria decir nada de esto. Ver el javadoc.
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { PAQUETES, RAIZ, archivosDe, rutaDesde } from './texto.ts';
 
 /**
  * **Las capas se apilan: una superficie flotante nunca queda por debajo de un velo.**
@@ -40,12 +42,8 @@ import { describe, expect, it } from 'vitest';
  *    mitad sólo garantiza que se pueda comprobar en un sitio.
  */
 
-const PAQUETES = 'paquetes';
 const MODULO_DE_CAPAS = join(PAQUETES, 'ui', 'shadcn', 'capas.ts');
 const MUESTRA = join(PAQUETES, 'verificaciones', 'muestras', 'capa-flotante-por-debajo-del-velo.ts');
-
-/** `muestras/` viola la regla a proposito; `dist` y `node_modules` no son fuente. */
-const APARTADAS = new Set(['node_modules', 'dist', 'muestras']);
 
 /**
  * Una clase de capa de Tailwind: `z-50`, `z-[86]`, `z-auto`.
@@ -56,20 +54,12 @@ const APARTADAS = new Set(['node_modules', 'dist', 'muestras']);
  */
 const CLASE_DE_CAPA = /(?:^|[\s'"`{])(-?z-(?:\[[^\]]+\]|\d+|auto))/g;
 
+/**
+ * Las fuentes que pueden llevar una clase de capa: ni pruebas, ni `node_modules`, ni `dist`, ni
+ * `muestras/`, que viola la regla a proposito.
+ */
 function fuentes(directorio: string): string[] {
-  const salida: string[] = [];
-  for (const entrada of readdirSync(directorio)) {
-    if (APARTADAS.has(entrada)) continue;
-    const completa = join(directorio, entrada);
-    if (statSync(completa).isDirectory()) {
-      salida.push(...fuentes(completa));
-      continue;
-    }
-    if (/\.(ts|tsx|css)$/.test(entrada) && !/\.test\.tsx?$/.test(entrada)) {
-      salida.push(completa);
-    }
-  }
-  return salida;
+  return archivosDe(directorio, { extensiones: ['.ts', '.tsx', '.css'] });
 }
 
 /** Las clases de capa de un texto, con su archivo. */
@@ -135,7 +125,7 @@ describe('las capas se apilan', () => {
   it('ninguna clase de capa vive fuera de `capas.ts`', () => {
     const fuera = enElDisco
       .filter((archivo) => archivo !== MODULO_DE_CAPAS)
-      .flatMap((archivo) => capasDe(readFileSync(archivo, 'utf8')).map((c) => `${archivo}: ${c}`));
+      .flatMap((archivo) => capasDe(readFileSync(archivo, 'utf8')).map((c) => `${rutaDesde(RAIZ, archivo)}: ${c}`));
     expect(
       fuera,
       'la pila de capas vive en `paquetes/ui/shadcn/capas.ts` y en ningun otro sitio',

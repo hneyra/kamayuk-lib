@@ -1,5 +1,6 @@
 import { tipoDe } from '../shadcn/campos.ts';
 import { cambiosEn, valorEnLaRuta, type CambioDeLaRuta, type RutaDeLaHoja } from './hoja.ts';
+import { tablasDe } from './reglas-de-las-tablas.ts';
 import type {
   DefinicionDeBloque,
   DefinicionDeCampo,
@@ -77,8 +78,8 @@ export function cambioAlElegir(
   valor: string,
 ): CambioDeLaRuta {
   const sitios: Record<string, string | null> = {};
-  for (const tabla of [bloque.tabla, ...(bloque.tablas ?? [])]) {
-    const paginacion = tabla?.paginacion;
+  for (const tabla of tablasDe(bloque)) {
+    const paginacion = tabla.paginacion;
     if (paginacion !== undefined) sitios[paginacion.enLaRuta] = '0';
   }
   sitios[eleccion.enLaRuta] = valor === '' ? null : valor;

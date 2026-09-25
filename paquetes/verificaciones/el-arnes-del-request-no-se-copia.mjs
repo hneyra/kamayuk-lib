@@ -51,10 +51,11 @@
  * Sin `--raiz` mira el directorio desde el que se invoca.
  */
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { extname, join, relative, resolve, sep } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { join, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import { APARTADAS, archivosDe, lineasDelTextoQueCasan, rutaDesde } from './archivos.mjs';
 import { sinComentarios } from './comentarios.mjs';
 
 /** La subruta publicada. Lo que un consumidor escribe, y lo que resuelve por su `exports`. */
@@ -98,36 +99,25 @@ const IMPORTA_EL_ARNES = [
   /\bfrom\s+['"`][^'"`]*arnes-del-request(?:\.ts)?['"`]/,
 ];
 
-/** Lo que no se mira: lo que no es codigo de este arbol, y las muestras, que violan a proposito. */
-const APARTADAS = new Set(['node_modules', 'dist', 'build', 'coverage', 'muestras']);
-
-const EXTENSIONES = new Set(['.ts', '.tsx', '.mts', '.cts', '.js', '.mjs', '.cjs']);
-
 /**
- * **Las pruebas quedan fuera del barrido**, y es la misma razon por la que `archivosDeProduccion`
- * las deja fuera en `texto.ts`: la prueba de esta guarda tiene que poder ESCRIBIR la linea
- * prohibida —es justo lo que comprueba— y una guarda que se pusiera roja con su propia muestra se
- * apaga el mismo dia. Lo que cuesta, dicho: una copia escondida en un archivo de pruebas no la ve.
- * Donde el arnes se instala de verdad es en el archivo de arranque del ejecutor, que SI se mira.
+ * Lo que no se mira: lo que no es codigo de este arbol, y las muestras, que violan a proposito.
+ *
+ * Son las `APARTADAS` de todas las guardas **mas `build` y `coverage`**, que esta libreria no
+ * tiene y un consumidor si: el guion corre en SU arbol. Se extiende la lista comun en vez de
+ * escribirse otra, que es como habia tres contenidos distintos para lo mismo (#126).
  */
-const PRUEBAS = /\.(?:test|spec)\.(?:ts|tsx|mts|cts|js|mjs|cjs)$/;
+const APARTADAS_EN_UN_CONSUMIDOR = new Set([...APARTADAS, 'build', 'coverage']);
+
+const EXTENSIONES = ['.ts', '.tsx', '.mts', '.cts', '.js', '.mjs', '.cjs'];
 
 /**
- * @typedef {object} Hallazgo
- * @property {number} linea numero de linea, empezando en 1
- * @property {string} texto la linea, sin espacios a los lados
- */
-
-/**
- * @typedef {object} HallazgoEnArchivo
- * @property {string} archivo ruta relativa a la raiz barrida
- * @property {number} linea
- * @property {string} texto
+ * @typedef {import('./archivos.mjs').Hallazgo} Hallazgo
+ * @typedef {import('./archivos.mjs').LineaQueCasa} LineaQueCasa
  */
 
 /**
  * @typedef {object} Barrido
- * @property {HallazgoEnArchivo[]} copias donde se escribio el arnes a mano
+ * @property {Hallazgo[]} copias donde se escribio el arnes a mano
  * @property {string[]} enchufan los archivos que importan el arnes publicado
  * @property {number} mirados cuantos archivos se leyeron. Sin esto un barrido vacio parece limpio
  */
@@ -136,19 +126,10 @@ const PRUEBAS = /\.(?:test|spec)\.(?:ts|tsx|mts|cts|js|mjs|cjs)$/;
  * Las lineas de un texto que INSTALAN el `Request` global.
  *
  * @param {string} texto el contenido del archivo, con sus comentarios
- * @returns {Hallazgo[]}
+ * @returns {LineaQueCasa[]}
  */
 export function copiasEn(texto) {
-  /** @type {Hallazgo[]} */
-  const salida = [];
-  sinComentarios(texto)
-    .split('\n')
-    .forEach((linea, indice) => {
-      if (INSTALAR_EL_REQUEST.some((patron) => patron.test(linea))) {
-        salida.push({ linea: indice + 1, texto: linea.trim() });
-      }
-    });
-  return salida;
+  return lineasDelTextoQueCasan(texto, INSTALAR_EL_REQUEST);
 }
 
 /**
@@ -165,32 +146,29 @@ export function enchufaElArnes(texto) {
 /**
  * Los archivos de codigo de un arbol. Ni `node_modules`, ni lo compilado, ni las muestras.
  *
+ * El recorrido es el comun (`archivos.mjs`), con tres decisiones de este guion:
+ *
+ *   - **`build` y `coverage` se apartan**, ver `APARTADAS_EN_UN_CONSUMIDOR`.
+ *   - **Ningun directorio oculto**: ahi no vive el arranque del ejecutor y si viven copias enteras
+ *     del repositorio —`.claude/worktrees/` es un arbol de trabajo por agente, con su
+ *     `node_modules`, y su `.gitignore` lo dice—, que se contarian dos veces.
+ *   - **Las pruebas quedan fuera del barrido**, y es la misma razon por la que
+ *     `archivosDeProduccion` las deja fuera en `texto.ts`: la prueba de esta guarda tiene que poder
+ *     ESCRIBIR la linea prohibida —es justo lo que comprueba— y una guarda que se pusiera roja con
+ *     su propia muestra se apaga el mismo dia. Lo que cuesta, dicho: una copia escondida en un
+ *     archivo de pruebas no la ve. Donde el arnes se instala de verdad es en el archivo de
+ *     arranque del ejecutor, que SI se mira.
+ *
  * @param {string} raiz
  * @returns {string[]}
  */
 export function archivosDelArbol(raiz) {
-  /** @type {string[]} */
-  const salida = [];
-  /** @param {string} directorio */
-  const recorrer = (directorio) => {
-    for (const entrada of readdirSync(directorio).sort()) {
-      if (APARTADAS.has(entrada)) continue;
-      const completa = join(directorio, entrada);
-      if (statSync(completa).isDirectory()) {
-        // Ningun directorio oculto: ahi no vive el arranque del ejecutor y si viven copias
-        // enteras del repositorio —`.claude/worktrees/` es un arbol de trabajo por agente, con su
-        // `node_modules`, y su `.gitignore` lo dice—, que se contarian dos veces.
-        if (entrada.startsWith('.')) continue;
-        recorrer(completa);
-        continue;
-      }
-      if (PRUEBAS.test(entrada)) continue;
-      if (!EXTENSIONES.has(extname(entrada))) continue;
-      salida.push(completa);
-    }
-  };
-  recorrer(raiz);
-  return salida;
+  return archivosDe(raiz, {
+    extensiones: EXTENSIONES,
+    apartadas: APARTADAS_EN_UN_CONSUMIDOR,
+    pruebas: false,
+    ocultas: false,
+  });
 }
 
 /**
@@ -200,14 +178,14 @@ export function archivosDelArbol(raiz) {
  * @returns {Barrido}
  */
 export function barrer(raiz) {
-  /** @type {HallazgoEnArchivo[]} */
+  /** @type {Hallazgo[]} */
   const copias = [];
   /** @type {string[]} */
   const enchufan = [];
   const archivos = archivosDelArbol(raiz);
   for (const archivo of archivos) {
     const texto = readFileSync(archivo, 'utf8');
-    const como = relative(raiz, archivo);
+    const como = rutaDesde(raiz, archivo);
     if (enchufaElArnes(texto)) enchufan.push(como);
     if (archivo.endsWith(`${sep}${EL_SITIO_LEGITIMO}`)) continue;
     for (const hallazgo of copiasEn(texto)) {

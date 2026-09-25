@@ -1,6 +1,7 @@
 # `@kamayuk/sesion`
 
-`crearIdentidad(config)` con PKCE S256 y `peldanoDe()` con sus **nueve** peldaños.
+`crearIdentidad(config, textos?)` con PKCE S256 y `peldanoDe(fallo, textos?)` con sus **nueve**
+peldaños.
 
 Viene de `rentas`, el único de los cuatro que se autenticaba, y **nada dentro nombra a un sistema**:
 lo que lo ataba eran tres datos, hoy parámetros; las dos frases que todavía suponían `rentas` —«no
@@ -18,8 +19,16 @@ escribe sino la pantalla.
 misma forma que la guarda de `ciudadano`, que ya decidió los dos nuevos en su `main`—: una décima
 clave sale roja en `yarn typecheck` de aquí, con su nombre.
 
+**Dos subclases se miran por su clase y no por su estado** (#109): `ArchivoRechazado` —0 si lo
+rechazó el cliente sin mandar un byte, 413/415 si lo rechazó el servidor— cae en `no-valido` con un
+título y un remedio por motivo (`demasiado-grande`, `tipo-no-admitido`), y `NoEsUnDocumento` —un
+200 con datos— en `orden-no-admitido`, porque la petición la compuso la pantalla. Antes caían los
+tres en «avería · Reintente… avise a soporte», y reintentar con el mismo archivo no puede funcionar
+nunca. **La unión no crece**: lo propio va en `titulo`, `detalle` y `remedio`.
+
 Cada peldaño dice además `reintentable` y lleva la `incidencia` del 500 **como campo**, no dentro de
-una frase. Y **sus treinta palabras son dato**: `TEXTOS_DE_LA_ESCALERA` en `textos.ts`, que entra
+una frase. Y **sus palabras son dato** —treinta desde #52 y nueve más, al final del saco, desde
+#109—: `TEXTOS_DE_LA_ESCALERA` en `textos.ts`, que entra
 como `Partial` por el segundo argumento —opcional: con uno solo contesta lo de siempre— igual que
 `<Armazon textos>`, y lo vigila la cuarta forma de `el-texto-visible-es-dato`.
 
@@ -32,6 +41,14 @@ el emisor no contesta; `urlDeLaCuenta()`/`abrirLaCuenta()` llevan a la consola d
 **La sonda sube con `credentials: 'omit'`**, y no es adorno: medido en Chromium, con el emisor en el
 mismo origen que la interfaz —el caso del clúster, `https://<dominio>/keycloak/…`— sin esa línea le
 van las cookies de la sesión.
+
+**Lo que dice cuando no se pudo entrar es dato** (#118): las dieciséis frases del `motivo` y el
+`detalle` de cada `Vuelta` fallida, y el respaldo del `motivo` de `FallaDeLaPuerta`, viven en
+`TEXTOS_DE_LA_PUERTA` (`textos.ts`) y entran como `Partial` por el segundo argumento —opcional: con
+uno solo dice lo de siempre—, igual que las de la escalera. Lo que dijeron el emisor
+(`error_description`) y el navegador («Failed to fetch») sigue siendo dato y no pasa por el saco.
+`identidad.ts` era la única excepción de la cuarta forma de `el-texto-visible-es-dato`; ya no hay
+ninguna, y una frase escrita dentro sale roja con su línea.
 
 ## Quién entró: `quienEntro()` (#70)
 

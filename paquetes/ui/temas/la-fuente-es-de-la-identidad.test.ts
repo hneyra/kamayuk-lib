@@ -11,6 +11,8 @@ import { fileURLToPath } from 'node:url';
 import { compile } from 'tailwindcss';
 import { beforeAll, describe, expect, it } from 'vitest';
 
+import { sinComentariosCss } from './base.ts';
+
 /**
  * **La fuente es de la identidad: `clasico` pinta en Arial y las otras tres no cambian** (#56).
  *
@@ -132,7 +134,7 @@ function declaracionesDe(cuerpo: string): Declaracion[] {
 
 /** Las reglas de estilo de una hoja, con su capa y sus condiciones, y el orden de las capas. */
 function leerLaHoja(css: string): { reglas: Regla[]; capas: string[] } {
-  const texto = css.replace(/\/\*[\s\S]*?\*\//g, ' ');
+  const texto = sinComentariosCss(css);
   const reglas: Regla[] = [];
   const capas: string[] = [];
   const anotarCapa = (nombre: string): void => {

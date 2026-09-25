@@ -488,6 +488,24 @@ describe('LOS TRES DESENLACES QUE LA PANTALLA TIENE QUE DISTINGUIR', () => {
       limiteDeBytes: null,
     });
   });
+
+  it.each(['mensaje', 'detail', 'title'])(
+    '#121 — un 413 con «%s: null» no dijo nada, igual para ArchivoRechazado que para ErrorDeLaApi',
+    async (miembro) => {
+      const subida = cliente.subir('/cargas', { archivo: unArchivo() });
+      laPeticion().contesta(413, JSON.stringify({ status: 413, [miembro]: null }));
+
+      // Hasta #121 el orden `mensaje ?? detail ?? title` se escribia dos veces en `errores.ts` y
+      // las dos no coincidian aqui: `ErrorDeLaApi` tomaba el `null` por «no dijo nada» y
+      // `ArchivoRechazado` por «dijo algo», y su `message` se quedaba en «POST /cargas», sin el
+      // motivo que es lo unico con lo que se entiende en un registro.
+      await expect(subida).rejects.toMatchObject({
+        name: 'ArchivoRechazado',
+        motivo: 'demasiado-grande',
+        message: 'POST /cargas -> demasiado-grande',
+      });
+    },
+  );
 });
 
 describe('«admite» usa la gramatica del atributo accept de HTML', () => {
@@ -564,6 +582,40 @@ describe('la respuesta se interpreta como la de «solicitar», con un caso mas',
 
     await expect(subida).rejects.toMatchObject({
       estado: 502,
+      codigo: null,
+      mensaje: null,
+      operacion: 'POST /cargas',
+    });
+  });
+
+  it('#121 — un error cuyo cuerpo es el JSON `null` tampoco tapa el estado', async () => {
+    // `JSON.parse('null')` no lanza, y `typeof null === 'object'`: es el cuerpo que distingue una
+    // lectura del `problem+json` que mira `!== null` de una que no. Sin esa comprobacion el
+    // constructor lee `null.mensaje` y la subida rechaza con un `TypeError`, que `peldanoDe()`
+    // clasificaria como corte de red.
+    //
+    // Y no rechaza con nada: el `TypeError` salta DENTRO del oyente de `load`, que lo traga, y la
+    // promesa se queda pendiente para siempre —la barra quieta, sin fallo que ensenar—. Por eso se
+    // mira el desenlace tras una vuelta del bucle y no con `await subida`, que acabaria en un
+    // `Test timed out` que no dice que paso.
+    const subida = cliente.subir('/cargas', { archivo: unArchivo() });
+    let desenlace: unknown = 'pendiente';
+    subida.then(
+      () => {
+        desenlace = 'resuelta';
+      },
+      (fallo: unknown) => {
+        desenlace = fallo;
+      },
+    );
+    laPeticion().contesta(500, 'null');
+    await new Promise((listo) => setTimeout(listo, 0));
+
+    expect(desenlace, 'la subida no llego a rechazar: se quedo sin desenlace').toBeInstanceOf(
+      ErrorDeLaApi,
+    );
+    expect(desenlace).toMatchObject({
+      estado: 500,
       codigo: null,
       mensaje: null,
       operacion: 'POST /cargas',
