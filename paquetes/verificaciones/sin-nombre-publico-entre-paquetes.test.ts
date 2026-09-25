@@ -3,6 +3,8 @@
 // Lee el DISCO, no un DOM: en `jsdom`, `import.meta.url` no es una URL `file:` y `fileURLToPath`
 // revienta con «The URL must be of scheme file».
 
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -109,6 +111,8 @@ describe('ningun paquete importa a otro por su nombre publico', () => {
       "import '@kamayuk/ui/estilos.css';",
       "import { PROHIBICIONES } from '@kamayuk/verificaciones/prohibiciones';",
       "export { crearCliente } from '@kamayuk/api';",
+      "export * as api from '@kamayuk/api';",
+      "export type * as ui from '@kamayuk/ui';",
       "export const laSesion = () => import('@kamayuk/sesion');",
     ]);
   });
@@ -122,6 +126,55 @@ describe('ningun paquete importa a otro por su nombre publico', () => {
       "import { formatear } from '../formato/index.ts';",
     ].join('\n');
     expect(importsDe(texto).map((i) => i.especificador)).toEqual(['../formato/index.ts']);
+  });
+
+  it('el analizador ve CADA forma de import que el lenguaje tiene, una por linea (#112)', () => {
+    // Las muestras de las guardas llevan las formas que se escriben; esta lista lleva TODAS, para
+    // que lo que decide que es un import no pierda una sin que nada lo diga. Medido en la segunda
+    // verificacion independiente: `ts.preProcessFile` devolvia `[]` para `export * as x from` y
+    // `export type * as x from`, que la expresion regular de antes si veia.
+    const formas = [
+      ["import x from 'a';", 'a'],
+      ["import 'b';", 'b'],
+      ["import * as c from 'c';", 'c'],
+      ["import type { D } from 'd';", 'd'],
+      ["import { type E } from 'e';", 'e'],
+      ["export { f } from 'f';", 'f'],
+      ["export * from 'g';", 'g'],
+      ["export * as h from 'h';", 'h'],
+      ["export type * as i from 'i';", 'i'],
+      ["export type { J } from 'j';", 'j'],
+      ["export type * from 'k';", 'k'],
+      ["const l = import('l');", 'l'],
+      ["const m = require('m');", 'm'],
+      ["import n = require('n');", 'n'],
+      ["type O = typeof import('o');", 'o'],
+      ["let p: import('p').P;", 'p'],
+      ["import q from 'q' with { type: 'json' };", 'q'],
+      ["export { t as default } from 't';", 't'],
+      ["const u = await import(/* x */ 'u');", 'u'],
+    ] as const;
+    const texto = formas.map(([linea]) => linea).join('\n');
+    expect(importsDe(texto).map((i) => [i.linea, i.especificador])).toEqual(
+      formas.map(([, especificador], indice) => [indice + 1, especificador]),
+    );
+  });
+
+  it('y el texto JSX con la forma de un import NO es un import (#112)', () => {
+    const texto = ["import { x } from '../ui/index.ts';", "export const P = () => <p>import '@kamayuk/ui'</p>;"];
+    expect(importsDe(texto.join('\n'), undefined, 'pieza.tsx').map((i) => i.especificador)).toEqual([
+      '../ui/index.ts',
+    ]);
+    // Y el barrido le pasa al analizador el nombre de cada archivo: leido como `.ts`, esa linea es
+    // un cast seguido de un import de efecto, y la guarda se pondria roja con un parrafo.
+    const carpeta = mkdtempSync(join(tmpdir(), 'kamayuk-jsx-'));
+    try {
+      const pieza = join(carpeta, 'Pieza.tsx');
+      writeFileSync(pieza, texto.join('\n'));
+      expect(hallazgosDe([pieza])).toEqual([]);
+    } finally {
+      rmSync(carpeta, { recursive: true, force: true });
+    }
   });
 
   it('y en una hoja de estilos, el `@import` por el nombre publico tambien (#112)', () => {

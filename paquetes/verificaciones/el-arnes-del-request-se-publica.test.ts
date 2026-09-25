@@ -250,6 +250,19 @@ describe('el guion reconoce el enchufe por el analizador (#112)', () => {
     const guion = join(RAIZ, 'paquetes/verificaciones/el-arnes-del-request-no-se-copia.mjs');
     expect(enchufaElArnes(leer(guion))).toBe(false);
   });
+
+  it('y el barrido lee cada archivo con su extension: el texto JSX de un `.tsx` no enchufa nada', () => {
+    // Leido como `.ts`, `<p>import '…'</p>` es un cast seguido de un import de efecto: contaria.
+    // `barrer` le pasa al analizador el nombre del archivo, y esto es lo que lo exige.
+    const arbol = mkdtempSync(join(tmpdir(), 'kamayuk-jsx-'));
+    try {
+      writeFileSync(join(arbol, 'vitest.setup.ts'), `${LA_LINEA}\n`);
+      writeFileSync(join(arbol, 'Pieza.tsx'), `export const Pieza = () => <p>${LA_LINEA}</p>;\n`);
+      expect(barrer(arbol).enchufan).toEqual(['vitest.setup.ts']);
+    } finally {
+      rmSync(arbol, { recursive: true, force: true });
+    }
+  });
 });
 
 /**

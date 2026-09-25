@@ -143,10 +143,11 @@ export function copiasEn(texto) {
  * @param {string} texto
  * @param {import('./imports.mjs').Analizador} [analizador] el `typescript` con el que se lee. Por
  *   omision, el de junto a esta libreria; `barrer` pasa el que encontro tambien en el arbol
+ * @param {string} [nombre] el nombre del archivo, que decide si se lee con JSX (ver `imports.mjs`)
  * @returns {boolean}
  */
-export function enchufaElArnes(texto, analizador = elAnalizador()) {
-  return importsDe(texto, analizador).some(({ especificador }) => ES_EL_ARNES.test(especificador));
+export function enchufaElArnes(texto, analizador = elAnalizador(), nombre = 'texto.ts') {
+  return importsDe(texto, analizador, nombre).some(({ especificador }) => ES_EL_ARNES.test(especificador));
 }
 
 /**
@@ -195,7 +196,7 @@ export function barrer(raiz) {
   for (const archivo of archivos) {
     const texto = readFileSync(archivo, 'utf8');
     const como = rutaDesde(raiz, archivo);
-    if (enchufaElArnes(texto, analizador)) enchufan.push(como);
+    if (enchufaElArnes(texto, analizador, archivo)) enchufan.push(como);
     if (archivo.endsWith(`${sep}${EL_SITIO_LEGITIMO}`)) continue;
     for (const hallazgo of copiasEn(texto)) {
       copias.push({ archivo: como, linea: hallazgo.linea, texto: hallazgo.texto });

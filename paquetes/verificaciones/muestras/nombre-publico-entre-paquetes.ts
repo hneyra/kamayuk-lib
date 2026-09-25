@@ -10,12 +10,18 @@
  * regular de antes —el import de efecto, con subcamino y sin el, y el subcamino detras de un
  * `from`—, y `ui` publica de verdad `./estilos.css`, asi que la segunda es la que un paquete
  * escribiria. La ultima linea es un comentario y NO cuenta.
+ *
+ * Las dos `export * as` las anadio la segunda verificacion independiente de #112: la expresion
+ * regular de antes SI las veia —llevan `from '…'`— y `ts.preProcessFile`, el primer analizador que
+ * se uso aqui, no; asi que la guarda nueva era, para esa forma, peor que la vieja.
  */
 import { ErrorDeLaApi } from '@kamayuk/api';
 import '@kamayuk/ui';
 import '@kamayuk/ui/estilos.css';
 import { PROHIBICIONES } from '@kamayuk/verificaciones/prohibiciones';
 export { crearCliente } from '@kamayuk/api';
+export * as api from '@kamayuk/api';
+export type * as ui from '@kamayuk/ui';
 
 export function esDeLaApi(x: unknown): boolean {
   return x instanceof ErrorDeLaApi && PROHIBICIONES.length > 0;

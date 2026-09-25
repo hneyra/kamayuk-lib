@@ -8,13 +8,16 @@
  *
  * La primera linea es la unica forma que la expresion regular de antes veia. Las cuatro
  * siguientes se le escapaban: el import de directorio —que con `moduleResolution: bundler`
- * resuelve—, el de efecto, el dinamico y el `export … from`. La ultima es un comentario y NO
- * cuenta. Si alguien "arregla" este archivo, la guarda se queda sin demostracion y sale roja sola.
+ * resuelve—, el de efecto, el dinamico y el `export … from`. Las dos `export * as` las anadio
+ * la segunda verificacion independiente de #112: la expresion de antes las veia y
+ * `ts.preProcessFile` no. La ultima es un comentario y NO cuenta. Si alguien "arregla" este archivo, la guarda se queda sin demostracion y sale roja sola.
  */
 import { peldanoDe } from '../sesion/escalera.ts';
 import { crearIdentidad } from '../sesion';
 import '../sesion/identidad.ts';
 export { crearCliente } from '../api';
+export * as sesion from '../sesion';
+export type * as cliente from '../api/cliente.ts';
 
 export const identidad = () => import('../sesion/identidad.ts');
 

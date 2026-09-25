@@ -97,6 +97,8 @@ describe('EL AC-4 de #67: el marco no decide permisos', () => {
         "importa @kamayuk/sesion  «import { crearIdentidad } from '../sesion';»",
         "importa @kamayuk/sesion  «import '../sesion/identidad.ts';»",
         "importa @kamayuk/api  «export { crearCliente } from '../api';»",
+        "importa @kamayuk/sesion  «export * as sesion from '../sesion';»",
+        "importa @kamayuk/api  «export type * as cliente from '../api/cliente.ts';»",
         "importa @kamayuk/sesion  «export const identidad = () => import('../sesion/identidad.ts');»",
       ].sort(),
     );

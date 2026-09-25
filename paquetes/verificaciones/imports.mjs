@@ -21,19 +21,28 @@
  * nombre publico la lista de lineas que esperaba de su muestra, la guarda salio roja contra su
  * propia prueba, nombrando tres de esas cadenas.
  *
- * <h2>Lo que se usa, y por que esta funcion</h2>
+ * <h2>Lo que se usa, y por que el arbol sintactico entero</h2>
  *
- * `ts.preProcessFile(texto, true, true).importedFiles` es el recolector de dependencias del propio
- * compilador: el que usa para saber que archivos cargar antes de comprobar tipos. Ve los imports
- * estaticos, los de efecto, los dinamicos, los `export … from`, los `import x = require(…)` y los
- * `require(…)` —este ultimo por el tercer argumento, `detectJavaScriptImports`—, y **descarta los
- * comentarios y las cadenas por construccion**, porque tokeniza en vez de buscar texto. No
- * construye el arbol sintactico entero, que es lo que lo hace barato para barrer un arbol.
+ * `ts.createSourceFile` y un recorrido de sus nodos: la declaracion `import` —de efecto, `type`,
+ * `with {…}`—, la `export … from` —con `*`, `* as x`, `type` y llaves—, `import x = require(…)`,
+ * las llamadas `import(…)` y `require(…)` con un literal, y el tipo `import('x')`. **Los
+ * comentarios, las cadenas y el texto JSX quedan fuera por construccion**, porque se mira el nodo y
+ * no el texto: una cadena con la forma de un import es un `StringLiteral` dentro de otra cosa, y
+ * `<p>import 'x'</p>` es un `JsxText`.
  *
- * Lo que **no** ve, dicho: un import cuyo especificador no es un literal (`import(variable)`), que
- * ninguna guarda estatica puede resolver; y el texto JSX, que el recolector no distingue del
- * codigo, de modo que `<p>import 'x'</p>` contaria como import. Lo segundo daria un rojo de mas, no
- * uno de menos, y no hay ni un caso en el arbol.
+ * **Por que no `ts.preProcessFile`, que fue lo primero**: es el recolector de dependencias del
+ * compilador y es mas barato, pero no es exhaustivo. Medido por la segunda verificacion
+ * independiente de #112, con TypeScript 5.9.3: `export * as api from '@kamayuk/api';` y
+ * `export type * as s from '../sesion';` dan `[]`, y la expresion regular de antes SI los veia
+ * —llevan `from '…'`—, asi que en esa forma la guarda nueva era peor que la vieja. Tampoco
+ * distinguia el texto JSX del codigo. La lista entera de formas esta en
+ * `sin-nombre-publico-entre-paquetes.test.ts`, una por linea, y la prueba exige cada una.
+ *
+ * El nombre del archivo decide como se lee (`.tsx` y `.js*` admiten JSX, `.ts` no), igual que en
+ * el compilador: leido como `.tsx`, un `.ts` con `<T>valor` se descompone.
+ *
+ * Lo que **no** ve, dicho: un import cuyo especificador no es un literal (`import(variable)`,
+ * ``require(`${x}`)``), que ninguna guarda estatica puede resolver.
  *
  * <h2>Por que es JavaScript y no TypeScript</h2>
  *
@@ -59,9 +68,9 @@ import { sinComentarios } from './comentarios.mjs';
 import { rutaDesde } from './archivos.mjs';
 
 /**
- * El modulo `typescript`, con lo unico que de el se usa aqui.
+ * El modulo `typescript`.
  *
- * @typedef {{ preProcessFile: typeof import('typescript').preProcessFile }} Analizador
+ * @typedef {typeof import('typescript')} Analizador
  */
 
 /**
@@ -126,18 +135,47 @@ const IMPORT_DE_CSS =
 
 /**
  * **Lo que importa un texto de codigo** (`.ts`, `.tsx`, `.js`, `.mjs`…), en el orden en que
- * aparece. Los comentarios y las cadenas no cuentan.
+ * aparece. Los comentarios, las cadenas y el texto JSX no cuentan.
  *
  * @param {string} texto el contenido, con sus comentarios
  * @param {Analizador} [analizador]
+ * @param {string} [nombre] el nombre del archivo: su extension decide si se lee con JSX. Por
+ *   omision, `.ts`
  * @returns {Import[]}
  */
-export function importsDe(texto, analizador = elAnalizador()) {
+export function importsDe(texto, analizador = elAnalizador(), nombre = 'texto.ts') {
+  const ts = analizador;
   const lineas = texto.split('\n');
-  return analizador.preProcessFile(texto, true, true).importedFiles.map(({ fileName, pos }) => {
-    const linea = texto.slice(0, pos).split('\n').length;
-    return { especificador: fileName, linea, texto: (lineas[linea - 1] ?? '').trim() };
-  });
+  const fuente = ts.createSourceFile(nombre, texto, ts.ScriptTarget.Latest, false);
+  /** @type {Import[]} */
+  const hallados = [];
+
+  /** @param {import('typescript').Node | undefined} nodo */
+  function anotar(nodo) {
+    if (nodo === undefined || !ts.isStringLiteralLike(nodo)) return;
+    const linea = fuente.getLineAndCharacterOfPosition(nodo.getStart(fuente)).line + 1;
+    hallados.push({ especificador: nodo.text, linea, texto: (lineas[linea - 1] ?? '').trim() });
+  }
+
+  /** @param {import('typescript').Node} nodo */
+  function mirar(nodo) {
+    if (ts.isImportDeclaration(nodo) || ts.isExportDeclaration(nodo)) {
+      anotar(nodo.moduleSpecifier);
+    } else if (ts.isImportEqualsDeclaration(nodo)) {
+      if (ts.isExternalModuleReference(nodo.moduleReference)) anotar(nodo.moduleReference.expression);
+    } else if (ts.isCallExpression(nodo)) {
+      const quien = nodo.expression;
+      const esImport = quien.kind === ts.SyntaxKind.ImportKeyword;
+      const esRequire = ts.isIdentifier(quien) && quien.text === 'require';
+      if ((esImport || esRequire) && nodo.arguments.length >= 1) anotar(nodo.arguments[0]);
+    } else if (ts.isImportTypeNode(nodo)) {
+      if (ts.isLiteralTypeNode(nodo.argument)) anotar(nodo.argument.literal);
+    }
+    ts.forEachChild(nodo, mirar);
+  }
+
+  mirar(fuente);
+  return hallados;
 }
 
 /**
@@ -165,7 +203,7 @@ export function importsDelCss(texto) {
  */
 export function importsDelArchivo(archivo, analizador = elAnalizador()) {
   const texto = readFileSync(archivo, 'utf8');
-  return extname(archivo) === '.css' ? importsDelCss(texto) : importsDe(texto, analizador);
+  return extname(archivo) === '.css' ? importsDelCss(texto) : importsDe(texto, analizador, archivo);
 }
 
 /**
