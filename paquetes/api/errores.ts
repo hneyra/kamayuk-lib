@@ -80,6 +80,53 @@ export interface CuerpoDeProblema {
 }
 
 /**
+ * **La unica lectura del `problem+json`** de este paquete, sin dejar que leerlo tape el fallo.
+ *
+ * Un `JSON.parse` sobre un cuerpo vacio —o sobre el HTML de un proxy mal configurado— lanza, y esa
+ * excepcion sustituiria al `ErrorDeLaApi` que se estaba construyendo: la pantalla acabaria
+ * ensenando «Unexpected token < in JSON» en lugar de «no tienes permiso». Lo que no es un objeto
+ * —un `null`, un numero, una lista— cuenta como un cuerpo que no dijo nada.
+ *
+ * Recibe **texto** y no un `Response` porque las dos puertas del paquete lo tienen de formas
+ * distintas: `cliente.ts` lo saca con `respuesta.text()` y `subir.ts` lo lee de
+ * `XMLHttpRequest.response`. Hasta #121 cada una tenia su copia —`problemaDe` y
+ * `problemaDelTexto`, con el mismo cuerpo—, y una correccion en una no llegaba a la otra: medido,
+ * romper la de `subir.ts` dejaba `cliente.test.ts` en verde.
+ */
+export function cuerpoDeProblema(texto: string): CuerpoDeProblema {
+  try {
+    const cuerpo: unknown = JSON.parse(texto);
+    return typeof cuerpo === 'object' && cuerpo !== null ? (cuerpo as CuerpoDeProblema) : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * `VERBO /ruta`: lo que se pidio, tal como lo guarda `ErrorDeLaApi.operacion`.
+ *
+ * Las cuatro operaciones la escriben por aqui —`solicitar` y `solicitarRespuesta` desde `pedir()`,
+ * `descargar` al lanzar `NoEsUnDocumento` y `subir` en `subir.ts`—, porque la pantalla y
+ * `peldanoDe()` la comparan: si una puerta la escribiera distinto, el mismo fallo diria dos cosas.
+ */
+export function operacionDe(metodo: string, ruta: string): string {
+  return `${metodo} ${ruta}`;
+}
+
+/**
+ * Lo que el backend dijo que paso, en el orden en que se prefiere: `mensaje`, `detail`, `title`;
+ * o `null` si no dijo nada.
+ *
+ * Un miembro que llega como `null` cuenta como no dicho, igual que uno ausente. Hasta #121 el orden
+ * se escribia dos veces en este archivo y las dos no coincidian en eso: medido, un 413 con
+ * `{"mensaje": null}` daba `ErrorDeLaApi` «no dijo nada» y a `ArchivoRechazado` «dijo algo», con lo
+ * que su `message` se quedaba en `VERBO /ruta` sin el motivo.
+ */
+function loQueDijo(cuerpo: CuerpoDeProblema): string | null {
+  return cuerpo.mensaje ?? cuerpo.detail ?? cuerpo.title ?? null;
+}
+
+/**
  * Lo que el backend contesta cuando algo va mal, en `problem+json` (RFC 9457).
  *
  * <h2>Por que el `codigo` es un campo y no una linea de texto</h2>
@@ -155,7 +202,7 @@ export class ErrorDeLaApi extends Error {
   constructor(estado: number, operacion: string, cuerpo: CuerpoDeProblema = {}) {
     // El `message` de `Error` es lo que acaba en pantalla por el camino corto, asi que lleva lo
     // mas util que haya llegado: lo que el backend dijo, y si no dijo nada, que se pidio.
-    super(cuerpo.mensaje ?? cuerpo.detail ?? cuerpo.title ?? operacion);
+    super(loQueDijo(cuerpo) ?? operacion);
     this.name = 'ErrorDeLaApi';
     this.estado = estado;
     this.codigo = cuerpo.codigo ?? null;
@@ -173,8 +220,8 @@ export class ErrorDeLaApi extends Error {
  * Un 200 que no trae un documento, sino datos.
  *
  * **Es un `ErrorDeLaApi`**, y a proposito: la pantalla que baja un documento atrapa UNA clase de
- * error, la misma que atrapa en una lectura, y `peldanoDe()` lo sigue clasificando sin saber que
- * existe. Va en su propia subclase —y no con un `codigo` inventado aqui— porque `codigo` es la
+ * error, la misma que atrapa en una lectura. `peldanoDe()` lo reconoce por su clase —desde #109;
+ * antes lo clasificaba por su estado 200 y lo mandaba a soporte—. Va en su propia subclase —y no con un `codigo` inventado aqui— porque `codigo` es la
  * extension del contrato que escribe el backend: meter ahi una cadena del cliente mezclaria lo que
  * el servidor dijo con lo que el cliente dedujo.
  *
@@ -200,7 +247,8 @@ export type MotivoDelRechazo = 'demasiado-grande' | 'tipo-no-admitido';
  * El archivo no se admitio: pesa mas de lo permitido, o no es de un tipo que se acepte.
  *
  * **Es un `ErrorDeLaApi`**, por lo mismo que `NoEsUnDocumento`: la pantalla atrapa UNA clase, y
- * `peldanoDe()` sigue clasificando lo que no reconozca. Lo que esta subclase anade es **poder
+ * `peldanoDe()` la reconoce por su clase y no por su estado —desde #109: antes caia en «averia ·
+ * avise a soporte», con 0, 413 o 415—. Lo que esta subclase anade es **poder
  * distinguirlo sin leer una frase**: `motivo` dice cual de las dos cosas paso, y `bytes`,
  * `limiteDeBytes` y `tipo` traen las cifras con las que se escribe el aviso.
  *
@@ -255,7 +303,7 @@ export class ArchivoRechazado extends ErrorDeLaApi {
     // limite. Si no dijo nada —o si el rechazo es local, que es el caso normal— el `message`
     // queda tecnico a proposito, como el de `NoEsUnDocumento`: la frase para quien mira la
     // pantalla se escribe alli, desde `motivo` y las cifras, y no aqui (regla del texto visible).
-    if (cuerpo.mensaje === undefined && cuerpo.detail === undefined && cuerpo.title === undefined) {
+    if (loQueDijo(cuerpo) === null) {
       this.message = `${operacion} -> ${rechazo.motivo}`;
     }
   }

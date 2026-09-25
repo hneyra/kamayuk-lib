@@ -7,7 +7,7 @@ import { join, sep } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { PAQUETES, archivosDeLosPaquetes, leer, sinComentarios } from './texto.ts';
+import { PAQUETES, RAIZ, archivosDeLosPaquetes, leer, lineasQueCasan, type Hallazgo } from './texto.ts';
 
 /**
  * **Ningun paquete importa a otro por su nombre publico.**
@@ -35,28 +35,8 @@ import { PAQUETES, archivosDeLosPaquetes, leer, sinComentarios } from './texto.t
 
 const ALCANCE = /from\s+['"]@kamayuk\/[a-z-]+['"]|require\(\s*['"]@kamayuk\/[a-z-]+['"]\s*\)|import\(\s*['"]@kamayuk\/[a-z-]+['"]\s*\)/;
 
-interface Hallazgo {
-  readonly archivo: string;
-  readonly linea: number;
-  readonly texto: string;
-}
-
 function hallazgosDe(archivos: readonly string[]): Hallazgo[] {
-  const salida: Hallazgo[] = [];
-  for (const archivo of archivos) {
-    sinComentarios(leer(archivo))
-      .split('\n')
-      .forEach((linea, indice) => {
-        if (ALCANCE.test(linea)) {
-          salida.push({
-            archivo: archivo.replace(PAQUETES, 'paquetes'),
-            linea: indice + 1,
-            texto: linea.trim(),
-          });
-        }
-      });
-  }
-  return salida;
+  return lineasQueCasan(archivos, ALCANCE, RAIZ);
 }
 
 const TODOS = archivosDeLosPaquetes();

@@ -2,14 +2,14 @@
 //
 // Lee `CLAUDE.md` y mira que existan los `README.md` que enlaza. No es un DOM lo que necesita.
 
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import { basename, join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
 import { paquetesDe } from './cifras.mjs';
 import { CABECERA, faltasDeLaTabla } from './tabla-de-estado.ts';
-import { RAIZ } from './texto.ts';
+import { PAQUETES, RAIZ, archivosDe, rutaDesde } from './texto.ts';
 
 /**
  * **La tabla de estado de `CLAUDE.md` cabe en una línea por pieza** (#128).
@@ -42,20 +42,10 @@ import { RAIZ } from './texto.ts';
 
 /** Cada `README.md` de `paquetes/**`, como ruta desde la raíz, sin `node_modules` ni muestras. */
 function readmesDeLosPaquetes(): string[] {
-  const salida: string[] = [];
-  const recorrer = (directorio: string): void => {
-    for (const entrada of readdirSync(directorio)) {
-      if (entrada === 'node_modules' || entrada === 'dist' || entrada === 'muestras') continue;
-      const completa = join(directorio, entrada);
-      if (statSync(completa).isDirectory()) {
-        recorrer(completa);
-      } else if (entrada === 'README.md') {
-        salida.push(relative(RAIZ, completa).split(sep).join('/'));
-      }
-    }
-  };
-  recorrer(join(RAIZ, 'paquetes'));
-  return salida.sort();
+  return archivosDe(PAQUETES, { extensiones: ['.md'] })
+    .filter((archivo) => basename(archivo) === 'README.md')
+    .map((archivo) => rutaDesde(RAIZ, archivo))
+    .sort();
 }
 
 /** Lo movido: el README de cada paquete —esté o no— y cualquier otro README de `paquetes/**`. */

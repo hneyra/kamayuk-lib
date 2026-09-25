@@ -19,15 +19,42 @@ navegador, y por eso `sin-suponer-un-sistema` no lo barre.
 
 ## Las guardas
 
+- **Sus herramientas son unas** (#126): `archivos.mjs` —en JavaScript, porque el guion del arnés lo
+  corre un consumidor con `node`— tiene el único recorredor (`archivosDe`), la única `APARTADAS`
+  (`node_modules`, `dist`, `muestras`), la única normalización de rutas (`rutaDesde`, con `/`), el
+  escáner de líneas sin comentarios (`lineasQueCasan`) y el único `Hallazgo`; `texto.ts` los
+  reexporta. Lo mide `el-recorrido-es-uno` sobre un árbol fabricado de cuatro niveles, con una
+  carpeta apartada en cada uno, y fija también las **cinco extensiones** que leen las guardas del
+  árbol (`.ts`, `.tsx`, `.mjs`, `.js`, `.css`): quitar una no pone roja ninguna guarda, las deja
+  mirando menos. El guion del arnés extiende `APARTADAS` con `build` y `coverage` y
+  salta los directorios ocultos, y lo mide un árbol de consumidor fabricado en
+  `el-arnes-del-request-se-publica`. El quitador de comentarios de CSS es `sinComentariosCss`, en
+  `ui/temas/base.ts`.
 - `sin-suponer-un-sistema`, `sin-nombre-publico-entre-paquetes`, `las-capas-corren` y
   `los-consumidores-se-miran`.
 - `el-texto-visible-es-dato`: el barrido con el analizador de TypeScript, que desde #52 tiene una
   **cuarta forma**: **la frase** —dos rachas de letras separadas por un espacio— sobre los paquetes
-  que escriben palabras **sin dibujar nada**, hoy `sesion`, con su saco y con `identidad.ts` como
-  **única excepción declarada**, comprobada entera para que no sobreviva a su motivo. La cuarta
-  forma **no se aplica a `ui` ni a `shell`** y está medido por qué: una lista de clases de Tailwind
+  que escriben palabras **sin dibujar nada**, hoy `sesion`, cuyo `textos.ts` guarda **dos sacos**
+  —`TEXTOS_DE_LA_ESCALERA` y `TEXTOS_DE_LA_PUERTA`— y es lo único que no se barre. **Sin
+  excepciones desde #118**: la que hubo, `identidad.ts`, declarada en #52, sobrevivió a su motivo y
+  se borró, y una prueba nombra `escalera.ts` e `identidad.ts` para que no vuelva sin leerse.
+  La cuarta forma **no se aplica a `ui` ni a `shell`** y está medido por qué: una lista de clases de Tailwind
   es dos rachas de letras separadas por un espacio, y daría **393 hallazgos en `ui` y 86 en
   `shell`**. Más el arnés de marcas que usan las guardas montadas.
+- `formato-sin-number-ni-date` (#108): pasa el código de producción de `paquetes/formato/` por el
+  **comprobador de TypeScript**, no por texto, y denuncia `Number`, `Date`, `Intl`, `parseInt` y
+  `parseFloat` como identificador o como cadena exacta, **y la conversión sin la palabra**: un
+  `+`, `-` o `~` unario, o un operador aritmético, sobre lo que no es `number` ni `bigint`, y una
+  llamada que da `any`. Por texto dejaba pasar `String(+dia)` y un `Number` escondido detrás de un
+  `'//'` dentro de una cadena. **Y no se fía del comprobador**: vigila también por dónde se le
+  miente —un `as` que estrecha (`unknown as T`), un predicado `valor is number`, una sobrecarga, un
+  `declare`, un `@ts-expect-error`, un `any` escrito— y dónde se convierte lo mentido —`Math` y la
+  aritmética sobre `number`, que en `formato` es de `bigint`—. Lo que no ve, y lo dice: un
+  `number` que da la covarianza de los arreglos y acaba en un método de texto
+  (`'x'.repeat(cifras[0] ?? 0).length`). Con su centinela archivo por archivo y su muestra, de la
+  que exige archivo, línea y qué de las veintiséis. Sólo
+  `formato`: `api` y `ui` usan `Date` y `Number` con todo derecho, y la promesa de «ni uno» es de
+  ese paquete.
 - `lo-que-exports-promete-existe`: lee los seis `package.json` **tal cual**, no una lista escrita a
   mano, comprueba que cada promesa apunta a un archivo que existe y que es un archivo, y ante una
   forma de `exports` que no sepa leer sale **en rojo diciéndolo** en vez de pasar en verde.
