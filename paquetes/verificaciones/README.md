@@ -99,7 +99,8 @@ navegador, y por eso `sin-suponer-un-sistema` no lo barre.
   (#112): `imports.mjs` —en JavaScript, porque lo carga el guion del arnés— saca el especificador
   de cada import con `ts.preProcessFile`, y así ven el import de efecto, el dinámico, el
   `export … from`, el `require` y el subcamino (`@kamayuk/ui/estilos.css`), sin contar los
-  comentarios ni las cadenas; el `@import` de los `.css` va aparte. Lo usan
+  comentarios ni las cadenas; el `@import` de los `.css` va aparte, en todas sus formas —también
+  `url(x)` sin comillas, que se escapaba—. Lo usan
   `sin-nombre-publico-entre-paquetes`, `el-marco-no-decide-permisos` —con su muestra,
   `marco-que-decide-permisos.ts`— y el guion del arnés. Lo que no ve, y lo dice: un
   `import(variable)`, y el texto JSX, que contaría de más.

@@ -140,6 +140,31 @@ describe('ningun paquete importa a otro por su nombre publico', () => {
     expect(importsDelCss(hoja).filter((i) => esNombrePublico(i.especificador)).length).toBe(1);
   });
 
+  it('y en una hoja de estilos, CADA forma del `@import`, con `url()` sin comillas tambien (#112)', () => {
+    // La verificacion independiente de #112 midio el hueco: `@import url(@kamayuk/ui/estilos.css);`
+    // —CSS valido— como primera linea de `clasico.css` dejaba esta guarda en verde, porque la
+    // expresion exigia comillas. Una linea por forma, y la ultima NO es un import: `@importurl`
+    // es otra palabra para el tokenizador de CSS.
+    const hoja = [
+      '@import url(@kamayuk/ui/estilos.css);',
+      '@import url(  @kamayuk/ui/temas.css  ) layer(base);',
+      "@import url( '@kamayuk/ui' );",
+      '@IMPORT URL(@kamayuk/shell/estilos.css);',
+      '@import"@kamayuk/ui/estilos.css";',
+      "@import '@kamayuk/ui/estilos.css' supports(display: grid);",
+      '@importurl(@kamayuk/ui/estilos.css);',
+    ].join('\n');
+    expect(importsDelCss(hoja).map((i) => [i.linea, i.especificador])).toEqual([
+      [1, '@kamayuk/ui/estilos.css'],
+      [2, '@kamayuk/ui/temas.css'],
+      [3, '@kamayuk/ui'],
+      [4, '@kamayuk/shell/estilos.css'],
+      [5, '@kamayuk/ui/estilos.css'],
+      [6, '@kamayuk/ui/estilos.css'],
+    ]);
+    expect(importsDelCss(hoja).every((i) => esNombrePublico(i.especificador))).toBe(true);
+  });
+
   it('y no confunde el nombre publico con una mencion en prosa', () => {
     // `@kamayuk/api` aparece en docblocks por todas partes explicando de donde viene cada pieza.
     // Eso no es un import y no puede ponerse rojo.

@@ -107,10 +107,22 @@ export function elAnalizador(raices = []) {
 }
 
 /**
- * El `@import` de una hoja de estilos: `@import 'x';`, `@import "x" layer(…);` o
- * `@import url('x');`. El analizador de TypeScript no lee CSS, y el recorrido de las guardas si.
+ * El `@import` de una hoja de estilos, en las formas que el CSS admite: `@import 'x';`,
+ * `@import"x";` —sin espacio, que el tokenizador de CSS acepta porque la cadena corta la palabra—,
+ * `@import "x" layer(…);`, `@import url('x');` y **`@import url(x);`, sin comillas**, que es CSS
+ * valido y la forma que se le escapaba a la primera version de esta expresion: exigia comillas, y
+ * `@import url(@kamayuk/ui/estilos.css);` en `clasico.css` dejaba la guarda en verde (#112, medido
+ * por la verificacion independiente). La palabra `@import` y `url(` no distinguen mayusculas en
+ * CSS, y por eso la bandera `i`. `@importurl(x)` NO es un import —es otra palabra— y no casa: tras
+ * `@import` el `url(` exige espacio.
+ *
+ * El analizador de TypeScript no lee CSS, y el recorrido de las guardas si.
+ *
+ * Grupos: 2, la cadena de la forma sin `url(`; 4, la cadena dentro de `url('…')`; 5, lo de dentro
+ * de `url(…)` sin comillas.
  */
-const IMPORT_DE_CSS = /@import\s+(?:url\(\s*)?(['"])([^'"]+)\1/g;
+const IMPORT_DE_CSS =
+  /@import(?:\s*(['"])(.*?)\1|\s+url\(\s*(?:(['"])(.*?)\3|([^\s'"()]+))\s*\))/giu;
 
 /**
  * **Lo que importa un texto de codigo** (`.ts`, `.tsx`, `.js`, `.mjs`…), en el orden en que
@@ -139,7 +151,7 @@ export function importsDelCss(texto) {
   const lineas = texto.split('\n');
   return [...limpio.matchAll(IMPORT_DE_CSS)].map((casa) => {
     const linea = limpio.slice(0, casa.index).split('\n').length;
-    return { especificador: casa[2] ?? '', linea, texto: (lineas[linea - 1] ?? '').trim() };
+    return { especificador: casa[2] ?? casa[4] ?? casa[5] ?? '', linea, texto: (lineas[linea - 1] ?? '').trim() };
   });
 }
 
