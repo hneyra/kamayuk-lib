@@ -56,7 +56,7 @@ en `pkce.ts`; las cinco claves del rebote, en `rebote.ts`, un almacén con nombr
 `tomarIda` —que **lee y borra**—, `contarIda`, `marcarSalida`…) en vez de dieciocho llamadas
 sueltas a `sessionStorage`. **Los dos `fetch` —la sonda y el canje— se quedan en `identidad.ts`**,
 que es el sitio declarado, y no se inyecta `fetch` como parámetro: uno con su forma y otro nombre se
-saltaría `fetch-fuera-del-cliente`. Un `fetch` en una pieza sale rojo del lint. Los números tienen
+saltaría `fetch-fuera-del-cliente`. Un `fetch` en una pieza sale rojo del lint, también como `globalThis.fetch`, `window.fetch`, `fetch.call`, un alias o un `typeof fetch`. Los números tienen
 nombre —`ESPERA_DE_LA_SONDA`, `ESPERA_DEL_CANJE`, `LARGO_DEL_VERIFICADOR`, `LARGO_DEL_ESTADO`,
 `TOPE_DE_IDAS_POR_OMISION`— y `la-puerta-en-piezas.test.ts` mide los topes: 180 líneas la fábrica
 y 60 el canje. Nada de esto se exporta: la API de `crearIdentidad` no cambia.

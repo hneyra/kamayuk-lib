@@ -38,6 +38,13 @@ const EN_TODAS_PARTES = PROHIBICIONES.map(({ selector, message }) => ({ selector
  */
 const EXCEPCIONES = [...new Set(PROHIBICIONES.flatMap((p) => p.salvo ?? []))];
 
+/**
+ * `fetch` nombrado de cualquier forma: llamado, leido de un objeto (`globalThis.fetch`,
+ * `window['fetch']`), prestado (`fetch.call`), con alias o como tipo (`typeof fetch`). Solo se usa
+ * dentro de la puerta de identidad, fuera de `identidad.ts` (#122).
+ */
+const FETCH_NOMBRADO_DE_CUALQUIER_FORMA = "Identifier[name='fetch'], Literal[value='fetch']";
+
 /** @type {import('eslint').Linter.Config[]} */
 const bloquesDeExcepcion = EXCEPCIONES.map((directorio) => ({
   files: [`${directorio}**/*.{ts,tsx}`],
@@ -92,9 +99,25 @@ export default tseslint.config(
     // la lista de excepciones de `PROHIBICIONES` es la misma, y ningun consumidor ve este config.
     // Va DESPUES de las excepciones —en el config plano, el ultimo `no-restricted-syntax` gana— y
     // ANTES del bloque de las pruebas, que la apaga.
+    //
+    // **Y aqui la prohibicion mira MAS que el nombre desnudo.** Su selector,
+    // `CallExpression[callee.name='fetch']`, solo ve `fetch(...)`: medido, un
+    // `globalThis.fetch('/x')` al final de `rebote.ts` daba `eslint` sin salida y RC=0, y lo mismo
+    // `window.fetch`, `fetch.call` o un alias. Dentro de la puerta ninguna pieza tiene por que NOMBRAR
+    // `fetch` —ni para llamarlo ni para recibirlo como parametro con `typeof fetch`, que es el
+    // puerto que el issue descarta—, asi que aqui se prohibe el nombre entero. Fuera de la puerta
+    // el selector es el de `PROHIBICIONES`, que es el que derivan los consumidores y no se toca aqui.
     files: [`${PUERTA_DE_IDENTIDAD}**/*.{ts,tsx}`],
     ignores: [`${PUERTA_DE_IDENTIDAD}identidad.ts`],
-    rules: { 'no-restricted-syntax': ['error', ...EN_TODAS_PARTES] },
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...PROHIBICIONES.map(({ clave, selector, message }) => ({
+          selector: clave === 'fetch-fuera-del-cliente' ? FETCH_NOMBRADO_DE_CUALQUIER_FORMA : selector,
+          message,
+        })),
+      ],
+    },
   },
   {
     // **LA EXHAUSTIVIDAD, TAMBIEN EN EL LINT** (#111).

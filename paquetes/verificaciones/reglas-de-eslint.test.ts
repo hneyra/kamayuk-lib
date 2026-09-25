@@ -576,6 +576,23 @@ describe('las excepciones son exactamente las declaradas, y son dos', () => {
     }
   });
 
+  it.each([
+    "export const sondear = (): Promise<Response> => globalThis.fetch('/x');",
+    "export const sondear = (): Promise<Response> => window.fetch('/x');",
+    "export const sondear = (): Promise<Response> => globalThis['fetch']('/x');",
+    "export const sondear = (): Promise<Response> => fetch.call(globalThis, '/x');",
+    "const pedir = fetch;\nexport const sondear = (): Promise<Response> => pedir('/x');",
+    'export const crear = (pedir: typeof fetch) => pedir;',
+  ])('y tampoco escrito de otra forma: %s (#122)', async (codigo) => {
+    // El selector de `PROHIBICIONES` solo ve la llamada desnuda. Medido: `globalThis.fetch('/x')`
+    // al final de `rebote.ts` daba `eslint` sin salida y RC=0. Dentro de la puerta se prohibe el
+    // NOMBRE, que es lo que tienen en comun las seis formas; la ultima es el puerto con forma de
+    // `fetch` que el issue descarta.
+    const mensajes = await mensajesDelTexto(codigo, join(RAIZ, PUERTA_DE_IDENTIDAD, 'rebote.ts'));
+
+    expect(mensajes.join('\n')).toMatch(/Las peticiones pasan por «solicitar»/);
+  });
+
   it('pero fuera de ellos, si', async () => {
     const mensajes = await mensajesDe(
       archivoDeLaMuestra('fetch-fuera-del-cliente') as string,
