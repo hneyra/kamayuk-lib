@@ -4,8 +4,8 @@
 // NO corre `vitest list`: eso es lo que hace el guion, y un vitest dentro de vitest no mide nada
 // que el guion no mida ya en `yarn verificar`.
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
@@ -25,7 +25,7 @@ import {
   textoDe,
 } from './cifras.mjs';
 import { leerElWorkflow, listasDeRutas } from './rutas-de-la-ci.ts';
-import { RAIZ } from './texto.ts';
+import { RAIZ, archivosDe, rutaDesde } from './texto.ts';
 
 /**
  * **Las cifras de pruebas las escribe un guion** (#128).
@@ -339,23 +339,13 @@ describe('el arbol de verdad', () => {
 });
 
 /**
- * Cada `.md` del arbol, como ruta desde la raiz, con su texto. Sin `node_modules`, `dist` ni los
- * directorios que empiezan por punto —`.git`, y `.claude`, donde viven los worktrees, que son
- * copias del arbol entero—.
+ * Cada `.md` del arbol, como ruta desde la raiz, con su texto. Sin `node_modules`, `dist`,
+ * `muestras/` ni los directorios que empiezan por punto —`.git`, y `.claude`, donde viven los
+ * worktrees, que son copias del arbol entero—. El recorrido es el comun (#126).
  */
 function markdownsDelArbol(): { archivo: string; texto: string }[] {
-  const salida: { archivo: string; texto: string }[] = [];
-  const recorrer = (directorio: string): void => {
-    for (const entrada of readdirSync(directorio)) {
-      if (entrada.startsWith('.') || entrada === 'node_modules' || entrada === 'dist') continue;
-      const completa = join(directorio, entrada);
-      if (statSync(completa).isDirectory()) {
-        recorrer(completa);
-      } else if (entrada.endsWith('.md')) {
-        salida.push({ archivo: relative(RAIZ, completa).split(sep).join('/'), texto: readFileSync(completa, 'utf8') });
-      }
-    }
-  };
-  recorrer(RAIZ);
-  return salida;
+  return archivosDe(RAIZ, { extensiones: ['.md'], ocultas: false }).map((completa) => ({
+    archivo: rutaDesde(RAIZ, completa),
+    texto: readFileSync(completa, 'utf8'),
+  }));
 }

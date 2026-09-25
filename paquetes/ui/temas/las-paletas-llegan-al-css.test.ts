@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { compile } from 'tailwindcss';
 import { describe, expect, it } from 'vitest';
 
-import { leerLosOrigenes } from './base.ts';
+import { leerLosOrigenes, sinComentariosCss } from './base.ts';
 import { COMBINACIONES, derivar } from './derivar.ts';
 
 /**
@@ -134,7 +134,7 @@ function sinLlave(selector: string): string {
 
 /** El CSS con los espacios colapsados: lo emitido se compara por texto, no por formato. */
 function aplanar(css: string): string {
-  return css.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\s+/g, ' ');
+  return sinComentariosCss(css).replace(/\s+/g, ' ');
 }
 
 /** Las declaraciones del bloque que abre en `selector`, hasta su `}`. */
@@ -444,5 +444,24 @@ describe('las ocho paletas llegan al CSS emitido', () => {
     expect(sinClases, 'las paletas se podaron: ya no son CSS corriente').toContain(
       "[data-tema='sepia']",
     );
+  });
+});
+
+describe('el CSS se lee sin sus comentarios, con un solo quitador (#126)', () => {
+  it('un token citado en un comentario no es un token, y lo que no es comentario se queda', () => {
+    // `base.ts` lee los colores de los origenes con esto, y esta prueba aplana lo emitido con esto.
+    // Si dejara de quitar, un `--color-*` citado en un comentario entraria como token de verdad.
+    const css = [
+      '/* --color-fantasma: red; */',
+      ':root { --color-papel: #fff; background: url(https://x.test/a.png); }',
+      '/* dos',
+      '   lineas */ a { color: var(--color-papel); }',
+    ].join('\n');
+    const limpio = sinComentariosCss(css);
+    expect(limpio).not.toContain('--color-fantasma');
+    expect(limpio).not.toContain('lineas');
+    expect(limpio).toContain('--color-papel: #fff;');
+    expect(limpio).toContain('url(https://x.test/a.png)');
+    expect(limpio).toContain('a { color: var(--color-papel); }');
   });
 });

@@ -2,10 +2,12 @@
 //
 // Lee el `package.json` y el arbol de archivos. No es un DOM lo que necesita.
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { basename, join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { PAQUETES, RAIZ, archivosDe, rutaDesde } from './texto.ts';
 
 /**
  * **Las pruebas de capa corren, y corren APARTE** (#11).
@@ -43,28 +45,18 @@ import { describe, expect, it } from 'vitest';
  * fallo que esta guarda existe para impedir, escondido en el sitio donde la guarda no miraba.
  */
 
-const paquete = JSON.parse(readFileSync('package.json', 'utf8')) as {
+const paquete = JSON.parse(readFileSync(join(RAIZ, 'package.json'), 'utf8')) as {
   scripts: Record<string, string>;
 };
 
-const PAQUETES = 'paquetes';
-const APARTADAS = new Set(['node_modules', 'dist', 'muestras']);
-
-/** Todos los archivos de capa del arbol, con su ruta desde la raiz. Ver el javadoc. */
+/**
+ * Todos los archivos de capa del arbol, con su ruta desde la raiz —que es como los nombra el
+ * guion—. Ver el javadoc.
+ */
 function archivosDeCapa(directorio: string): string[] {
-  const salida: string[] = [];
-  for (const entrada of readdirSync(directorio)) {
-    if (APARTADAS.has(entrada)) continue;
-    const completa = join(directorio, entrada);
-    if (statSync(completa).isDirectory()) {
-      salida.push(...archivosDeCapa(completa));
-      continue;
-    }
-    if (entrada.startsWith('capa-') && entrada.endsWith('.test.tsx')) {
-      salida.push(completa);
-    }
-  }
-  return salida;
+  return archivosDe(directorio, { extensiones: ['.tsx'], pruebas: true })
+    .filter((archivo) => basename(archivo).startsWith('capa-') && archivo.endsWith('.test.tsx'))
+    .map((archivo) => rutaDesde(RAIZ, archivo));
 }
 
 const enElDisco = archivosDeCapa(PAQUETES);
@@ -81,9 +73,9 @@ describe('las pruebas de capa corren, y corren aparte', () => {
     // volviera a acotar a un directorio, un archivo de capa fuera de el dejaria de correrlo nadie
     // sin que esto se pusiera rojo. Se comprueba recorriendo: `paquetes/` tiene subdirectorios de
     // mas de un nivel y el recorrido tiene que llegar a ellos.
-    expect(enElDisco.every((n) => n.startsWith(`${PAQUETES}${sep}`))).toBe(true);
+    expect(enElDisco.every((n) => n.startsWith('paquetes/'))).toBe(true);
     expect(
-      enElDisco.some((n) => relative(PAQUETES, n).split(sep).length > 2),
+      enElDisco.some((n) => n.split('/').length > 3),
       'el recorrido no bajo de un nivel: no esta recorriendo, esta listando',
     ).toBe(true);
   });

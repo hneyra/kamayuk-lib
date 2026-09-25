@@ -9,7 +9,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { PAQUETES, leer } from './texto.ts';
+import { APARTADAS, PAQUETES, leer } from './texto.ts';
 
 /**
  * **Lo que `exports` promete existe en el disco** (#24).
@@ -84,9 +84,6 @@ import { PAQUETES, leer } from './texto.ts';
 
 /** Las dos claves que prometen UN archivo en vez de un mapa. */
 const CLAVES_SUELTAS = ['main', 'types'] as const;
-
-/** Lo que `paquetes/` puede tener dentro y no es un paquete. */
-const APARTADAS = new Set(['node_modules', 'dist']);
 
 /** Los seis de ADR-0030 §4. La lista solo la usa EL CENTINELA; el barrido no. */
 const LOS_SEIS = ['api', 'formato', 'sesion', 'shell', 'ui', 'verificaciones'] as const;
@@ -224,6 +221,9 @@ function loQuePrometenLosPaquetes(raiz: string = PAQUETES): Lectura {
   const promesas: Promesa[] = [];
   const ilegibles: Ilegible[] = [];
   for (const directorio of readdirSync(raiz).sort()) {
+    // Lo que `paquetes/` puede tener dentro y no es un paquete: las `APARTADAS` de todas las
+    // guardas (#126). Hasta entonces esta lista era la unica sin `muestras`, y no porque se
+    // decidiera: `paquetes/muestras/` no existe, y si existiera tampoco seria un paquete.
     if (APARTADAS.has(directorio)) continue;
     const completa = join(raiz, directorio);
     if (!statSync(completa).isDirectory()) continue;

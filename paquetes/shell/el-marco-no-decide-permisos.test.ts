@@ -2,11 +2,11 @@
 //
 // Lee las fuentes del paquete. No es un DOM lo que necesita (ver `el-texto-visible-es-dato`).
 
-import { join, relative } from 'node:path';
+import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { PAQUETES, RAIZ, archivosDeProduccion, leer, sinComentarios } from '../verificaciones/texto.ts';
+import { PAQUETES, RAIZ, archivosDeProduccion, lineasQueCasan } from '../verificaciones/texto.ts';
 
 /**
  * **El marco lleva el acceso de cada hoja, y no decide nada con el** (#67, `acceso-por-hoja`, AC-4).
@@ -33,11 +33,8 @@ const NO_PUEDE = [
 
 /** Lo que cada archivo del marco hace de lo prohibido, con su linea. */
 function loQueHace(archivo: string): readonly string[] {
-  const lineas = sinComentarios(leer(archivo)).split('\n');
   return NO_PUEDE.flatMap(({ que, patron }) =>
-    lineas.flatMap((linea, i) =>
-      patron.test(linea) ? [`${relative(RAIZ, archivo)}:${String(i + 1)}  ${que}  «${linea.trim()}»`] : [],
-    ),
+    lineasQueCasan([archivo], patron, RAIZ).map((h) => `${h.archivo}:${String(h.linea)}  ${que}  «${h.texto}»`),
   );
 }
 
