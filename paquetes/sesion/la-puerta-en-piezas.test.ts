@@ -174,3 +174,22 @@ describe('`crearIdentidad` compone piezas, y sus numeros tienen nombre (#122)', 
     ).toEqual([]);
   });
 });
+
+/**
+ * **Lo que un consumidor lee de este archivo, leido como el lo lee** (#122).
+ *
+ * La guarda `el-token-vive-en-memoria` de `ciudadano` abre `@kamayuk/sesion/identidad.ts` —ese
+ * archivo, no el paquete— y saca las claves con la expresion de abajo, copiada tal cual. Partir la
+ * puerta movio las claves a `rebote.ts` y la CI de `consumidores` salio roja en `ciudadano`. Esto
+ * es lo que impide que vuelva a pasar sin verse aqui primero.
+ */
+const COMO_LO_LEE_CIUDADANO = /`\$\{prefijoDeClaves\}\.([\w.]+)`/g;
+
+describe('las claves del rebote se componen en identidad.ts, como las lee un consumidor', () => {
+  it('son las cinco, y salen con la expresion de la guarda de `ciudadano`', () => {
+    const claves = [...readFileSync(IDENTIDAD, 'utf8').matchAll(COMO_LO_LEE_CIUDADANO)].map((m) => m[1]);
+    expect(new Set(claves)).toEqual(
+      new Set(['pkce.verificador', 'pkce.estado', 'pkce.destino', 'pkce.idas', 'pkce.salida']),
+    );
+  });
+});

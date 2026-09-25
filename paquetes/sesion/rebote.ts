@@ -77,13 +77,22 @@ export interface Rebote {
 /** El valor de la marca de salida. Lo que se compara es que este, no lo que dice. */
 const PUESTA = '1';
 
-/** El almacen del rebote de UNA puerta, con sus cinco claves bajo `prefijo`. */
-export function crearRebote(prefijo: string): Rebote {
-  const VERIFICADOR = `${prefijo}.pkce.verificador`;
-  const ESTADO = `${prefijo}.pkce.estado`;
-  const DESTINO = `${prefijo}.pkce.destino`;
-  const IDAS = `${prefijo}.pkce.idas`;
-  const SALIDA = `${prefijo}.pkce.salida`;
+/**
+ * Las cinco claves del rebote, **ya compuestas**. Las compone `identidad.ts` (`clavesDelRebote`) y
+ * no este archivo, y no es capricho: un consumidor las lee alli (ver `clavesDelRebote`).
+ */
+export interface ClavesDelRebote {
+  readonly verificador: string;
+  readonly estado: string;
+  readonly destino: string;
+  readonly idas: string;
+  readonly salida: string;
+}
+
+/** El almacen del rebote de UNA puerta, con las cinco claves que le da `identidad.ts`. */
+export function crearRebote(claves: ClavesDelRebote): Rebote {
+  const { verificador: VERIFICADOR, estado: ESTADO, destino: DESTINO, idas: IDAS, salida: SALIDA } =
+    claves;
 
   const idas = (): number => Number(sessionStorage.getItem(IDAS) ?? 0);
 

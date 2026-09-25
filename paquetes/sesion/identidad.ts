@@ -82,7 +82,7 @@
 
 import { aleatorio, LARGO_DEL_ESTADO, LARGO_DEL_VERIFICADOR, reto } from './pkce.ts';
 import { leerQuienEntro, type QuienEntro } from './quien-entro.ts';
-import { crearRebote } from './rebote.ts';
+import { crearRebote, type ClavesDelRebote } from './rebote.ts';
 import { TEXTOS_DE_LA_PUERTA, type TextosDeLaPuerta } from './textos.ts';
 
 /**
@@ -533,6 +533,27 @@ function abrirEnOtraPestana(url: string): void {
 }
 
 /**
+ * **Las cinco claves del rebote, compuestas AQUI y con este nombre** (#122).
+ *
+ * `rebote.ts` guarda y lee, pero las claves nacen en este archivo, escritas como
+ * `` `${prefijoDeClaves}.pkce.…` ``, porque un consumidor las lee asi: la guarda
+ * `el-token-vive-en-memoria` de `ciudadano` abre `@kamayuk/sesion/identidad.ts` y busca esa forma
+ * para comparar lo que la libreria guarda con lo que el portal decidio guardar. Medido: con las
+ * claves en `rebote.ts` y la variable llamada `prefijo`, la CI de `consumidores` sale roja en
+ * `ciudadano` —«no se encontro ni una clave compuesta en `@kamayuk/sesion`»—. Lo fija
+ * `la-puerta-en-piezas.test.ts`.
+ */
+export function clavesDelRebote(prefijoDeClaves: string): ClavesDelRebote {
+  return {
+    verificador: `${prefijoDeClaves}.pkce.verificador`,
+    estado: `${prefijoDeClaves}.pkce.estado`,
+    destino: `${prefijoDeClaves}.pkce.destino`,
+    idas: `${prefijoDeClaves}.pkce.idas`,
+    salida: `${prefijoDeClaves}.pkce.salida`,
+  };
+}
+
+/**
  * La puerta de identidad de UN sistema. Cada interfaz construye la suya una vez.
  *
  * **Compone y no calcula** (#122): las cuentas del PKCE estan en `pkce.ts`, lo que sobrevive al
@@ -555,7 +576,7 @@ export function crearIdentidad(
   const topeDeIdas = configuracion.topeDeIdas ?? TOPE_DE_IDAS_POR_OMISION;
   const t: TextosDeLaPuerta = { ...TEXTOS_DE_LA_PUERTA, ...textos };
   const urls = urlsDelEmisor(realm);
-  const rebote = crearRebote(prefijoDeClaves);
+  const rebote = crearRebote(clavesDelRebote(prefijoDeClaves));
 
   /** El token. En el cierre y en ningun otro sitio: al cerrar la pestana desaparece. */
   let enMemoria: string | null = null;

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { clavesDelRebote } from './identidad.ts';
 import { crearRebote, type Rebote } from './rebote.ts';
 
 /**
@@ -23,7 +24,7 @@ let rebote: Rebote;
 
 beforeEach(() => {
   sessionStorage.clear();
-  rebote = crearRebote(PREFIJO);
+  rebote = crearRebote(clavesDelRebote(PREFIJO));
 });
 
 afterEach(() => {
@@ -124,7 +125,7 @@ describe('las claves', () => {
   });
 
   it('dos prefijos no se pisan: lo que toma uno no lo borra del otro', () => {
-    const otro = crearRebote('kamayuk.caja');
+    const otro = crearRebote(clavesDelRebote('kamayuk.caja'));
     rebote.guardarIda(IDA);
     otro.guardarIda({ ...IDA, verificador: 'el-de-caja' });
     otro.contarIda();
