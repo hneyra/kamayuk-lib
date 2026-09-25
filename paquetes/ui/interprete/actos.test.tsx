@@ -236,6 +236,26 @@ describe('`acciones-del-bloque`', () => {
     expect(releer).toHaveBeenCalledTimes(2);
   });
 
+  it('una doble pulsacion que llega ANTES de pintar tampoco vuelve a llamar: la corta la referencia (#117)', async () => {
+    // Con `fireEvent.click` dos veces React pinta entre las dos, y la segunda ya encuentra el boton
+    // impedido por el ESTADO: esa prueba seguia verde sin la referencia de `useEnVuelo`. Dentro de
+    // un solo `act` no hay pintada en medio, y lo unico que puede cortar la segunda es la referencia.
+    const pendiente = diferida();
+    const releer = vi.fn(() => pendiente.promesa);
+    monta(definicion, {}, { alHacer: { releer } });
+    const boton = screen.getByRole('button', { name: 'Volver a leer' });
+
+    act(() => {
+      boton.click();
+      boton.click();
+    });
+    expect(releer, 'dos pulsaciones antes de pintar, dos llamadas').toHaveBeenCalledTimes(1);
+    await act(async () => {
+      pendiente.resolver();
+      await pendiente.promesa;
+    });
+  });
+
   it('`hace` que LANZA en sincrono: la excepcion no se escapa y el boton queda libre (#117)', () => {
     // Lo coherente con el acto: soltar el boton y no dejar la excepcion suelta. Decir «fallo» es del
     // sistema, en `lecturas`, y no de la pieza: aqui no se dibuja ningun aviso.
@@ -367,6 +387,28 @@ describe('`acto-con-observacion`', () => {
     expect(within(hecho as HTMLElement).getByText('Identificador 31')).toBeTruthy();
     expect(within(hecho as HTMLElement).getByRole('button', { name: 'Volver a leer la lista' })).toBeTruthy();
     expect(alQuedarGuardada).toHaveBeenCalledTimes(1);
+  });
+
+  it('una doble pulsacion del primario que llega ANTES de pintar envia UNA vez: la corta la referencia (#117)', async () => {
+    // Lo mismo que en el pie: con `fireEvent.click` dos veces la segunda ya ve el primario impedido
+    // por el estado; dentro de un solo `act` solo la referencia de `useEnVuelo` la corta.
+    const pendiente = diferida();
+    const abrir = vi.fn(() => pendiente.promesa);
+    monta(HOJA_CON_ACTO(), {}, { actos: { abrir } });
+    abrirElActo();
+    escribir('Codigo', 'G-01');
+    escribir('Observacion', 'Lo pide la resolucion 12.');
+    const boton = primario();
+
+    act(() => {
+      boton.click();
+      boton.click();
+    });
+    expect(abrir, 'una doble pulsacion antes de pintar envio dos veces').toHaveBeenCalledTimes(1);
+    await act(async () => {
+      pendiente.resolver();
+      await pendiente.promesa;
+    });
   });
 
   it('rechazado, lo escrito SE QUEDA y el fallo es el que el sistema puso en `lecturas` con la clave del acto', async () => {

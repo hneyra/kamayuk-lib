@@ -4,7 +4,7 @@ import { TEXTOS_DE_LAS_PIEZAS, TEXTOS_DEL_INTERPRETE } from '../textos.tsx';
 import { peticionDe } from './acciones.ts';
 import { faltaElDato, resolverTexto, seCumple, type Nombrados } from './componer.ts';
 import type { DatoConNombre } from './datos.ts';
-import { valorDeLaFila } from './reglas-de-las-tablas.ts';
+import { resolverInsignia, valorDeLaFila } from './reglas-de-las-tablas.ts';
 
 /**
  * **«Falta el dato»: la tabla de verdad, y las cuatro reglas que la aplican** (#117).
@@ -16,6 +16,11 @@ import { valorDeLaFila } from './reglas-de-las-tablas.ts';
  * daban la MISMA tabla, por sus funciones publicas y sin tocar nada suyo: es la mitad de abajo de
  * este archivo, que se queda para que ninguna de las cuatro se aparte de `faltaElDato`, que es la
  * mitad de arriba.
+ *
+ * `reglas-de-las-tablas.ts` pregunta tres veces en `resolverInsignia` —el dato que decide, el valor
+ * de una insignia con `tonoDesde` y el valor de una sin frase— y una en `valorDeLaFila`, y **las
+ * cuatro se preguntan aqui**: cambiada cualquiera de las dos ultimas por `valor === undefined`, una
+ * insignia pintaba `null` o salia vacia y ninguna prueba lo veia (revision de #117).
  */
 
 const TEXTOS = { ...TEXTOS_DEL_INTERPRETE, ...TEXTOS_DE_LAS_PIEZAS };
@@ -35,12 +40,22 @@ const TABLA: readonly (readonly [string, DatoConNombre | undefined, boolean])[] 
 const conElDato = (valor: DatoConNombre | undefined): Nombrados =>
   valor === undefined ? new Map() : new Map([['x', valor]]);
 
-/** Las cuatro reglas, cada una preguntada por su funcion publica: `true` si dice que falta. */
+/** Las cuatro reglas, cada una preguntada por su funcion publica —la insignia, por sus tres caminos—: `true` si dice que falta. */
 const LAS_CUATRO: Readonly<Record<string, (valor: DatoConNombre | undefined) => boolean>> = {
   'acciones.ts, peticionDe': (valor) =>
     'faltaElDato' in peticionDe({ hoja: 'h', sujeto: { desde: 'x' } }, conElDato(valor), (t) => t, TEXTOS),
   'reglas-de-las-tablas.ts, valorDeLaFila': (valor) =>
     valorDeLaFila({ enLaRuta: 'p', desde: 'x' }, { celdas: [], datos: conElDato(valor) }) === null,
+  // Sin `segun`, el dato que decide es el valor: si falta, no hay insignia.
+  'reglas-de-las-tablas.ts, resolverInsignia (el que decide)': (valor) =>
+    resolverInsignia({ casos: {}, otro: { tono: 'info' } }, valor, undefined, (t) => t) === undefined,
+  // Con `tonoDesde`, el tono llega aparte y el valor es lo que se escribe: si falta, no hay insignia.
+  'reglas-de-las-tablas.ts, resolverInsignia (tonoDesde)': (valor) =>
+    resolverInsignia({ tonoDesde: 'tono', siNoTrae: 'info' }, valor, new Map([['tono', 'ok']]), (t) => t) === undefined,
+  // Decide OTRO dato y el caso no trae frase: si el valor falta, se escribe el que decidio.
+  'reglas-de-las-tablas.ts, resolverInsignia (sin frase)': (valor) =>
+    resolverInsignia({ segun: 'estado', casos: {}, otro: { tono: 'info' } }, valor, new Map([['estado', 'decidio']]), (t) => t)
+      ?.texto === 'decidio',
   'componer.ts, resolverTexto (desde)': (valor) => resolverTexto({ desde: 'x' }, conElDato(valor), (t) => t, AUSENTE) === AUSENTE,
   'componer.ts, seCumple (hay)': (valor) => !seCumple({ dato: 'x', hay: true }, conElDato(valor)),
 };
