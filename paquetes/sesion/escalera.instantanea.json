@@ -1,0 +1,706 @@
+{
+  "401": {
+    "castellano": {
+      "clave": "sin-identidad",
+      "titulo": "Hay que volver a identificarse",
+      "detalle": "El backend contesto que no se pudo",
+      "remedio": "La sesion caduco o todavia no se ha abierto. Vuelva a identificarse para seguir trabajando.",
+      "pideIdentidad": true,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    },
+    "marcado": {
+      "clave": "sin-identidad",
+      "titulo": "⟦hayQueVolverAIdentificarse⟧",
+      "detalle": "El backend contesto que no se pudo",
+      "remedio": "⟦vuelvaAIdentificarse⟧",
+      "pideIdentidad": true,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    }
+  },
+  "404": {
+    "castellano": {
+      "clave": "no-encontrado",
+      "detalle": "El backend contesto que no se pudo",
+      "titulo": "No se encontro lo solicitado",
+      "remedio": "No es una averia: el backend contesto que eso no existe. Compruebe lo que se pidio; si deberia existir, pregunte a quien lo administra.",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    },
+    "marcado": {
+      "clave": "no-encontrado",
+      "detalle": "El backend contesto que no se pudo",
+      "titulo": "⟦noSeEncontroLoSolicitado⟧",
+      "remedio": "⟦compruebeLoQueSePidio⟧",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    }
+  },
+  "409": {
+    "castellano": {
+      "clave": "conflicto",
+      "titulo": "El estado actual no admite esta operacion",
+      "detalle": "El backend contesto que no se pudo",
+      "remedio": "No es una averia, y reintentar tal cual da el mismo resultado. Cambie lo que dice el mensaje y vuelva a intentarlo.",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    },
+    "marcado": {
+      "clave": "conflicto",
+      "titulo": "⟦elEstadoNoAdmiteLaOperacion⟧",
+      "detalle": "El backend contesto que no se pudo",
+      "remedio": "⟦cambieLoQueDiceElMensaje⟧",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    }
+  },
+  "500": {
+    "castellano": {
+      "clave": "averia",
+      "titulo": "El sistema no pudo contestar",
+      "detalle": "El backend contesto que no se pudo (500)",
+      "remedio": "Reintente en unos segundos. Si sigue igual, avise a soporte con este mensaje.",
+      "pideIdentidad": false,
+      "esAveria": true,
+      "reintentable": true,
+      "incidencia": null
+    },
+    "marcado": {
+      "clave": "averia",
+      "titulo": "⟦elSistemaNoPudoContestar⟧",
+      "detalle": "⟦loQueDijoConSuEstado⟧",
+      "remedio": "⟦aviseASoporte⟧",
+      "pideIdentidad": false,
+      "esAveria": true,
+      "reintentable": true,
+      "incidencia": null
+    }
+  },
+  "red caida": {
+    "castellano": {
+      "clave": "averia",
+      "titulo": "El sistema no contesta",
+      "detalle": "La peticion no llego a completarse. El backend puede estar apagado, o este puesto no alcanzarlo.",
+      "remedio": "Reintente en unos segundos. Si sigue igual, avise a soporte.",
+      "pideIdentidad": false,
+      "esAveria": true,
+      "reintentable": true,
+      "incidencia": null
+    },
+    "marcado": {
+      "clave": "averia",
+      "titulo": "⟦elSistemaNoContesta⟧",
+      "detalle": "⟦laPeticionNoLlego⟧",
+      "remedio": "⟦reintenteOAviseASoporte⟧",
+      "pideIdentidad": false,
+      "esAveria": true,
+      "reintentable": true,
+      "incidencia": null
+    }
+  },
+  "403 SIN_MUNICIPALIDAD": {
+    "castellano": {
+      "clave": "sin-municipalidad",
+      "titulo": "Esta cuenta no tiene municipalidad asignada",
+      "detalle": "El backend contesto que no se pudo",
+      "remedio": "La cuenta existe y entro bien, pero no dice de que municipalidad es, y sin eso el sistema no sabe con que datos trabajar. La asigna quien administra la identidad.",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    },
+    "marcado": {
+      "clave": "sin-municipalidad",
+      "titulo": "⟦sinMunicipalidadAsignada⟧",
+      "detalle": "El backend contesto que no se pudo",
+      "remedio": "⟦laAsignaQuienAdministra⟧",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    }
+  },
+  "403 SIN_PRIVILEGIO": {
+    "castellano": {
+      "clave": "sin-privilegio",
+      "titulo": "Falta un permiso para esta operacion",
+      "detalle": "El backend contesto que no se pudo",
+      "remedio": "No es una averia: el sistema contesto lo que tenia que contestar. Pida el permiso a quien administre los perfiles, indicando que operacion estaba haciendo.",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    },
+    "marcado": {
+      "clave": "sin-privilegio",
+      "titulo": "⟦faltaUnPermiso⟧",
+      "detalle": "El backend contesto que no se pudo",
+      "remedio": "⟦pidaElPermiso⟧",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    }
+  },
+  "403 con otro codigo": {
+    "castellano": {
+      "clave": "no-permitido",
+      "titulo": "La operacion no se permitio",
+      "detalle": "El backend contesto que no se pudo",
+      "remedio": "No es una averia. Revise con que cuenta esta trabajando.",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    },
+    "marcado": {
+      "clave": "no-permitido",
+      "titulo": "⟦noSePermitioLaOperacion⟧",
+      "detalle": "El backend contesto que no se pudo",
+      "remedio": "⟦reviseConQueCuentaTrabaja⟧",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    }
+  },
+  "422 ORDEN_NO_ADMITIDO": {
+    "castellano": {
+      "clave": "orden-no-admitido",
+      "titulo": "No se puede ordenar por ese campo",
+      "detalle": "El backend contesto que no se pudo",
+      "remedio": "No hay nada que corregir en lo que escribio: el orden lo pidio la pantalla. Ordene por otra columna y avise de esto a quien la mantiene.",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    },
+    "marcado": {
+      "clave": "orden-no-admitido",
+      "titulo": "⟦noSePuedeOrdenarPorEseCampo⟧",
+      "detalle": "⟦elCampoQueSePidio⟧",
+      "remedio": "⟦loArreglaQuienHizoLaPantalla⟧",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    }
+  },
+  "422 VALIDACION": {
+    "castellano": {
+      "clave": "no-valido",
+      "titulo": "Lo que se mandó no cumple una regla",
+      "detalle": "El backend contesto que no se pudo",
+      "remedio": "Corrija lo que dice el mensaje y vuelva a intentarlo.",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    },
+    "marcado": {
+      "clave": "no-valido",
+      "titulo": "⟦noCumpleUnaRegla⟧",
+      "detalle": "El backend contesto que no se pudo",
+      "remedio": "⟦corrijaLoQueDiceElMensaje⟧",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    }
+  },
+  "422 sin codigo": {
+    "castellano": {
+      "clave": "no-valido",
+      "titulo": "Lo que se mandó no cumple una regla",
+      "detalle": "El backend contesto que no se pudo",
+      "remedio": "Corrija lo que dice el mensaje y vuelva a intentarlo.",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    },
+    "marcado": {
+      "clave": "no-valido",
+      "titulo": "⟦noCumpleUnaRegla⟧",
+      "detalle": "El backend contesto que no se pudo",
+      "remedio": "⟦corrijaLoQueDiceElMensaje⟧",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    }
+  },
+  "401 sin mensaje": {
+    "castellano": {
+      "clave": "sin-identidad",
+      "titulo": "Hay que volver a identificarse",
+      "detalle": "La peticion no trae un token valido.",
+      "remedio": "La sesion caduco o todavia no se ha abierto. Vuelva a identificarse para seguir trabajando.",
+      "pideIdentidad": true,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    },
+    "marcado": {
+      "clave": "sin-identidad",
+      "titulo": "⟦hayQueVolverAIdentificarse⟧",
+      "detalle": "⟦sinTokenValido⟧",
+      "remedio": "⟦vuelvaAIdentificarse⟧",
+      "pideIdentidad": true,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    }
+  },
+  "403 SIN_MUNICIPALIDAD sin mensaje": {
+    "castellano": {
+      "clave": "sin-municipalidad",
+      "titulo": "Esta cuenta no tiene municipalidad asignada",
+      "detalle": "El token no identifica una municipalidad.",
+      "remedio": "La cuenta existe y entro bien, pero no dice de que municipalidad es, y sin eso el sistema no sabe con que datos trabajar. La asigna quien administra la identidad.",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    },
+    "marcado": {
+      "clave": "sin-municipalidad",
+      "titulo": "⟦sinMunicipalidadAsignada⟧",
+      "detalle": "⟦elTokenNoDiceLaMunicipalidad⟧",
+      "remedio": "⟦laAsignaQuienAdministra⟧",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    }
+  },
+  "403 SIN_PRIVILEGIO sin mensaje": {
+    "castellano": {
+      "clave": "sin-privilegio",
+      "titulo": "Falta un permiso para esta operacion",
+      "detalle": "La cuenta no tiene el privilegio que esta operacion pide.",
+      "remedio": "No es una averia: el sistema contesto lo que tenia que contestar. Pida el permiso a quien administre los perfiles, indicando que operacion estaba haciendo.",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    },
+    "marcado": {
+      "clave": "sin-privilegio",
+      "titulo": "⟦faltaUnPermiso⟧",
+      "detalle": "⟦sinElPrivilegioQueSePide⟧",
+      "remedio": "⟦pidaElPermiso⟧",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    }
+  },
+  "403 con otro codigo sin mensaje": {
+    "castellano": {
+      "clave": "no-permitido",
+      "titulo": "La operacion no se permitio",
+      "detalle": "El backend rechazo la peticion.",
+      "remedio": "No es una averia. Revise con que cuenta esta trabajando.",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    },
+    "marcado": {
+      "clave": "no-permitido",
+      "titulo": "⟦noSePermitioLaOperacion⟧",
+      "detalle": "⟦elBackendRechazoLaPeticion⟧",
+      "remedio": "⟦reviseConQueCuentaTrabaja⟧",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    }
+  },
+  "404 sin mensaje": {
+    "castellano": {
+      "clave": "no-encontrado",
+      "detalle": "El backend no encontro «GET /seguridad/sesion».",
+      "titulo": "No se encontro lo solicitado",
+      "remedio": "No es una averia: el backend contesto que eso no existe. Compruebe lo que se pidio; si deberia existir, pregunte a quien lo administra.",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    },
+    "marcado": {
+      "clave": "no-encontrado",
+      "detalle": "⟦noSeEncontroLaOperacion⟧",
+      "titulo": "⟦noSeEncontroLoSolicitado⟧",
+      "remedio": "⟦compruebeLoQueSePidio⟧",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    }
+  },
+  "409 sin mensaje": {
+    "castellano": {
+      "clave": "conflicto",
+      "titulo": "El estado actual no admite esta operacion",
+      "detalle": "El backend rechazo la operacion por el estado en que esta.",
+      "remedio": "No es una averia, y reintentar tal cual da el mismo resultado. Cambie lo que dice el mensaje y vuelva a intentarlo.",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    },
+    "marcado": {
+      "clave": "conflicto",
+      "titulo": "⟦elEstadoNoAdmiteLaOperacion⟧",
+      "detalle": "⟦elBackendRechazoPorElEstado⟧",
+      "remedio": "⟦cambieLoQueDiceElMensaje⟧",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    }
+  },
+  "422 ORDEN_NO_ADMITIDO sin mensaje": {
+    "castellano": {
+      "clave": "orden-no-admitido",
+      "titulo": "No se puede ordenar por ese campo",
+      "detalle": "No se puede ordenar por ese campo",
+      "remedio": "No hay nada que corregir en lo que escribio: el orden lo pidio la pantalla. Ordene por otra columna y avise de esto a quien la mantiene.",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    },
+    "marcado": {
+      "clave": "orden-no-admitido",
+      "titulo": "⟦noSePuedeOrdenarPorEseCampo⟧",
+      "detalle": "⟦elCampoQueSePidio⟧",
+      "remedio": "⟦loArreglaQuienHizoLaPantalla⟧",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    }
+  },
+  "422 VALIDACION sin mensaje": {
+    "castellano": {
+      "clave": "no-valido",
+      "titulo": "Lo que se mandó no cumple una regla",
+      "detalle": "El backend rechazo el contenido de la peticion.",
+      "remedio": "Corrija lo que dice el mensaje y vuelva a intentarlo.",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    },
+    "marcado": {
+      "clave": "no-valido",
+      "titulo": "⟦noCumpleUnaRegla⟧",
+      "detalle": "⟦elBackendRechazoElContenido⟧",
+      "remedio": "⟦corrijaLoQueDiceElMensaje⟧",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    }
+  },
+  "422 sin codigo sin mensaje": {
+    "castellano": {
+      "clave": "no-valido",
+      "titulo": "Lo que se mandó no cumple una regla",
+      "detalle": "El backend rechazo el contenido de la peticion.",
+      "remedio": "Corrija lo que dice el mensaje y vuelva a intentarlo.",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    },
+    "marcado": {
+      "clave": "no-valido",
+      "titulo": "⟦noCumpleUnaRegla⟧",
+      "detalle": "⟦elBackendRechazoElContenido⟧",
+      "remedio": "⟦corrijaLoQueDiceElMensaje⟧",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    }
+  },
+  "500 sin mensaje": {
+    "castellano": {
+      "clave": "averia",
+      "titulo": "El sistema no pudo contestar",
+      "detalle": "GET /seguridad/sesion (500)",
+      "remedio": "Reintente en unos segundos. Si sigue igual, avise a soporte con este mensaje.",
+      "pideIdentidad": false,
+      "esAveria": true,
+      "reintentable": true,
+      "incidencia": null
+    },
+    "marcado": {
+      "clave": "averia",
+      "titulo": "⟦elSistemaNoPudoContestar⟧",
+      "detalle": "⟦loQueDijoConSuEstado⟧",
+      "remedio": "⟦aviseASoporte⟧",
+      "pideIdentidad": false,
+      "esAveria": true,
+      "reintentable": true,
+      "incidencia": null
+    }
+  },
+  "ArchivoRechazado local demasiado-grande": {
+    "castellano": {
+      "clave": "no-valido",
+      "titulo": "El archivo pesa mas de lo que se admite",
+      "detalle": "El archivo supera el tamano que esta operacion admite.",
+      "remedio": "No es una averia, y enviar el mismo archivo otra vez da el mismo resultado. Elija uno mas liviano, o reduzcalo, y vuelva a enviarlo.",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    },
+    "marcado": {
+      "clave": "no-valido",
+      "titulo": "⟦elArchivoPesaDeMas⟧",
+      "detalle": "⟦superaElTamanoAdmitido⟧",
+      "remedio": "⟦elijaUnArchivoMasLiviano⟧",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    }
+  },
+  "ArchivoRechazado del servidor demasiado-grande con mensaje": {
+    "castellano": {
+      "clave": "no-valido",
+      "titulo": "El archivo pesa mas de lo que se admite",
+      "detalle": "El backend contesto que no se pudo",
+      "remedio": "No es una averia, y enviar el mismo archivo otra vez da el mismo resultado. Elija uno mas liviano, o reduzcalo, y vuelva a enviarlo.",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    },
+    "marcado": {
+      "clave": "no-valido",
+      "titulo": "⟦elArchivoPesaDeMas⟧",
+      "detalle": "El backend contesto que no se pudo",
+      "remedio": "⟦elijaUnArchivoMasLiviano⟧",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    }
+  },
+  "ArchivoRechazado local tipo-no-admitido": {
+    "castellano": {
+      "clave": "no-valido",
+      "titulo": "El archivo no es de un tipo que se admita",
+      "detalle": "Esta operacion no admite archivos de ese tipo.",
+      "remedio": "No es una averia, y enviar el mismo archivo otra vez da el mismo resultado. Elija un archivo de un tipo que se admita y vuelva a enviarlo.",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    },
+    "marcado": {
+      "clave": "no-valido",
+      "titulo": "⟦elArchivoNoEsDeUnTipoAdmitido⟧",
+      "detalle": "⟦esteTipoNoSeAdmite⟧",
+      "remedio": "⟦elijaUnArchivoDeOtroTipo⟧",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    }
+  },
+  "ArchivoRechazado del servidor tipo-no-admitido con mensaje": {
+    "castellano": {
+      "clave": "no-valido",
+      "titulo": "El archivo no es de un tipo que se admita",
+      "detalle": "El backend contesto que no se pudo",
+      "remedio": "No es una averia, y enviar el mismo archivo otra vez da el mismo resultado. Elija un archivo de un tipo que se admita y vuelva a enviarlo.",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    },
+    "marcado": {
+      "clave": "no-valido",
+      "titulo": "⟦elArchivoNoEsDeUnTipoAdmitido⟧",
+      "detalle": "El backend contesto que no se pudo",
+      "remedio": "⟦elijaUnArchivoDeOtroTipo⟧",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    }
+  },
+  "NoEsUnDocumento": {
+    "castellano": {
+      "clave": "orden-no-admitido",
+      "titulo": "Lo que llego no es un documento",
+      "detalle": "El sistema contesto con datos donde la pantalla esperaba un documento.",
+      "remedio": "No hay nada que corregir en lo que hizo: la descarga la pidio la pantalla por un camino que devuelve datos. Avise de esto a quien la mantiene.",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    },
+    "marcado": {
+      "clave": "orden-no-admitido",
+      "titulo": "⟦noLlegoUnDocumento⟧",
+      "detalle": "⟦llegaronDatosEnVezDeUnDocumento⟧",
+      "remedio": "⟦loArreglaQuienHizoLaDescarga⟧",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    }
+  },
+  "422 ORDEN_NO_ADMITIDO con detalles": {
+    "castellano": {
+      "clave": "orden-no-admitido",
+      "titulo": "No se puede ordenar por ese campo",
+      "detalle": "No se puede ordenar por ese campo (Campo pedido: selladoPor)",
+      "remedio": "No hay nada que corregir en lo que escribio: el orden lo pidio la pantalla. Ordene por otra columna y avise de esto a quien la mantiene.",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    },
+    "marcado": {
+      "clave": "orden-no-admitido",
+      "titulo": "⟦noSePuedeOrdenarPorEseCampo⟧",
+      "detalle": "⟦elCampoQueSePidio⟧",
+      "remedio": "⟦loArreglaQuienHizoLaPantalla⟧",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    }
+  },
+  "500 con incidencia": {
+    "castellano": {
+      "clave": "averia",
+      "titulo": "El sistema no pudo contestar",
+      "detalle": "El backend contesto que no se pudo (500)",
+      "remedio": "Reintente en unos segundos. Si sigue igual, avise a soporte con este numero de incidencia: 2f0f7f2e-9a1c-4f1e-9a55-1c3f5c2f0a11",
+      "pideIdentidad": false,
+      "esAveria": true,
+      "reintentable": true,
+      "incidencia": "2f0f7f2e-9a1c-4f1e-9a55-1c3f5c2f0a11"
+    },
+    "marcado": {
+      "clave": "averia",
+      "titulo": "⟦elSistemaNoPudoContestar⟧",
+      "detalle": "⟦loQueDijoConSuEstado⟧",
+      "remedio": "⟦aviseASoporte⟧",
+      "pideIdentidad": false,
+      "esAveria": true,
+      "reintentable": true,
+      "incidencia": "2f0f7f2e-9a1c-4f1e-9a55-1c3f5c2f0a11"
+    }
+  },
+  "503 sin cuerpo": {
+    "castellano": {
+      "clave": "averia",
+      "titulo": "El sistema no pudo contestar",
+      "detalle": "GET /conjuntos (503)",
+      "remedio": "Reintente en unos segundos. Si sigue igual, avise a soporte con este mensaje.",
+      "pideIdentidad": false,
+      "esAveria": true,
+      "reintentable": true,
+      "incidencia": null
+    },
+    "marcado": {
+      "clave": "averia",
+      "titulo": "⟦elSistemaNoPudoContestar⟧",
+      "detalle": "⟦loQueDijoConSuEstado⟧",
+      "remedio": "⟦aviseASoporte⟧",
+      "pideIdentidad": false,
+      "esAveria": true,
+      "reintentable": true,
+      "incidencia": null
+    }
+  },
+  "405 solo con title": {
+    "castellano": {
+      "clave": "averia",
+      "titulo": "El sistema no pudo contestar",
+      "detalle": "Metodo (405)",
+      "remedio": "Reintente en unos segundos. Si sigue igual, avise a soporte con este mensaje.",
+      "pideIdentidad": false,
+      "esAveria": true,
+      "reintentable": true,
+      "incidencia": null
+    },
+    "marcado": {
+      "clave": "averia",
+      "titulo": "⟦elSistemaNoPudoContestar⟧",
+      "detalle": "⟦loQueDijoConSuEstado⟧",
+      "remedio": "⟦aviseASoporte⟧",
+      "pideIdentidad": false,
+      "esAveria": true,
+      "reintentable": true,
+      "incidencia": null
+    }
+  },
+  "409 solo con detail": {
+    "castellano": {
+      "clave": "conflicto",
+      "titulo": "El estado actual no admite esta operacion",
+      "detalle": "Sellado",
+      "remedio": "No es una averia, y reintentar tal cual da el mismo resultado. Cambie lo que dice el mensaje y vuelva a intentarlo.",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    },
+    "marcado": {
+      "clave": "conflicto",
+      "titulo": "⟦elEstadoNoAdmiteLaOperacion⟧",
+      "detalle": "Sellado",
+      "remedio": "⟦cambieLoQueDiceElMensaje⟧",
+      "pideIdentidad": false,
+      "esAveria": false,
+      "reintentable": false,
+      "incidencia": null
+    }
+  },
+  "un fallo que no es un Error": {
+    "castellano": {
+      "clave": "averia",
+      "titulo": "El sistema no contesta",
+      "detalle": "La peticion no llego a completarse. El backend puede estar apagado, o este puesto no alcanzarlo.",
+      "remedio": "Reintente en unos segundos. Si sigue igual, avise a soporte.",
+      "pideIdentidad": false,
+      "esAveria": true,
+      "reintentable": true,
+      "incidencia": null
+    },
+    "marcado": {
+      "clave": "averia",
+      "titulo": "⟦elSistemaNoContesta⟧",
+      "detalle": "⟦laPeticionNoLlego⟧",
+      "remedio": "⟦reintenteOAviseASoporte⟧",
+      "pideIdentidad": false,
+      "esAveria": true,
+      "reintentable": true,
+      "incidencia": null
+    }
+  }
+}
