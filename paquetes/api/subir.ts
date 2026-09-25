@@ -1,7 +1,8 @@
 import {
   ArchivoRechazado,
   ErrorDeLaApi,
-  type CuerpoDeProblema,
+  cuerpoDeProblema,
+  operacionDe,
   type MotivoDelRechazo,
 } from './errores.ts';
 
@@ -155,21 +156,17 @@ function loAdmite(admite: readonly string[], tipo: string, nombre: string | null
 }
 
 /**
- * Lee el `problem+json` de una respuesta fallida sin dejar que su lectura tape el fallo.
+ * Las cifras de un rechazo, que es lo que `ArchivoRechazado` lleva ademas del `problem+json`.
  *
- * Es lo mismo que hace `problemaDe` en `cliente.ts`, sobre el texto que devuelve `XMLHttpRequest`
- * en vez de sobre un `Response`: un cuerpo vacio —o el HTML de un proxy mal configurado— haria
- * que `JSON.parse` lanzara, y esa excepcion sustituiria al `ErrorDeLaApi` que se estaba
- * construyendo. La pantalla acabaria ensenando «Unexpected token <» en lugar de «no tienes
- * permiso».
+ * Hay tres rechazos —el tipo y el peso aqui, y el 413/415 del servidor— y los tres describen el
+ * mismo archivo: lo unico que cambia entre ellos es el motivo y si se sabe el limite. Hasta #121
+ * el objeto se escribia tres veces, y un miembro nuevo tenia que acordarse de las tres.
+ *
+ * @param limite el que declaro quien llamo, o `null` si no lo declaro o si rechazo el servidor,
+ *   cuyo limite no llega en ningun campo del contrato: lo que se sabe es que se paso, no de cuanto
  */
-function problemaDelTexto(texto: string): CuerpoDeProblema {
-  try {
-    const cuerpo: unknown = JSON.parse(texto);
-    return typeof cuerpo === 'object' && cuerpo !== null ? (cuerpo as CuerpoDeProblema) : {};
-  } catch {
-    return {};
-  }
+function rechazoDe(archivo: Blob, motivo: MotivoDelRechazo, limite: number | null) {
+  return { motivo, bytes: archivo.size, limiteDeBytes: limite, tipo: archivo.type } as const;
 }
 
 /**
@@ -194,8 +191,9 @@ const POR_EL_ARCHIVO: Readonly<Record<number, MotivoDelRechazo>> = {
  * un solo archivo vigilado.
  *
  * @param prefijo el del sistema, tal como lo puso `crearCliente`
- * @param autorizacion la MISMA funcion que usan `solicitar()` y `descargar()`, leida en cada
- *   llamada: si la sesion se refresca, esta operacion se entera como se enteran las otras dos
+ * @param autorizacion la MISMA funcion que usan `solicitar()`, `solicitarRespuesta()` y
+ *   `descargar()`, leida en cada llamada: si la sesion se refresca, esta operacion se entera como
+ *   se enteran las otras tres
  * @param ruta relativa al prefijo, empezando por `/`
  */
 export async function subirElArchivo<T>(
@@ -205,7 +203,7 @@ export async function subirElArchivo<T>(
   opciones: OpcionesDeSubida,
 ): Promise<T> {
   const metodo = opciones.metodo ?? 'POST';
-  const operacion = `${metodo} ${ruta}`;
+  const operacion = operacionDe(metodo, ruta);
   const archivo = opciones.archivo;
   const nombre = opciones.nombre ?? nombreDel(archivo);
   const senal = opciones.senal;
@@ -213,21 +211,19 @@ export async function subirElArchivo<T>(
   // Un rechazo de aqui NO sale al cable, y por eso el estado es 0. Primero el tipo: un archivo
   // del formato equivocado se rechaza por lo que de verdad le pasa, aunque ademas pese de mas.
   if (opciones.admite !== undefined && !loAdmite(opciones.admite, archivo.type, nombre)) {
-    throw new ArchivoRechazado(0, operacion, {
-      motivo: 'tipo-no-admitido',
-      bytes: archivo.size,
-      limiteDeBytes: opciones.limiteDeBytes ?? null,
-      tipo: archivo.type,
-    });
+    throw new ArchivoRechazado(
+      0,
+      operacion,
+      rechazoDe(archivo, 'tipo-no-admitido', opciones.limiteDeBytes ?? null),
+    );
   }
 
   if (opciones.limiteDeBytes !== undefined && archivo.size > opciones.limiteDeBytes) {
-    throw new ArchivoRechazado(0, operacion, {
-      motivo: 'demasiado-grande',
-      bytes: archivo.size,
-      limiteDeBytes: opciones.limiteDeBytes,
-      tipo: archivo.type,
-    });
+    throw new ArchivoRechazado(
+      0,
+      operacion,
+      rechazoDe(archivo, 'demasiado-grande', opciones.limiteDeBytes),
+    );
   }
 
   const formulario = new FormData();
@@ -300,24 +296,13 @@ export async function subirElArchivo<T>(
       const texto = typeof peticion.response === 'string' ? peticion.response : '';
 
       if (estado < 200 || estado >= 300) {
-        const problema = problemaDelTexto(texto);
+        // La misma lectura del `problem+json` que hace `cliente.ts`: `cuerpoDeProblema`.
+        const problema = cuerpoDeProblema(texto);
         const motivo = POR_EL_ARCHIVO[estado];
         rechazar(
           motivo === undefined
             ? new ErrorDeLaApi(estado, operacion, problema)
-            : new ArchivoRechazado(
-                estado,
-                operacion,
-                {
-                  motivo,
-                  bytes: archivo.size,
-                  // El limite es el del servidor y no llega en ningun campo del contrato: lo que
-                  // se sabe es que se paso, no de cuanto.
-                  limiteDeBytes: null,
-                  tipo: archivo.type,
-                },
-                problema,
-              ),
+            : new ArchivoRechazado(estado, operacion, rechazoDe(archivo, motivo, null), problema),
         );
         return;
       }
@@ -325,6 +310,10 @@ export async function subirElArchivo<T>(
       // Un 201 o un 204 sin cuerpo es una respuesta normal a una subida, y `JSON.parse('')`
       // lanzaria un `SyntaxError` que parece un fallo del servidor. Con cuerpo se interpreta como
       // en `solicitar()`, y un 200 que no trae JSON lanza el mismo `SyntaxError` que alli.
+      //
+      // **En el 2xx vacio las dos NO coinciden**, medido en #121: `solicitar()` con un 204 rechaza
+      // con `SyntaxError: Unexpected end of JSON input`. No se iguala aqui porque cambiar aquella
+      // es publico y se decide aparte; esta queda como esta, y lo fijan las dos pruebas.
       if (texto.trim() === '') {
         resolver(undefined as T);
         return;

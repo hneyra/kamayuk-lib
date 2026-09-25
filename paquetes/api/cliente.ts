@@ -8,14 +8,16 @@
  * tres, y sobrevive a la integracion como un caso aparte que nadie recuerda. Por eso la excepcion
  * de la prohibicion `fetch-fuera-del-cliente` es este paquete y solo este.
  *
- * `solicitar()` y `solicitarRespuesta()` son **la misma peticion** —la compone `pedir()`, ahi
- * abajo— y se diferencian solo en lo que hacen con la respuesta: la primera la interpreta, la
- * segunda devuelve el estado, las cabeceras y los bytes tal cual, que es lo que necesita un cuerpo
- * firmado con una huella.
+ * `solicitar()`, `solicitarRespuesta()` y `descargar()` son **la misma peticion** —la compone
+ * `pedir()`, ahi abajo— y se diferencian solo en lo que hacen con la respuesta: la primera la
+ * interpreta, la segunda devuelve el estado, las cabeceras y los bytes tal cual, que es lo que
+ * necesita un cuerpo firmado con una huella, y la tercera la entrega como `Blob` sin mandar
+ * `Accept`.
  *
  * La cuarta operacion, `subir()`, no cabe por `fetch`: necesita decir cuanto lleva enviado, y eso
  * solo lo da `XMLHttpRequest`. Vive en `subir.ts`, encerrada igual que esto, y el porque entero
- * esta en su cabecera.
+ * esta en su cabecera. Del camino de errores comparte con las otras tres lo que no depende del
+ * transporte: `operacionDe`, `cuerpoDeProblema` y `ErrorDeLaApi`, todos de `errores.ts`.
  *
  * <h2>Lo que cambia al vivir en `kamayuk-lib` y no en un sistema</h2>
  *
@@ -41,7 +43,13 @@
  * el `Authorization`—; y esta propiedad de que aqui no se compone nada.
  */
 
-import { ErrorDeLaApi, NoEsUnDocumento, type CuerpoDeProblema } from './errores.ts';
+import {
+  ErrorDeLaApi,
+  NoEsUnDocumento,
+  cuerpoDeProblema,
+  operacionDe,
+  type CuerpoDeProblema,
+} from './errores.ts';
 import { subirElArchivo, type OpcionesDeSubida } from './subir.ts';
 
 /**
@@ -184,19 +192,14 @@ function idempotencia(clave: string | undefined): Record<string, string> {
 }
 
 /**
- * Lee el `problem+json` de una respuesta fallida, sin dejar que su lectura tape el fallo.
+ * El `problem+json` de una respuesta fallida, leido por `cuerpoDeProblema`: la misma lectura que
+ * hace `subir.ts` sobre el texto de `XMLHttpRequest`, y no una copia de ella.
  *
- * Un `await respuesta.json()` sobre un cuerpo vacio —o sobre el HTML de un proxy mal
- * configurado— lanza, y esa excepcion sustituiria al `ErrorDeLaApi` que se estaba construyendo:
- * la pantalla acabaria ensenando «Unexpected token < in JSON» en lugar de «no tienes permiso».
+ * Aqui solo se saca el texto. Si ni eso se puede —el cuerpo ya se leyo, o la conexion se corto a
+ * mitad—, el fallo tampoco tapa el `ErrorDeLaApi`: cuenta como un cuerpo que no dijo nada.
  */
-async function problemaDe(respuesta: Response): Promise<CuerpoDeProblema> {
-  try {
-    const cuerpo: unknown = await respuesta.json();
-    return typeof cuerpo === 'object' && cuerpo !== null ? (cuerpo as CuerpoDeProblema) : {};
-  } catch {
-    return {};
-  }
+function problemaDe(respuesta: Response): Promise<CuerpoDeProblema> {
+  return respuesta.text().then(cuerpoDeProblema, () => ({}));
 }
 
 /**
@@ -245,7 +248,7 @@ export function crearCliente(configuracion: ConfiguracionDelCliente): Cliente {
   const { prefijo, token } = configuracion;
 
   /**
-   * La cabecera del token, la misma para las TRES operaciones. Se lee en cada llamada.
+   * La cabecera del token, la misma para las CUATRO operaciones. Se lee en cada llamada.
    *
    * `subir()` la recibe como funcion —y no como valor ya leido— justo por esto: si la sesion se
    * refresca a mitad de una pantalla, la subida no puede ser el unico sitio que no se entera.
@@ -260,20 +263,32 @@ export function crearCliente(configuracion: ConfiguracionDelCliente): Cliente {
   };
 
   /**
-   * La peticion que comparten `solicitar()` y `solicitarRespuesta()`, hasta el error incluido.
+   * La peticion que comparten `solicitar()`, `solicitarRespuesta()` y `descargar()`, hasta el
+   * error incluido. `subir()` es la cuarta y no pasa por aqui —va por `XMLHttpRequest`, en
+   * `subir.ts`—, pero comparte con esta el token, `operacionDe` y `cuerpoDeProblema`.
    *
    * Esta en un solo sitio para que compartirlo sea una propiedad del codigo y no una promesa de la
    * documentacion: el prefijo, el token leido en esta llamada, el `Accept`, el `Content-Type` del
    * cuerpo, la clave de idempotencia, la senal y el mismo `ErrorDeLaApi` por la misma `problemaDe`.
    * Lo unico que las distingue es que hace cada una con la respuesta que sale de aqui.
    *
+   * `aceptar` es el `Accept` que se manda, o `null` para no mandar ninguno. Va aparte de
+   * `OpcionesDeSolicitud` a proposito: ese tipo es publico y no tiene cabeceras libres, y esto no
+   * lo elige una pantalla sino la operacion. Hasta #121 `descargar()` se saltaba esta funcion para
+   * no mandar `Accept: application/json`, y reescribia el prefijo, la senal y el error por su
+   * cuenta.
+   *
    * Las cabeceras se componen **antes** del `await fetch` a proposito: una clave de idempotencia en
    * blanco tiene que lanzar sin que salga un byte, y no despues de que la escritura se haya hecho.
    */
-  const pedir = async (ruta: string, opciones: OpcionesDeSolicitud): Promise<Response> => {
+  const pedir = async (
+    ruta: string,
+    opciones: OpcionesDeSolicitud,
+    aceptar: string | null = 'application/json',
+  ): Promise<Response> => {
     const metodo = opciones.metodo ?? 'GET';
     const cabeceras = {
-      Accept: 'application/json',
+      ...(aceptar === null ? {} : { Accept: aceptar }),
       ...autorizacion(),
       ...(opciones.cuerpo === undefined ? {} : { 'Content-Type': 'application/json' }),
       ...idempotencia(opciones.claveDeIdempotencia),
@@ -290,7 +305,7 @@ export function crearCliente(configuracion: ConfiguracionDelCliente): Cliente {
       // El estado y el codigo viajan en el error. Una interfaz que solo recibe «fallo» no
       // puede distinguir «no tienes permiso» de «el otro sistema esta caido», y acaba
       // ensenando la misma frase inutil para las dos.
-      throw new ErrorDeLaApi(respuesta.status, `${metodo} ${ruta}`, await problemaDe(respuesta));
+      throw new ErrorDeLaApi(respuesta.status, operacionDe(metodo, ruta), await problemaDe(respuesta));
     }
 
     return respuesta;
@@ -300,7 +315,17 @@ export function crearCliente(configuracion: ConfiguracionDelCliente): Cliente {
     /**
      * Pide `ruta` al backend y devuelve su cuerpo ya interpretado.
      *
+     * <h2>Un 204 NO resuelve: rechaza con el `SyntaxError` de `respuesta.json()`</h2>
+     *
+     * Medido en #121: `solicitar('/x', { metodo: 'DELETE' })` contra un 204 sin cuerpo rechaza con
+     * `SyntaxError: Unexpected end of JSON input`, y lo fija una prueba. Es lo contrario de
+     * `subir()`, que ante un 2xx vacio resuelve `undefined`. **No se cambia aqui**: que un 204
+     * resuelva es un cambio de conducta publico —una pantalla que hoy atrapa ese rechazo dejaria
+     * de verlo— y se decide aparte. Mientras tanto, lo que no trae cuerpo se pide con
+     * `solicitarRespuesta()`, que devuelve el texto vacio sin interpretarlo.
+     *
      * @param ruta relativa al prefijo del sistema, empezando por `/`
+     * @throws SyntaxError si el 2xx no trae JSON, un 204 sin cuerpo incluido
      */
     async solicitar<T>(ruta: string, opciones: OpcionesDeSolicitud = {}): Promise<T> {
       return (await (await pedir(ruta, opciones)).json()) as T;
@@ -370,30 +395,24 @@ export function crearCliente(configuracion: ConfiguracionDelCliente): Cliente {
      *
      * <h2>Lo que comparte con `solicitar()`, y lo que no</h2>
      *
-     * El prefijo, el token y `ErrorDeLaApi`: un 500 al bajar un documento dice lo mismo que un
-     * 500 al leer, porque el error SI viene en `problem+json`. Y como alli, la ruta sale tal cual
-     * —la consulta la escribe quien llama— y un corte de red lanza el `TypeError` de `fetch`.
+     * Desde #121, **la misma peticion**: pasa por `pedir()`, asi que el prefijo, el token y
+     * `ErrorDeLaApi` son los de `solicitar()` por construccion y no por copia. Un 500 al bajar un
+     * documento dice lo mismo que un 500 al leer, porque el error SI viene en `problem+json`. Y
+     * como alli, la ruta sale tal cual —la consulta la escribe quien llama— y un corte de red
+     * lanza el `TypeError` de `fetch`.
      *
-     * No manda `Accept: application/json`, porque no es lo que espera. Y no entrega: devuelve el
-     * `Blob` y la pantalla decide cuando llamar a `entregarAlNavegador`, que es lo que deja
-     * probar esto sin un DOM.
+     * **No manda `Accept`**, ni el de JSON ni otro, porque no es lo que espera: le pide a `pedir()`
+     * que no lo ponga. Las cabeceras son exactamente las de hoy —`Authorization` si hay token, y
+     * ninguna si no—, y lo fija una prueba sobre la lista entera. Y no entrega: devuelve el `Blob`
+     * y la pantalla decide cuando llamar a `entregarAlNavegador`, que es lo que deja probar esto
+     * sin un DOM.
      *
      * @param ruta relativa al prefijo del sistema, empezando por `/`, con su consulta si la lleva
      * @throws NoEsUnDocumento si el 200 trae JSON
      * @throws ErrorDeLaApi si el backend contesta un error
      */
     async descargar(ruta: string, opciones: OpcionesDeDescarga = {}): Promise<DocumentoDescargado> {
-      const operacion = `GET ${ruta}`;
-
-      const respuesta = await fetch(`${prefijo}${ruta}`, {
-        method: 'GET',
-        headers: autorizacion(),
-        ...(opciones.senal === undefined ? {} : { signal: opciones.senal }),
-      });
-
-      if (!respuesta.ok) {
-        throw new ErrorDeLaApi(respuesta.status, operacion, await problemaDe(respuesta));
-      }
+      const respuesta = await pedir(ruta, { metodo: 'GET', senal: opciones.senal }, null);
 
       // Un 200 con JSON NO es un documento, y pasa de verdad: una misma ruta puede servir datos o
       // el archivo segun lleve un parametro, y basta con olvidarlo. Sin esta guarda el navegador
@@ -401,7 +420,7 @@ export function crearCliente(configuracion: ConfiguracionDelCliente): Cliente {
       // y el error aparece al abrirlo, lejos de la pantalla que lo pidio.
       const tipoDeMedio = respuesta.headers.get('Content-Type') ?? '';
       if (/json/i.test(tipoDeMedio)) {
-        throw new NoEsUnDocumento(respuesta.status, operacion, tipoDeMedio);
+        throw new NoEsUnDocumento(respuesta.status, operacionDe('GET', ruta), tipoDeMedio);
       }
 
       return {
@@ -428,10 +447,14 @@ export function crearCliente(configuracion: ConfiguracionDelCliente): Cliente {
      * });
      * ```
      *
-     * Comparte con las otras dos el prefijo, el token —leido en CADA llamada, con la misma
-     * funcion— y `ErrorDeLaApi`. Lo que no comparte es el transporte: por dentro va con
-     * `XMLHttpRequest`, porque `fetch` no sabe decir cuanto lleva subido. El porque entero, y por
-     * que el `Content-Type` no se fija a mano, estan en la cabecera de `subir.ts`.
+     * Comparte con las otras tres el prefijo, el token —leido en CADA llamada, con la misma
+     * funcion—, `ErrorDeLaApi`, `operacionDe` y `cuerpoDeProblema`, la unica lectura del
+     * `problem+json`. Lo que no comparte es el transporte: por dentro va con `XMLHttpRequest`,
+     * porque `fetch` no sabe decir cuanto lleva subido, y por eso no pasa por `pedir()`. El porque
+     * entero, y por que el `Content-Type` no se fija a mano, estan en la cabecera de `subir.ts`.
+     *
+     * **Ante un 2xx vacio —un 201 o un 204 sin cuerpo— resuelve `undefined`**, y en eso NO es como
+     * `solicitar()`, que rechaza con `SyntaxError`. Ver el docblock de `solicitar()`.
      *
      * @param ruta relativa al prefijo del sistema, empezando por `/`
      * @throws ArchivoRechazado si el archivo no pasa el `limiteDeBytes` o el `admite` que se
