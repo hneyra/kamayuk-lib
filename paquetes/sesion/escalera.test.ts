@@ -1,8 +1,15 @@
+// @vitest-environment node
+//
+// Una funcion pura, sin DOM; y la instantanea de #123 se lee y se escribe como archivo.
+
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
 import { describe, expect, it } from 'vitest';
 
 import { ArchivoRechazado, ErrorDeLaApi, NoEsUnDocumento } from '../api/index.ts';
 import { ABRE, marcarElSaco } from '../verificaciones/marcas.ts';
-import { peldanoDe, type Peldano } from './escalera.ts';
+import { cubre, peldanoDe, REGLAS, type Condicion, type Peldano, type Regla } from './escalera.ts';
 import { TEXTOS_DE_LA_ESCALERA } from './textos.ts';
 
 /**
@@ -673,5 +680,185 @@ describe('#109 — un archivo rechazado no manda a soporte, ni ofrece reintentar
     expect(peldano.remedio).toBe(TEXTOS_DE_LA_ESCALERA.loArreglaQuienHizoLaDescarga);
     // Un 200 no trae `problem+json`: el detalle es el respaldo, y sale del saco (arriba).
     expect(peldano.detalle).toBe(TEXTOS_DE_LA_ESCALERA.llegaronDatosEnVezDeUnDocumento);
+  });
+});
+
+/**
+ * **La salida de `peldanoDe` es la de ANTES de la tabla de reglas** (#123, AC3).
+ *
+ * `peldanoDe` paso de once ramas `if` a una tabla de reglas, y un cambio asi solo vale si no
+ * cambia nada de lo que sale. La instantanea `escalera.instantanea.json` se tomo **sobre el
+ * `escalera.ts` de las ramas**, antes de tocarlo, y esta prueba compara contra ella el peldano
+ * entero —los ocho campos, no solo la clave— de cada fallo:
+ *
+ *   · las filas de `LA_ESCALERA`, tal cual;
+ *   · cada una de ellas **sin mensaje**, para que el detalle sea el RESPALDO del saco y no lo que
+ *     dijo el backend: con mensaje, un respaldo cruzado entre dos peldanos saldria igual;
+ *   · los que se miran por su clase (#109), los que usan un dato del error —`detalles`,
+ *     `incidencia`, `operacion`— y los que solo traen `title` o `detail`.
+ *
+ * Y cada uno **dos veces**: en castellano, y con el saco marcado, que es lo que dice DE QUE CLAVE
+ * sale cada frase —dos claves con el mismo texto no se distinguirian en castellano—.
+ *
+ * Si el cambio de una salida es deliberado se regenera, y el diff de la instantanea es lo que la
+ * revision lee:
+ *
+ *     KAMAYUK_REGENERAR=1 yarn vitest run paquetes/sesion/escalera.test.ts
+ */
+describe('#123 AC3 — la salida de peldanoDe es la de antes de la tabla de reglas', () => {
+  const RUTA = fileURLToPath(new URL('./escalera.instantanea.json', import.meta.url));
+  const REGENERAR = process.env['KAMAYUK_REGENERAR'] === '1';
+  const MARCADOS = marcarElSaco(TEXTOS_DE_LA_ESCALERA);
+
+  const SIN_MENSAJE = LA_ESCALERA.flatMap((f) =>
+    f.elFallo instanceof ErrorDeLaApi
+      ? [
+          {
+            nombre: `${f.nombre} sin mensaje`,
+            elFallo: new ErrorDeLaApi(
+              f.elFallo.estado,
+              f.elFallo.operacion,
+              f.elFallo.codigo === null ? {} : { codigo: f.elFallo.codigo },
+            ),
+          },
+        ]
+      : [],
+  );
+
+  const OTROS: readonly { readonly nombre: string; readonly elFallo: unknown }[] = [
+    ...(['demasiado-grande', 'tipo-no-admitido'] as const).flatMap((motivo) => [
+      {
+        nombre: `ArchivoRechazado local ${motivo}`,
+        elFallo: new ArchivoRechazado(0, 'POST /documentos', {
+          motivo,
+          bytes: 5_000_000,
+          limiteDeBytes: 1_000_000,
+          tipo: 'application/x-msdownload',
+        }),
+      },
+      {
+        nombre: `ArchivoRechazado del servidor ${motivo} con mensaje`,
+        elFallo: new ArchivoRechazado(
+          motivo === 'demasiado-grande' ? 413 : 415,
+          'POST /documentos',
+          { motivo, bytes: 5_000_000, limiteDeBytes: null, tipo: 'text/csv' },
+          { mensaje: EL_MISMO_MENSAJE },
+        ),
+      },
+    ]),
+    {
+      nombre: 'NoEsUnDocumento',
+      elFallo: new NoEsUnDocumento(200, 'GET /documentos/7', 'application/json'),
+    },
+    {
+      nombre: '422 ORDEN_NO_ADMITIDO con detalles',
+      elFallo: new ErrorDeLaApi(422, 'GET /conjuntos', {
+        codigo: 'ORDEN_NO_ADMITIDO',
+        mensaje: 'No se puede ordenar por ese campo',
+        detalles: ['Campo pedido: selladoPor'],
+      }),
+    },
+    {
+      nombre: '500 con incidencia',
+      elFallo: new ErrorDeLaApi(500, 'POST /conjuntos/7/sellar', {
+        codigo: 'ERROR_INTERNO',
+        mensaje: EL_MISMO_MENSAJE,
+        incidencia: '2f0f7f2e-9a1c-4f1e-9a55-1c3f5c2f0a11',
+      }),
+    },
+    { nombre: '503 sin cuerpo', elFallo: new ErrorDeLaApi(503, 'GET /conjuntos') },
+    { nombre: '405 solo con title', elFallo: new ErrorDeLaApi(405, 'PATCH /x', { title: 'Metodo' }) },
+    { nombre: '409 solo con detail', elFallo: new ErrorDeLaApi(409, 'PUT /x', { detail: 'Sellado' }) },
+    { nombre: 'un fallo que no es un Error', elFallo: 'se cayo' },
+  ];
+
+  const TODOS = [...LA_ESCALERA, ...SIN_MENSAJE, ...OTROS];
+
+  function salida(): Record<string, { castellano: Peldano; marcado: Peldano }> {
+    return Object.fromEntries(
+      TODOS.map((f) => [
+        f.nombre,
+        { castellano: peldanoDe(f.elFallo), marcado: peldanoDe(f.elFallo, MARCADOS) },
+      ]),
+    );
+  }
+
+  it('EL CENTINELA: cada fallo tiene un nombre propio, y estan los nueve peldanos', () => {
+    // Dos filas con el mismo nombre se pisarian en la instantanea y una dejaria de compararse.
+    expect(new Set(TODOS.map((f) => f.nombre)).size).toBe(TODOS.length);
+    expect(new Set(TODOS.map((f) => peldanoDe(f.elFallo).clave)).size).toBe(9);
+  });
+
+  it('cada fallo da, campo a campo, el mismo peldano que la instantanea', () => {
+    const ahora = salida();
+    if (REGENERAR) writeFileSync(RUTA, `${JSON.stringify(ahora, null, 2)}\n`, 'utf8');
+
+    expect(existsSync(RUTA), 'falta `escalera.instantanea.json`').toBe(true);
+    expect(
+      JSON.parse(JSON.stringify(ahora)),
+      'La salida de `peldanoDe` ya no es la de la instantanea. Si el cambio es deliberado:\n\n' +
+        '    KAMAYUK_REGENERAR=1 yarn vitest run paquetes/sesion/escalera.test.ts\n',
+    ).toEqual(JSON.parse(readFileSync(RUTA, 'utf8')));
+  });
+});
+
+/**
+ * **Ninguna regla queda tapada por otra anterior mas general** (#123, AC2).
+ *
+ * `REGLAS` se recorre en orden y gana la primera que se cumple, asi que el orden tiene
+ * significado: un 403 a secas puesto antes que el 403 `SIN_PRIVILEGIO` se lo come. Hasta #123 ese
+ * orden no estaba escrito en ningun sitio, y romperlo daba siete rojas en esta misma prueba
+ * —`expected 'no-permitido' to be 'sin-privilegio'`— sin que ninguna dijera QUE regla tapaba a
+ * cual. Esta lo dice con las dos.
+ */
+describe('#123 AC2 — ninguna regla queda tapada por otra anterior mas general', () => {
+  function nombreDe(regla: Regla): string {
+    const { clase, motivo, estado, codigo } = regla.cuando;
+    const cuando = [clase?.name, motivo, estado, codigo].filter((v) => v !== undefined).join(' ');
+    return `${regla.clave} (${cuando})`;
+  }
+
+  it('cada regla la alcanza algun fallo: ninguna anterior la cubre', () => {
+    const tapadas = REGLAS.flatMap((despues, j) =>
+      REGLAS.slice(0, j)
+        .filter((antes) => cubre(antes.cuando, despues.cuando))
+        .map((antes) => `«${nombreDe(antes)}» tapa a «${nombreDe(despues)}», que va despues`),
+    );
+
+    expect(tapadas).toEqual([]);
+  });
+
+  it('EL CENTINELA: `cubre` ve una tapada donde la hay, y solo ahi', () => {
+    // Sin esto, un `cubre` que devolviera siempre `false` dejaria la prueba de arriba en verde
+    // sobre cualquier orden.
+    const casos: readonly (readonly [Condicion, Condicion, boolean])[] = [
+      [{ estado: 403 }, { estado: 403, codigo: 'SIN_PRIVILEGIO' }, true],
+      [{ estado: 403, codigo: 'SIN_PRIVILEGIO' }, { estado: 403 }, false],
+      [{ estado: 422 }, { estado: 422, codigo: 'ORDEN_NO_ADMITIDO' }, true],
+      [{ estado: 403, codigo: 'SIN_PRIVILEGIO' }, { estado: 403, codigo: 'SIN_PRIVILEGIO' }, true],
+      [{ estado: 403, codigo: 'SIN_MUNICIPALIDAD' }, { estado: 403, codigo: 'SIN_PRIVILEGIO' }, false],
+      [{}, { estado: 401 }, true],
+      [{ clase: ErrorDeLaApi }, { clase: NoEsUnDocumento }, true],
+      [{ clase: ArchivoRechazado }, { clase: ArchivoRechazado, motivo: 'tipo-no-admitido' }, true],
+      [{ clase: ArchivoRechazado }, { clase: NoEsUnDocumento }, false],
+      [{ clase: NoEsUnDocumento }, { clase: ErrorDeLaApi }, false],
+      // Un 422 no tapa a un archivo rechazado: en su condicion el estado no esta fijado.
+      [{ estado: 422 }, { clase: ArchivoRechazado }, false],
+      [
+        { clase: ArchivoRechazado, motivo: 'demasiado-grande' },
+        { clase: ArchivoRechazado, motivo: 'tipo-no-admitido' },
+        false,
+      ],
+    ];
+
+    for (const [general, especifica, esperado] of casos) {
+      expect(cubre(general, especifica), JSON.stringify([general, especifica])).toBe(esperado);
+    }
+  });
+
+  it('y la tabla trae once reglas, que dan todos los peldanos menos la averia', () => {
+    // La averia no es una fila: es lo que queda cuando ninguna se cumple.
+    expect(REGLAS).toHaveLength(11);
+    expect(new Set(REGLAS.map((r) => r.clave)).size).toBe(8);
   });
 });
