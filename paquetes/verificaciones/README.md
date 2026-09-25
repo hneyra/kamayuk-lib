@@ -97,13 +97,14 @@ navegador, y por eso `sin-suponer-un-sistema` no lo barre.
   y exige que la CI se dispare con cualquier `.gitattributes`.
 - **Lo que un archivo importa lo dice el analizador de TypeScript, no una expresión regular**
   (#112): `imports.mjs` —en JavaScript, porque lo carga el guion del arnés— saca el especificador
-  de cada import con `ts.preProcessFile`, y así ven el import de efecto, el dinámico, el
-  `export … from`, el `require` y el subcamino (`@kamayuk/ui/estilos.css`), sin contar los
-  comentarios ni las cadenas; el `@import` de los `.css` va aparte, en todas sus formas —también
+  de cada import recorriendo el árbol sintáctico (`ts.createSourceFile`), y así ven el import de
+  efecto, el dinámico, el `export … from` —también `export * as x from`, que `ts.preProcessFile`,
+  lo primero que se usó, no devuelve—, el `require`, el tipo `import('x')` y el subcamino
+  (`@kamayuk/ui/estilos.css`), sin contar los comentarios, las cadenas ni el texto JSX; el `@import` de los `.css` va aparte, en todas sus formas —también
   `url(x)` sin comillas, que se escapaba—. Lo usan
   `sin-nombre-publico-entre-paquetes`, `el-marco-no-decide-permisos` —con su muestra,
   `marco-que-decide-permisos.ts`— y el guion del arnés. Lo que no ve, y lo dice: un
-  `import(variable)`, y el texto JSX, que contaría de más.
+  `import(variable)`.
 
 ## Los guiones
 

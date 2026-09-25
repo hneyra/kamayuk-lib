@@ -118,7 +118,8 @@ describe('ningun paquete importa a otro por su nombre publico', () => {
   });
 
   it('un import en un comentario NO se denuncia, ni una cadena con su forma (#112)', () => {
-    // Lo descarta el propio analizador, que tokeniza: no hace falta quitar los comentarios antes.
+    // Lo descarta el propio analizador, que mira nodos y no texto: no hace falta quitar los
+    // comentarios antes.
     const texto = [
       "// import '@kamayuk/ui';",
       "/* import { x } from '@kamayuk/api'; */",
