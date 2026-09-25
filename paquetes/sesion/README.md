@@ -1,6 +1,7 @@
 # `@kamayuk/sesion`
 
-`crearIdentidad(config)` con PKCE S256 y `peldanoDe()` con sus **nueve** peldaños.
+`crearIdentidad(config, textos?)` con PKCE S256 y `peldanoDe(fallo, textos?)` con sus **nueve**
+peldaños.
 
 Viene de `rentas`, el único de los cuatro que se autenticaba, y **nada dentro nombra a un sistema**:
 lo que lo ataba eran tres datos, hoy parámetros; las dos frases que todavía suponían `rentas` —«no
@@ -40,6 +41,14 @@ el emisor no contesta; `urlDeLaCuenta()`/`abrirLaCuenta()` llevan a la consola d
 **La sonda sube con `credentials: 'omit'`**, y no es adorno: medido en Chromium, con el emisor en el
 mismo origen que la interfaz —el caso del clúster, `https://<dominio>/keycloak/…`— sin esa línea le
 van las cookies de la sesión.
+
+**Lo que dice cuando no se pudo entrar es dato** (#118): las dieciséis frases del `motivo` y el
+`detalle` de cada `Vuelta` fallida, y el respaldo del `motivo` de `FallaDeLaPuerta`, viven en
+`TEXTOS_DE_LA_PUERTA` (`textos.ts`) y entran como `Partial` por el segundo argumento —opcional: con
+uno solo dice lo de siempre—, igual que las de la escalera. Lo que dijeron el emisor
+(`error_description`) y el navegador («Failed to fetch») sigue siendo dato y no pasa por el saco.
+`identidad.ts` era la única excepción de la cuarta forma de `el-texto-visible-es-dato`; ya no hay
+ninguna, y una frase escrita dentro sale roja con su línea.
 
 ## Quién entró: `quienEntro()` (#70)
 

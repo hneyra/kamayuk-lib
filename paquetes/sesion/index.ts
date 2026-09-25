@@ -21,7 +21,9 @@
  *     descubrimiento —`no-cors`, sin cache y sin credenciales— antes de mandar el navegador, y
  *     devuelve `FallaDeLaPuerta` si no contesta. Una ida que no ocurrio no gasta del tope.
  *   · **El canje**, con tope de espera, comprobando el `state`, limpiando la URL siempre y
- *     explicando cada fallo con su motivo (`Vuelta`) en vez de un `false` mudo.
+ *     explicando cada fallo con su motivo (`Vuelta`) en vez de un `false` mudo. **Sus dieciseis
+ *     frases son dato** (#118): `TEXTOS_DE_LA_PUERTA`, segundo argumento opcional de
+ *     `crearIdentidad`.
  *   · **El token en memoria** y en ningun almacenamiento; el `id_token` tambien, para
  *     `id_token_hint` al salir y para `quienEntro()`.
  *   · **Quien entro** (#70): `quienEntro()` devuelve el `nombre`, el `usuario` y la
@@ -69,5 +71,5 @@ export type {
 export type { QuienEntro } from './quien-entro.ts';
 export { peldanoDe } from './escalera.ts';
 export type { Peldano } from './escalera.ts';
-export { TEXTOS_DE_LA_ESCALERA } from './textos.ts';
-export type { TextosDeLaEscalera } from './textos.ts';
+export { TEXTOS_DE_LA_ESCALERA, TEXTOS_DE_LA_PUERTA } from './textos.ts';
+export type { TextosDeLaEscalera, TextosDeLaPuerta } from './textos.ts';

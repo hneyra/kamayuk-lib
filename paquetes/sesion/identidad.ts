@@ -58,9 +58,19 @@
  * se quedaba con un rotulo neutro. `quienEntro()` lo publica leido de ese mismo token, sin
  * guardarlo en ningun sitio nuevo y **sin validar la firma**: por que eso es correcto esta escrito
  * en `quien-entro.ts`, que es donde vive la lectura.
+ *
+ * <h2>Y lo que la puerta dice cuando no se pudo entrar, como dato (#118)</h2>
+ *
+ * Las dieciseis frases de la pantalla de «no se pudo entrar» —el `motivo` y el `detalle` de cada
+ * `Vuelta` fallida, y el respaldo del `motivo` de `FallaDeLaPuerta`— viven en el saco
+ * `TEXTOS_DE_LA_PUERTA` (`textos.ts`) y entran como `Partial` por el segundo argumento de
+ * `crearIdentidad`, igual que las de la escalera por el de `peldanoDe`. Este archivo era la unica
+ * excepcion de la cuarta forma de `el-texto-visible-es-dato`, y ya no lo es: una frase escrita aqui
+ * sale roja con su linea.
  */
 
 import { leerQuienEntro, type QuienEntro } from './quien-entro.ts';
+import { TEXTOS_DE_LA_PUERTA, type TextosDeLaPuerta } from './textos.ts';
 
 /**
  * Lo que un sistema tiene que decir para tener puerta. Nada de esto se adivina.
@@ -264,28 +274,27 @@ const RUTA_DE_LA_CUENTA: Readonly<Record<PaginaDeLaCuenta, string>> = {
 };
 
 /** Lo que paso, dicho como el navegador lo dice. Ver `FallaDeLaPuerta.motivo`. */
-function enPalabrasDelNavegador(falla: unknown): string {
-  if (!(falla instanceof Error)) return 'la peticion no llego a completarse';
-  if (falla.name === 'TimeoutError') {
-    return `no contesto en ${String(ESPERA_DE_LA_SONDA / 1000)} s`;
-  }
+function enPalabrasDelNavegador(falla: unknown, t: TextosDeLaPuerta): string {
+  if (!(falla instanceof Error)) return t.laPeticionNoLlegoACompletarse;
+  if (falla.name === 'TimeoutError') return t.noContestoEn(ESPERA_DE_LA_SONDA / 1000);
   return falla.message === '' ? falla.name : falla.message;
 }
 
-function motivoDelEmisor(error: string): string {
+/** El motivo de una vuelta con `?error=`, segun el codigo de OAuth que mando el emisor. */
+function motivoDelEmisor(error: string, t: TextosDeLaPuerta): string {
   switch (error) {
     case 'access_denied':
-      return 'No se completo la entrada';
+      return t.noSeCompletoLaEntrada;
     case 'invalid_scope':
-      return 'El alcance que se pide no existe en el emisor';
+      return t.elAlcanceNoExisteEnElEmisor;
     case 'unauthorized_client':
     case 'invalid_client':
-      return 'El emisor no reconoce a este cliente';
+      return t.elEmisorNoReconoceAlCliente;
     case 'temporarily_unavailable':
     case 'server_error':
-      return 'El emisor tuvo un problema';
+      return t.elEmisorTuvoUnProblema;
     default:
-      return 'El emisor no dejo entrar';
+      return t.elEmisorNoDejoEntrar;
   }
 }
 
@@ -307,10 +316,23 @@ function base64url(bytes: Uint8Array): string {
   return btoa(texto).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-/** La puerta de identidad de UN sistema. Cada interfaz construye la suya una vez. */
-export function crearIdentidad(configuracion: ConfiguracionDeIdentidad): Identidad {
+/**
+ * La puerta de identidad de UN sistema. Cada interfaz construye la suya una vez.
+ *
+ * @param configuracion lo que el sistema tiene que decir para tener puerta. Ver
+ *   `ConfiguracionDeIdentidad`.
+ * @param textos lo que se quiera decir en vez del castellano por omision cuando no se pudo entrar
+ *   (#118). Es un `Partial`, como el de `peldanoDe`: lo que no se pase sigue siendo lo de siempre,
+ *   asi que llamarla con un solo argumento no cambia nada. Lo que dijeron el emisor
+ *   (`error_description`) y el navegador («Failed to fetch») no pasa por aqui: es el dato.
+ */
+export function crearIdentidad(
+  configuracion: ConfiguracionDeIdentidad,
+  textos: Partial<TextosDeLaPuerta> = {},
+): Identidad {
   const { realm, cliente, alcance, retorno, destinoPorOmision, prefijoDeClaves } = configuracion;
   const topeDeIdas = configuracion.topeDeIdas ?? 3;
+  const t: TextosDeLaPuerta = { ...TEXTOS_DE_LA_PUERTA, ...textos };
 
   const autorizacion = `${realm}/protocol/openid-connect/auth`;
   const canje = `${realm}/protocol/openid-connect/token`;
@@ -420,7 +442,7 @@ export function crearIdentidad(configuracion: ConfiguracionDeIdentidad): Identid
       });
       return null;
     } catch (falla) {
-      return { emisor: realm, url: descubrimiento, motivo: enPalabrasDelNavegador(falla) };
+      return { emisor: realm, url: descubrimiento, motivo: enPalabrasDelNavegador(falla, t) };
     }
   }
 
@@ -499,8 +521,8 @@ export function crearIdentidad(configuracion: ConfiguracionDeIdentidad): Identid
         limpiar();
         return {
           estado: 'fallo',
-          motivo: motivoDelEmisor(fallo),
-          detalle: url.searchParams.get('error_description') ?? `El emisor contesto «${fallo}».`,
+          motivo: motivoDelEmisor(fallo, t),
+          detalle: url.searchParams.get('error_description') ?? t.elEmisorContesto(fallo),
         };
       }
 
@@ -515,11 +537,8 @@ export function crearIdentidad(configuracion: ConfiguracionDeIdentidad): Identid
         limpiar();
         return {
           estado: 'fallo',
-          motivo: 'La vuelta no cuadra con la ida',
-          detalle:
-            'El codigo llego sin el estado que se guardo al salir. Suele pasar al abrir un ' +
-            'enlace de vuelta antiguo o en otra pestana; tambien es lo que se ve si alguien ' +
-            'intenta colar un codigo ajeno.',
+          motivo: t.laVueltaNoCuadraConLaIda,
+          detalle: t.elCodigoLlegoSinSuEstado,
         };
       }
 
@@ -543,10 +562,8 @@ export function crearIdentidad(configuracion: ConfiguracionDeIdentidad): Identid
         limpiar();
         return {
           estado: 'fallo',
-          motivo: 'El emisor no contesto',
-          detalle:
-            'La peticion del canje no llego a completarse. El emisor puede estar apagado o no ' +
-            'ser alcanzable desde este puesto.',
+          motivo: t.elEmisorNoContesto,
+          detalle: t.elCanjeNoLlegoACompletarse,
         };
       }
 
@@ -554,10 +571,8 @@ export function crearIdentidad(configuracion: ConfiguracionDeIdentidad): Identid
       if (!respuesta.ok) {
         return {
           estado: 'fallo',
-          motivo: 'El emisor rechazo el canje',
-          detalle:
-            `La peticion del canje volvio con ${String(respuesta.status)}. Suele ser la URI de ` +
-            'retorno o el cliente.',
+          motivo: t.elEmisorRechazoElCanje,
+          detalle: t.elCanjeVolvioCon(respuesta.status),
         };
       }
 
@@ -568,8 +583,8 @@ export function crearIdentidad(configuracion: ConfiguracionDeIdentidad): Identid
       if (cuerpo.access_token === undefined) {
         return {
           estado: 'fallo',
-          motivo: 'El emisor no devolvio ningun token',
-          detalle: 'La respuesta del canje no trae «access_token».',
+          motivo: t.elEmisorNoDevolvioNingunToken,
+          detalle: t.laRespuestaDelCanjeNoTraeElToken,
         };
       }
 
