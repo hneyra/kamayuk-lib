@@ -3,8 +3,20 @@
 // Lee el JSON y el workflow del disco. No es un DOM lo que necesita.
 
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { RAIZ } from './texto.ts';
+import {
+  analizarWorkflow,
+  esMapa,
+  type Mapa,
+  ordenDe,
+  pasosDe,
+  trabajoDe,
+  valorEn,
+} from './workflow.ts';
 
 /**
  * **La CI mira a sus consumidores, y la lista es DATO** (#10).
@@ -36,6 +48,13 @@ import { describe, expect, it } from 'vitest';
  * resolucion y ciego a la mitad del camino, porque `ruta` no lo miraba nadie. Hoy hay **tres**
  * renglones, y cada uno dice lo que es: la profundidad y el choque con esta libreria DECIDEN; el
  * nombre es CONVENCION. Los tres, con su muestra.
+ *
+ * <h2>Y el workflow se lee como YAML (#114)</h2>
+ *
+ * Hasta #114 las comprobaciones del workflow preguntaban si el TEXTO «contenia» `consumidores.json`,
+ * `fromJSON` y «El veredicto», y los comentarios de `paquetes.yml` contienen las tres: quitado el
+ * paso de `jq`, quitada la linea del `include` y renombrado el veredicto, las tres seguian en verde.
+ * Hoy se pregunta por la FORMA del objeto que da `workflow.ts`, y las tres roturas son muestras.
  */
 
 const JSON_DE_CONSUMIDORES = 'consumidores.json';
@@ -51,7 +70,8 @@ interface Consumidor {
 const declarado = JSON.parse(readFileSync(JSON_DE_CONSUMIDORES, 'utf8')) as {
   consumidores: Consumidor[];
 };
-const workflow = readFileSync(WORKFLOW, 'utf8');
+const textoDelWorkflow = readFileSync(join(RAIZ, WORKFLOW), 'utf8');
+const workflow = analizarWorkflow(textoDelWorkflow, WORKFLOW);
 
 /**
  * Los niveles que sube el `link:` del consumidor, y por tanto los que tiene que bajar el consumidor
@@ -105,24 +125,117 @@ const losQueNoSiguenLaConvencion = (consumidores: readonly Disposicion[]): strin
     .map((c) => `  ${c.repositorio} se clona en «${c.directorio}»`);
 
 /**
- * Las ORDENES del paso `setup-node` que instala el consumidor —el que cachea SU `yarn.lock`—, sin
- * los comentarios. Sin comentarios a proposito: una guarda que se diera por satisfecha con un
- * `# check-latest: true` en un comentario pasaria en verde con la CI rota, que es justo el defecto
- * que ya se cazo una vez en este repositorio.
+ * Todas las cadenas de un workflow ya analizado —claves y valores, a cualquier profundidad—. Es
+ * donde se busca un consumidor escrito a mano: sin comentarios, porque el analizador ya los quito, y
+ * con o sin comillas, porque el analizador tambien las quito (el `includes("'hneyra/rentas'")` de
+ * antes de #114 no veia un `repositorio: hneyra/rentas` sin comillas).
  */
-function ordenesDelNodeDelConsumidor(yaml: string): readonly string[] {
-  const lineas = yaml.split('\n');
-  const cache = lineas.findIndex((l) => /^\s*cache-dependency-path:.*matrix\.directorio/.test(l));
-  if (cache === -1) return [];
-  let inicio = cache;
-  while (inicio > 0 && !/^\s*- uses: actions\/setup-node@/.test(lineas[inicio] ?? '')) inicio -= 1;
-  let fin = cache + 1;
-  while (fin < lineas.length && !/^\s*-\s/.test(lineas[fin] ?? '') && (lineas[fin] ?? '').trim() !== '') fin += 1;
-  return lineas
-    .slice(inicio, fin)
-    .map((l) => l.trim())
-    .filter((l) => l !== '' && !l.startsWith('#'));
+function cadenasDe(valor: unknown): string[] {
+  if (typeof valor === 'string') return [valor];
+  if (Array.isArray(valor)) return valor.flatMap(cadenasDe);
+  if (esMapa(valor)) return Object.entries(valor).flatMap(([clave, dentro]) => [clave, ...cadenasDe(dentro)]);
+  return [];
 }
+
+/**
+ * Lo que le falta al workflow para LEER la lista de `consumidores.json`, en vez de traerla escrita.
+ *
+ * Por la FORMA, no por el texto (#114): la salida `consumidores` del trabajo `verificar` sale de un
+ * paso suyo que la lee con `jq`, y la matriz del trabajo `consumidores` se llena con `fromJSON` de
+ * esa salida. Antes se preguntaba si el archivo «contenia» `consumidores.json` y `fromJSON`, y los
+ * comentarios de al lado los contienen: quitados el paso de `jq` y la linea del `include`, salia en
+ * verde.
+ */
+function loQueFaltaParaLeerLaLista(workflow: Mapa): string[] {
+  const faltas: string[] = [];
+  const verificar = trabajoDe(workflow, 'verificar');
+  const salida = valorEn(verificar, 'outputs', 'consumidores');
+  const id = typeof salida === 'string' ? /steps\.([\w-]+)\.outputs\.consumidores/.exec(salida)?.[1] : undefined;
+  const paso = pasosDe(verificar).find((p) => id !== undefined && p['id'] === id);
+  if (paso === undefined) {
+    faltas.push('el trabajo `verificar` no publica `consumidores` desde un paso suyo');
+  } else if (!/\bjq\b[^\n]*\bconsumidores\.json\b/.test(ordenDe(paso))) {
+    faltas.push(`el paso «${String(paso['id'])}» no lee \`consumidores.json\` con \`jq\``);
+  }
+
+  const include = valorEn(trabajoDe(workflow, 'consumidores'), 'strategy', 'matrix', 'include');
+  if (typeof include !== 'string' || !/fromJSON\(\s*needs\.verificar\.outputs\.consumidores\s*\)/.test(include)) {
+    faltas.push('la matriz del trabajo `consumidores` no es `include: ${{ fromJSON(needs.verificar.outputs.consumidores) }}`');
+  }
+  return faltas;
+}
+
+/** Los pasos del trabajo `consumidores`, que es donde se mide y se decide. */
+const pasosDelConsumidor = (workflow: Mapa): Mapa[] => pasosDe(trabajoDe(workflow, 'consumidores'));
+
+const LINEA_BASE = /checkout --quiet --detach origin\/main/;
+const ESTA_RAMA = /checkout --quiet --detach "\$GITHUB_SHA"/;
+
+/**
+ * Lo que le falta a la MEDIDA DOBLE: un paso que pone la libreria en `main` y otro que la pone en
+ * esta rama, cada uno con `continue-on-error: true` —sin eso el primer rojo para el trabajo y no hay
+ * nada que comparar—.
+ */
+function loQueFaltaALaMedida(workflow: Mapa): string[] {
+  const pasos = pasosDelConsumidor(workflow);
+  const faltas: string[] = [];
+  for (const [patron, cual] of [
+    [LINEA_BASE, 'la linea base, con la libreria en `main`'],
+    [ESTA_RAMA, 'la medida con esta rama'],
+  ] as const) {
+    const paso = pasos.find((p) => patron.test(ordenDe(p)));
+    if (paso === undefined) faltas.push(`no hay paso que haga ${cual}`);
+    else if (paso['continue-on-error'] !== true) faltas.push(`el paso de ${cual} no lleva \`continue-on-error: true\``);
+  }
+  return faltas;
+}
+
+/** El `name` del paso que decide. Lo leen las personas que miran la CI, y por eso se exige tal cual. */
+const NOMBRE_DEL_VEREDICTO = 'El veredicto';
+
+/**
+ * Lo que le falta al VEREDICTO: un paso con ese nombre, DESPUES de los dos que miden —antes no
+ * tendria sus resultados—, y con el rojo que para el trabajo.
+ */
+function loQueFaltaAlVeredicto(workflow: Mapa): string[] {
+  const pasos = pasosDelConsumidor(workflow);
+  const indice = pasos.findIndex((p) => p['name'] === NOMBRE_DEL_VEREDICTO);
+  if (indice === -1) return [`no hay un paso llamado «${NOMBRE_DEL_VEREDICTO}» en el trabajo \`consumidores\``];
+  const faltas: string[] = [];
+  const ultimaMedida = Math.max(
+    pasos.findIndex((p) => LINEA_BASE.test(ordenDe(p))),
+    pasos.findIndex((p) => ESTA_RAMA.test(ordenDe(p))),
+  );
+  if (indice < ultimaMedida) faltas.push('el veredicto va antes de las medidas que tiene que leer');
+  if (!/ESTA RAMA ROMPE A/.test(ordenDe(pasos[indice] ?? {}))) faltas.push('el veredicto no tiene el rojo que para el trabajo');
+  return faltas;
+}
+
+/**
+ * El paso `setup-node` que instala el consumidor —el que cachea SU `yarn.lock`—, o `null`.
+ *
+ * Del objeto y no del texto (#114): un `# check-latest: true` en un comentario no llega al objeto,
+ * y una guarda que se diera por satisfecha con el pasaria en verde con la CI rota, que es justo el
+ * defecto que ya se cazo una vez en este repositorio (#105).
+ */
+function setupNodeDelConsumidor(workflow: Mapa): Mapa | null {
+  return (
+    pasosDelConsumidor(workflow).find(
+      (p) =>
+        typeof p['uses'] === 'string' &&
+        p['uses'].startsWith('actions/setup-node@') &&
+        String(valorEn(p, 'with', 'cache-dependency-path') ?? '').includes('matrix.directorio'),
+    ) ?? null
+  );
+}
+
+/**
+ * Si el paso pide la ULTIMA 24. `true` sin comillas es lo que se escribe; `"true"` es lo mismo para
+ * `setup-node`, que lee sus entradas como cadenas y las pasa por `getBooleanInput` —`true`, `True`
+ * o `TRUE`—, asi que exigir el booleano sacaria rojo sin que nada estuviera roto.
+ */
+const pideLaUltima = (paso: Mapa | null): boolean =>
+  /^(?:true|True|TRUE)$/.test(String(valorEn(paso, 'with', 'check-latest') ?? ''));
 
 describe('la CI mira a sus consumidores', () => {
   it('EL CENTINELA: hay al menos un consumidor declarado', () => {
@@ -270,13 +383,14 @@ describe('la CI mira a sus consumidores', () => {
   it('el workflow LEE la lista, en vez de traerla escrita dentro', () => {
     // Es lo que hace que anadir `catastro` sea una linea de datos y no un `job` copiado. Con la
     // lista escrita en el YAML, el JSON se quedaria de adorno y nadie lo notaria.
-    expect(workflow, 'el workflow no lee `consumidores.json`').toContain('consumidores.json');
-    expect(workflow, 'el workflow no pasa la lista a la matriz').toContain('fromJSON');
+    const faltas = loQueFaltaParaLeerLaLista(workflow);
+    expect(faltas, `El workflow no lee la lista:\n  ${faltas.join('\n  ')}`).toEqual([]);
+    const cadenas = cadenasDe(workflow);
     for (const consumidor of declarado.consumidores) {
       expect(
-        workflow.includes(`'${consumidor.repositorio}'`) || workflow.includes(`"${consumidor.repositorio}"`),
+        cadenas.filter((cadena) => cadena.includes(consumidor.repositorio)),
         `el workflow trae «${consumidor.repositorio}» escrito dentro: la lista deja de ser dato`,
-      ).toBe(false);
+      ).toEqual([]);
     }
   });
 
@@ -284,38 +398,101 @@ describe('la CI mira a sus consumidores', () => {
     // Sin la linea base, un consumidor roto por su cuenta pone este repositorio en rojo por un
     // motivo ajeno. Un guardian que da falsos positivos se acaba ignorando, y con el se ignora el
     // positivo de verdad.
-    expect(workflow, 'no hay linea base con la libreria en `main`').toMatch(/checkout --quiet --detach origin\/main/);
-    expect(workflow, 'no se prueba con esta rama').toMatch(/checkout --quiet --detach "\$GITHUB_SHA"/);
+    const faltas = loQueFaltaALaMedida(workflow);
+    expect(faltas, `La medida doble esta incompleta:\n  ${faltas.join('\n  ')}`).toEqual([]);
   });
 
   it('y el veredicto va en un paso APARTE, porque los dos anteriores no fallan solos', () => {
     // `continue-on-error` en los dos pasos de medida es lo que permite comparar; sin un paso que
     // decida despues, el trabajo saldria VERDE con los dos en rojo.
-    expect(workflow).toContain('continue-on-error: true');
-    expect(workflow, 'no hay paso de veredicto').toContain('El veredicto');
-    expect(workflow, 'el veredicto no falla nunca').toMatch(/ESTA RAMA ROMPE A/);
+    const faltas = loQueFaltaAlVeredicto(workflow);
+    expect(faltas, `El veredicto no esta donde tiene que estar:\n  ${faltas.join('\n  ')}`).toEqual([]);
+  });
+
+  it('LA MUESTRA: las tres roturas de #114 salen ROJAS, aunque los comentarios sigan nombrandolas', () => {
+    // El defecto que #114 cierra, puesto sobre el workflow de ESTE arbol y en memoria: antes de
+    // #114 las tres salian en verde, porque `consumidores.json`, `fromJSON` y «El veredicto» los
+    // siguen diciendo los comentarios de al lado. Se comprueba primero que la rotura se aplico —una
+    // muestra que no rompe nada no prueba nada— y que los comentarios que la delataban siguen ahi.
+    const ROTURAS: readonly {
+      nombre: string;
+      romper: (texto: string) => string;
+      juez: (workflow: Mapa) => string[];
+      loQueDiceElComentario: string;
+    }[] = [
+      {
+        nombre: 'sin el paso de `jq`',
+        romper: (texto) => texto.replace(/^ {6}- name: Quien consume esta libreria\n(?: {8}.*\n)+/m, ''),
+        juez: loQueFaltaParaLeerLaLista,
+        loQueDiceElComentario: 'consumidores.json',
+      },
+      {
+        nombre: 'sin `include: fromJSON`',
+        romper: (texto) => texto.replace(/^ {8}include: \$\{\{ fromJSON\(.*\n/m, ''),
+        juez: loQueFaltaParaLeerLaLista,
+        loQueDiceElComentario: 'fromJSON',
+      },
+      {
+        nombre: 'con el veredicto renombrado',
+        romper: (texto) => texto.replace(`- name: ${NOMBRE_DEL_VEREDICTO}\n`, '- name: Decidir\n'),
+        juez: loQueFaltaAlVeredicto,
+        loQueDiceElComentario: NOMBRE_DEL_VEREDICTO,
+      },
+    ];
+    for (const { nombre, romper, juez, loQueDiceElComentario } of ROTURAS) {
+      const roto = romper(textoDelWorkflow);
+      expect(roto, `la rotura «${nombre}» no se aplico`).not.toBe(textoDelWorkflow);
+      expect(roto, `«${loQueDiceElComentario}» ya no esta en el texto: la muestra no prueba lo de #114`).toContain(
+        loQueDiceElComentario,
+      );
+      expect(juez(analizarWorkflow(roto, WORKFLOW)), `«${nombre}» paso en verde`).not.toEqual([]);
+    }
+  });
+
+  it('LA MUESTRA: una medida sin `continue-on-error` o un veredicto antes de las medidas salen rojos', () => {
+    const sinContinuar = textoDelWorkflow.replace(/^ {8}continue-on-error: true\n/m, '');
+    expect(sinContinuar, 'la rotura no se aplico').not.toBe(textoDelWorkflow);
+    expect(loQueFaltaALaMedida(analizarWorkflow(sinContinuar)), 'una medida que para el trabajo paso en verde').toHaveLength(1);
+
+    const pasos = pasosDe(trabajoDe(workflow, 'consumidores'));
+    const veredicto = pasos.find((p) => p['name'] === NOMBRE_DEL_VEREDICTO);
+    const adelantado = {
+      jobs: { consumidores: { steps: [veredicto, ...pasos.filter((p) => p !== veredicto)] } },
+    };
+    expect(loQueFaltaAlVeredicto(adelantado), 'un veredicto antes de las medidas paso en verde').toEqual([
+      'el veredicto va antes de las medidas que tiene que leer',
+    ]);
   });
 
   it('el Node del consumidor es la ULTIMA 24, no la que el corredor tenga en cache', () => {
     // Medido el 2026-09-23: `rentas` pidio `^24.21.0`, el corredor traia la 24.20.0 y el trabajo
     // salio rojo en la instalacion, antes de medir nada y en la linea base igual que en la rama.
-    const ordenes = ordenesDelNodeDelConsumidor(workflow);
-    expect(ordenes, 'no se encontro el `setup-node` que cachea el `yarn.lock` del consumidor').not.toEqual([]);
-    expect(ordenes, 'el `setup-node` del consumidor no pide la ultima 24').toContain('check-latest: true');
+    const paso = setupNodeDelConsumidor(workflow);
+    expect(paso, 'no se encontro el `setup-node` que cachea el `yarn.lock` del consumidor').not.toBeNull();
+    expect(pideLaUltima(paso), 'el `setup-node` del consumidor no pide la ultima 24').toBe(true);
   });
 
   it('LA MUESTRA: `check-latest` en un COMENTARIO no cuenta, y sin el sale rojo', () => {
-    const paso = (extra: string) =>
-      [
-        '      - uses: actions/setup-node@v7',
-        '        with:',
-        '          node-version: "24"',
-        extra,
-        "          cache-dependency-path: ${{ format('{0}/{1}/yarn.lock', matrix.directorio, matrix.ruta) }}",
-        '',
-      ].join('\n');
-    expect(ordenesDelNodeDelConsumidor(paso('          check-latest: true'))).toContain('check-latest: true');
-    expect(ordenesDelNodeDelConsumidor(paso('          # check-latest: true'))).not.toContain('check-latest: true');
-    expect(ordenesDelNodeDelConsumidor(paso('          cache: yarn'))).not.toContain('check-latest: true');
+    const conPaso = (extra: string) =>
+      analizarWorkflow(
+        [
+          'jobs:',
+          '  consumidores:',
+          '    steps:',
+          '      - uses: actions/setup-node@v7',
+          '        with:',
+          '          node-version: "24"',
+          extra,
+          "          cache-dependency-path: ${{ format('{0}/{1}/yarn.lock', matrix.directorio, matrix.ruta) }}",
+          '',
+        ].join('\n'),
+      );
+    expect(pideLaUltima(setupNodeDelConsumidor(conPaso('          check-latest: true')))).toBe(true);
+    expect(pideLaUltima(setupNodeDelConsumidor(conPaso('          check-latest: "true"'))), 'la cadena es lo mismo para `setup-node`').toBe(true);
+    expect(setupNodeDelConsumidor(conPaso('          # check-latest: true')), 'la muestra no tiene el paso').not.toBeNull();
+    expect(pideLaUltima(setupNodeDelConsumidor(conPaso('          # check-latest: true')))).toBe(false);
+    expect(pideLaUltima(setupNodeDelConsumidor(conPaso('          cache: yarn # check-latest: true')))).toBe(false);
+    expect(pideLaUltima(setupNodeDelConsumidor(conPaso('          check-latest: false')))).toBe(false);
+    expect(pideLaUltima(setupNodeDelConsumidor(conPaso('          cache: yarn')))).toBe(false);
   });
 });

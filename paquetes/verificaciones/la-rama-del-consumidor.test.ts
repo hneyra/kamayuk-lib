@@ -6,10 +6,13 @@
 // prueba de este archivo.
 
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
 import { CLAVE, leerLasMenciones, resolverLaRama } from './rama-del-consumidor.mjs';
+import { RAIZ } from './texto.ts';
+import { analizarWorkflow, type Mapa, ordenDe, pasosDe, trabajoDe, valorEn } from './workflow.ts';
 
 /**
  * **La CI mide la rama del consumidor que el PR nombra** (#26).
@@ -37,7 +40,7 @@ import { CLAVE, leerLasMenciones, resolverLaRama } from './rama-del-consumidor.m
 const WORKFLOW = '.github/workflows/paquetes.yml';
 
 /**
- * Lo que el workflow CORRE, sin lo que el workflow CUENTA.
+ * Lo que el workflow CORRE, sin lo que el workflow CUENTA: el YAML ANALIZADO (#114).
  *
  * Y esto no es celo: **la primera version de estas afirmaciones salia verde con la rotura puesta**.
  * Quitado `--comprobar` de la orden, `toContain('--comprobar')` seguia pasando porque el comentario
@@ -45,17 +48,44 @@ const WORKFLOW = '.github/workflows/paquetes.yml';
  * en la guarda del registro —una cabecera que cita el issue no es una fila— aplicada a un `yaml`:
  * un comentario que nombra una opcion no la ejecuta.
  *
- * Se quitan solo las lineas que EMPIEZAN por `#`: un `#10` dentro de un `echo` es texto que corre.
- * Y los espacios se colapsan porque las ordenes van en escalares plegados, o sea repartidas en
- * varias lineas que al ejecutarse son una.
+ * Hasta #114 el remedio era quitar las lineas que EMPIEZAN por `#`, que no ve el comentario de YAML
+ * detras de un escalar (`run: x # --comprobar`) y que preguntaba al archivo ENTERO: el
+ * `KAMAYUK_TOKEN_DE_CLON` lo lleva tambien el paso del ensayo, en otro trabajo, y con eso el paso
+ * del resolvedor podia perderlo en verde. Hoy lo que es comentario lo decide el analizador
+ * (`workflow.ts`) y cada afirmacion mira EL PASO del que habla.
  */
-const workflow = readFileSync(WORKFLOW, 'utf8')
-  .split('\n')
-  .filter((linea) => !linea.trim().startsWith('#'))
-  .join('\n');
+const textoDelWorkflow = readFileSync(join(RAIZ, WORKFLOW), 'utf8');
+const workflow = analizarWorkflow(textoDelWorkflow, WORKFLOW);
 
-/** Lo mismo en una sola linea, para poder exigir una orden entera. */
-const ordenes = workflow.replace(/\s+/g, ' ');
+/** La orden de un paso en una sola linea: las del resolvedor van en un escalar plegado. */
+const enUnaLinea = (paso: Mapa): string => ordenDe(paso).replace(/\s+/g, ' ').trim();
+
+const pasosDelConsumidor = (w: Mapa): Mapa[] => pasosDe(trabajoDe(w, 'consumidores'));
+
+/** El paso que resuelve la rama: el que llama al guion. */
+const resolvedorDe = (w: Mapa): Mapa | undefined =>
+  pasosDelConsumidor(w).find((paso) => ordenDe(paso).includes('rama-del-consumidor.mjs'));
+
+/** Lo que le falta al paso del resolvedor, mirado EN ESE PASO y no en el archivo entero. */
+function loQueFaltaAlResolvedor(w: Mapa): string[] {
+  const paso = resolvedorDe(w);
+  if (paso === undefined) return ['ningun paso del trabajo `consumidores` llama a `rama-del-consumidor.mjs`'];
+  const faltas: string[] = [];
+  if (!enUnaLinea(paso).includes('node paquetes/verificaciones/rama-del-consumidor.mjs --consumidor "$QUIEN" --comprobar')) {
+    faltas.push('el resolvedor no se llama con `--consumidor "$QUIEN" --comprobar`');
+  }
+  if (!/github\.event\.pull_request\.body/.test(String(valorEn(paso, 'env', 'KAMAYUK_CUERPO_DEL_PR') ?? ''))) {
+    faltas.push('el resolvedor no recibe el cuerpo del PR en `KAMAYUK_CUERPO_DEL_PR`');
+  }
+  if (typeof valorEn(paso, 'env', 'KAMAYUK_TOKEN_DE_CLON') !== 'string') {
+    faltas.push('el resolvedor no tiene con que preguntar: le falta `KAMAYUK_TOKEN_DE_CLON`');
+  }
+  if (!/matrix\.repositorio/.test(String(valorEn(paso, 'env', 'QUIEN') ?? ''))) {
+    faltas.push('`QUIEN` no es el consumidor de la matriz');
+  }
+  if (typeof paso['id'] !== 'string') faltas.push('el resolvedor no tiene `id`: nadie puede leer lo que resuelve');
+  return faltas;
+}
 
 /** Los declarados, como los trae `consumidores.json`. Dos, para poder distinguirlos. */
 const DECLARADOS = [{ repositorio: 'hneyra/rentas' }, { repositorio: 'hneyra/catastro' }] as const;
@@ -216,31 +246,22 @@ describe('la rama del consumidor sale del cuerpo del PR', () => {
 });
 
 describe('y el workflow lo usa de verdad', () => {
-  it('resuelve la rama con el guion, y no con logica escrita en el `yaml`', () => {
-    expect(ordenes, 'el workflow no llama al resolvedor').toContain(
-      'node paquetes/verificaciones/rama-del-consumidor.mjs',
-    );
-    expect(workflow, 'el resolvedor no recibe el cuerpo del PR').toContain(
-      'KAMAYUK_CUERPO_DEL_PR',
-    );
-    expect(workflow, 'el cuerpo no sale del evento del PR').toContain(
-      'github.event.pull_request.body',
-    );
-  });
-
-  it('COMPRUEBA que la rama existe, que es el AC3', () => {
+  it('resuelve la rama con el guion, con el cuerpo del PR, y COMPRUEBA que existe (AC3)', () => {
     // Sin `--comprobar`, una rama mal escrita se le pasa a `actions/checkout` y el rojo que sale
     // es el suyo, en otro paso y con otras palabras. Se exige la ORDEN ENTERA: la opcion suelta la
     // nombra tambien el comentario de al lado, y con eso la rotura de control salia verde.
-    expect(ordenes, 'el resolvedor no comprueba la existencia de la rama').toContain(
-      'rama-del-consumidor.mjs --consumidor "$QUIEN" --comprobar',
-    );
-    expect(workflow, 'el resolvedor no tiene con que preguntar').toContain('KAMAYUK_TOKEN_DE_CLON');
+    const faltas = loQueFaltaAlResolvedor(workflow);
+    expect(faltas, `El paso que resuelve la rama no esta entero:\n  ${faltas.join('\n  ')}`).toEqual([]);
   });
 
   it('el clon del consumidor usa lo resuelto, y no una rama escrita a mano', () => {
-    expect(workflow, 'el `checkout` del consumidor no usa la rama resuelta').toMatch(
-      /ref:\s*\$\{\{\s*steps\.\w+\.outputs\.rama\s*\}\}/,
+    const id = String(resolvedorDe(workflow)?.['id']);
+    const clon = pasosDelConsumidor(workflow).find((paso) =>
+      /matrix\.repositorio/.test(String(valorEn(paso, 'with', 'repository') ?? '')),
+    );
+    expect(clon, 'no hay `checkout` del consumidor').toBeDefined();
+    expect(String(valorEn(clon, 'with', 'ref')), 'el `checkout` del consumidor no usa la rama resuelta').toMatch(
+      new RegExp(`^\\$\\{\\{\\s*steps\\.${id}\\.outputs\\.rama\\s*\\}\\}$`),
     );
   });
 
@@ -248,19 +269,55 @@ describe('y el workflow lo usa de verdad', () => {
     // Con rama nombrada, la linea base puede estar legitimamente roja —la rama del consumidor trae
     // el ajuste que espera el cambio de aqui—, asi que «los dos rojos» deja de significar «no es
     // de esta rama». Lo que manda es la rama nombrada: si sale roja, bloquea.
-    expect(workflow, 'el veredicto no distingue si hay rama nombrada').toContain(
-      'RAMA_DEL_CONSUMIDOR',
-    );
-    expect(workflow, 'no hay rojo propio del camino con rama nombrada').toMatch(/NO CIERRA CON/);
+    const veredicto = pasosDelConsumidor(workflow).find((paso) => paso['name'] === 'El veredicto');
+    expect(veredicto, 'no hay paso de veredicto').toBeDefined();
+    const orden = ordenDe(veredicto ?? {});
+    expect(
+      String(valorEn(veredicto, 'env', 'RAMA_DEL_CONSUMIDOR')),
+      'el veredicto no sabe si hay rama nombrada',
+    ).toMatch(/steps\.\w+\.outputs\.rama/);
+    expect(orden, 'el veredicto no distingue si hay rama nombrada').toContain('RAMA_DEL_CONSUMIDOR');
+    expect(orden, 'no hay rojo propio del camino con rama nombrada').toMatch(/NO CIERRA CON/);
     // Y el camino de siempre sigue entero, que es el AC2 visto desde el veredicto.
-    expect(workflow, 'se perdio el rojo del camino de siempre').toMatch(/ESTA RAMA ROMPE A/);
+    expect(orden, 'se perdio el rojo del camino de siempre').toMatch(/ESTA RAMA ROMPE A/);
   });
 
   it('y el ensayo contra un remoto de verdad corre en CI', () => {
     // Una costumbre no es una guarda (#19). El ensayo es lo unico que demuestra el AC3 de punta a
     // punta —una rama que no existe sale roja diciendolo—, y por eso tiene su paso.
-    expect(ordenes, 'el ensayo de la resolucion no corre en CI').toContain(
-      'node paquetes/verificaciones/ensayar-la-rama-del-consumidor.mjs',
+    expect(
+      pasosDe(trabajoDe(workflow, 'verificar')).map(enUnaLinea),
+      'el ensayo de la resolucion no corre en CI',
+    ).toContain('node paquetes/verificaciones/ensayar-la-rama-del-consumidor.mjs');
+  });
+
+  it('LA MUESTRA: el resolvedor roto sale rojo, aunque el archivo siga nombrando lo que le falta (#114)', () => {
+    // Cada rotura se pone sobre el workflow de ESTE arbol, en memoria, y se comprueba primero que se
+    // aplico. Las dos ultimas son las que la lectura por lineas de antes de #114 dejaba en verde: el
+    // token lo sigue llevando el paso del ensayo, y `# --comprobar` detras de un escalar es un
+    // comentario de YAML que ninguna linea «empieza» por `#`.
+    const ORDEN = 'node paquetes/verificaciones/rama-del-consumidor.mjs\n          --consumidor "$QUIEN" --comprobar >> "$GITHUB_OUTPUT"';
+    const roturas: readonly [string, string, string][] = [
+      ['sin `--comprobar`', ' --comprobar >>', ' >>'],
+      ['sin el cuerpo del PR', '          KAMAYUK_CUERPO_DEL_PR: ${{ github.event.pull_request.body }}\n', ''],
+      [
+        'sin el token en SU paso',
+        '          KAMAYUK_TOKEN_DE_CLON: ${{ secrets.GH_CLONE_KEY || github.token }}\n          QUIEN:',
+        '          QUIEN:',
+      ],
+      [
+        'con `--comprobar` en un comentario de YAML',
+        `run: >-\n          ${ORDEN}`,
+        'run: node paquetes/verificaciones/rama-del-consumidor.mjs --consumidor "$QUIEN" >> "$GITHUB_OUTPUT" # --comprobar',
+      ],
+    ];
+    for (const [nombre, antes, despues] of roturas) {
+      const roto = textoDelWorkflow.replace(antes, despues);
+      expect(roto, `la rotura «${nombre}» no se aplico`).not.toBe(textoDelWorkflow);
+      expect(loQueFaltaAlResolvedor(analizarWorkflow(roto, WORKFLOW)), `«${nombre}» paso en verde`).toHaveLength(1);
+    }
+    expect(textoDelWorkflow, 'el ensayo ya no lleva el token: la muestra del token no prueba nada').toMatch(
+      /KAMAYUK_TOKEN_DE_CLON[\s\S]*KAMAYUK_TOKEN_DE_CLON/,
     );
   });
 });
