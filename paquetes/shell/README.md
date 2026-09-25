@@ -27,6 +27,15 @@ del catálogo y el mismo `irA` que el árbol.
 
 La pantalla lleva `key` **por destino**, no por ruta: cambiar de sujeto o de pestaña no la desmonta.
 
+## Por dentro: `Cascara` compone y nada más
+
+Desde #119 cada trabajo del marco vive en su hook interno, y ninguno se exporta: `useCarril` y
+`usePaleta` (`paleta-y-carril.ts`), `useRegistroDeHojas` (`registro-de-hojas.ts`: `sucias` y lo
+tecleado en un **reductor puro**, `cambiarElRegistro`, con sus pruebas sin DOM),
+`useNavegacionGuardada` (`navegacion-guardada.ts`: `irA`, lo pendiente y las tres salidas del aviso
+en un solo `resolver`) y `useHojaAbierta` con `useRutaDeLaHoja` (`hoja-abierta.ts`). `Cascara` queda
+en la maquetación, y `la-cascara-solo-compone.test.ts` la mide: como mucho 150 líneas y 8 hooks.
+
 ## Dos cosas que no se tocan
 
 - El marco **no decide permisos**: `Destino` lleva `acceso`/`tambien` y `accesosDe` los da, pero
