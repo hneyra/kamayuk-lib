@@ -1,5 +1,9 @@
 /**
- * **Las treinta palabras que la escalera dice por su cuenta** (#52).
+ * **Las palabras que la escalera dice por su cuenta**: treinta desde #52, y nueve mas desde #109.
+ *
+ * Las nueve de #109 son las de un archivo rechazado y un documento que no lo es, y van **al final**
+ * del saco y como claves ADICIONALES: `Peldano['clave']` no crece —la vigila `LAS_NUEVE_CLAVES`—,
+ * asi que lo que distingue esos tres casos va en el titulo, el detalle y el remedio.
  *
  * <h2>El problema es el mismo que tenia el armazon, y la solucion tambien</h2>
  *
@@ -116,6 +120,26 @@ export interface TextosDeLaEscalera {
    * porque no lo hay — y mandar a pedir un numero que no existe hace perder una llamada.
    */
   readonly aviseASoporte: (incidencia: string | null) => string;
+
+  // ── `ArchivoRechazado` 'demasiado-grande': local (estado 0) o del servidor (413) (#109) ──────
+  readonly elArchivoPesaDeMas: string;
+  /** El respaldo del detalle: el rechazo local no trae mensaje, y el 413 puede no traerlo. */
+  readonly superaElTamanoAdmitido: string;
+  readonly elijaUnArchivoMasLiviano: string;
+
+  // ── `ArchivoRechazado` 'tipo-no-admitido': local (estado 0) o del servidor (415) (#109) ──────
+  readonly elArchivoNoEsDeUnTipoAdmitido: string;
+  readonly esteTipoNoSeAdmite: string;
+  readonly elijaUnArchivoDeOtroTipo: string;
+
+  // ── `NoEsUnDocumento`: un 200 con datos donde la pantalla esperaba un documento (#109) ───────
+  readonly noLlegoUnDocumento: string;
+  readonly llegaronDatosEnVezDeUnDocumento: string;
+  /**
+   * Como `loArreglaQuienHizoLaPantalla`, y por lo mismo: la peticion la compuso la pantalla. No
+   * se reusa aquella porque habla de ordenar por otra columna, que aqui no significa nada.
+   */
+  readonly loArreglaQuienHizoLaDescarga: string;
 }
 
 /** Lo que hoy se lee, palabra por palabra. Quien no pase `textos`, sigue viendo esto. */
@@ -177,4 +201,23 @@ export const TEXTOS_DE_LA_ESCALERA: TextosDeLaEscalera = {
       ? 'Reintente en unos segundos. Si sigue igual, avise a soporte con este mensaje.'
       : 'Reintente en unos segundos. Si sigue igual, avise a soporte con este numero de ' +
         `incidencia: ${incidencia}`,
+
+  elArchivoPesaDeMas: 'El archivo pesa mas de lo que se admite',
+  superaElTamanoAdmitido: 'El archivo supera el tamano que esta operacion admite.',
+  elijaUnArchivoMasLiviano:
+    'No es una averia, y enviar el mismo archivo otra vez da el mismo resultado. Elija uno mas ' +
+    'liviano, o reduzcalo, y vuelva a enviarlo.',
+
+  elArchivoNoEsDeUnTipoAdmitido: 'El archivo no es de un tipo que se admita',
+  esteTipoNoSeAdmite: 'Esta operacion no admite archivos de ese tipo.',
+  elijaUnArchivoDeOtroTipo:
+    'No es una averia, y enviar el mismo archivo otra vez da el mismo resultado. Elija un archivo ' +
+    'de un tipo que se admita y vuelva a enviarlo.',
+
+  noLlegoUnDocumento: 'Lo que llego no es un documento',
+  llegaronDatosEnVezDeUnDocumento:
+    'El sistema contesto con datos donde la pantalla esperaba un documento.',
+  loArreglaQuienHizoLaDescarga:
+    'No hay nada que corregir en lo que hizo: la descarga la pidio la pantalla por un camino que ' +
+    'devuelve datos. Avise de esto a quien la mantiene.',
 };

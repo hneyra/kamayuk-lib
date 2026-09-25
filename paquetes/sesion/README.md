@@ -18,8 +18,16 @@ escribe sino la pantalla.
 misma forma que la guarda de `ciudadano`, que ya decidió los dos nuevos en su `main`—: una décima
 clave sale roja en `yarn typecheck` de aquí, con su nombre.
 
+**Dos subclases se miran por su clase y no por su estado** (#109): `ArchivoRechazado` —0 si lo
+rechazó el cliente sin mandar un byte, 413/415 si lo rechazó el servidor— cae en `no-valido` con un
+título y un remedio por motivo (`demasiado-grande`, `tipo-no-admitido`), y `NoEsUnDocumento` —un
+200 con datos— en `orden-no-admitido`, porque la petición la compuso la pantalla. Antes caían los
+tres en «avería · Reintente… avise a soporte», y reintentar con el mismo archivo no puede funcionar
+nunca. **La unión no crece**: lo propio va en `titulo`, `detalle` y `remedio`.
+
 Cada peldaño dice además `reintentable` y lleva la `incidencia` del 500 **como campo**, no dentro de
-una frase. Y **sus treinta palabras son dato**: `TEXTOS_DE_LA_ESCALERA` en `textos.ts`, que entra
+una frase. Y **sus palabras son dato** —treinta desde #52 y nueve más, al final del saco, desde
+#109—: `TEXTOS_DE_LA_ESCALERA` en `textos.ts`, que entra
 como `Partial` por el segundo argumento —opcional: con uno solo contesta lo de siempre— igual que
 `<Armazon textos>`, y lo vigila la cuarta forma de `el-texto-visible-es-dato`.
 
