@@ -138,6 +138,16 @@ function cadenasDe(valor: unknown): string[] {
 }
 
 /**
+ * Los consumidores de la lista que el workflow trae ESCRITOS dentro, en cualquier cadena del
+ * objeto: una clave, un valor o un elemento de una lista, que es donde viviria un `include:` con
+ * los consumidores escritos a mano. Un comentario que los nombre no cuenta: no llega al objeto.
+ */
+const consumidoresEscritosDentro = (workflow: Mapa, repositorios: readonly string[]): string[] => {
+  const cadenas = cadenasDe(workflow);
+  return repositorios.filter((repositorio) => cadenas.some((cadena) => cadena.includes(repositorio)));
+};
+
+/**
  * Lo que le falta al workflow para LEER la lista de `consumidores.json`, en vez de traerla escrita.
  *
  * Por la FORMA, no por el texto (#114): la salida `consumidores` del trabajo `verificar` sale de un
@@ -385,13 +395,41 @@ describe('la CI mira a sus consumidores', () => {
     // lista escrita en el YAML, el JSON se quedaria de adorno y nadie lo notaria.
     const faltas = loQueFaltaParaLeerLaLista(workflow);
     expect(faltas, `El workflow no lee la lista:\n  ${faltas.join('\n  ')}`).toEqual([]);
-    const cadenas = cadenasDe(workflow);
-    for (const consumidor of declarado.consumidores) {
-      expect(
-        cadenas.filter((cadena) => cadena.includes(consumidor.repositorio)),
-        `el workflow trae «${consumidor.repositorio}» escrito dentro: la lista deja de ser dato`,
-      ).toEqual([]);
+    const escritos = consumidoresEscritosDentro(
+      workflow,
+      declarado.consumidores.map((c) => c.repositorio),
+    );
+    expect(escritos, `el workflow trae escritos dentro ${escritos.join(', ')}: la lista deja de ser dato`).toEqual([]);
+  });
+
+  it('LA MUESTRA: un consumidor escrito dentro sale rojo, sea clave, valor o elemento de una lista', () => {
+    // Sin esto la comprobacion de arriba no puede fallar con este arbol, que no trae ninguno: un
+    // `cadenasDe` que no mirara las cadenas, o que no bajara a las listas —que es donde vive un
+    // `include:` escrito a mano—, la dejaria en verde para siempre.
+    const conConsumidores = (...lineas: string[]) =>
+      analizarWorkflow(['jobs:', '  consumidores:', ...lineas].join('\n'));
+    const RENTAS = 'hneyra/rentas';
+    for (const [nombre, escrito] of [
+      [
+        'un `include:` escrito a mano',
+        conConsumidores(
+          '    strategy:',
+          '      matrix:',
+          '        include:',
+          `          - repositorio: ${RENTAS}`,
+          '            directorio: rentas',
+        ),
+      ],
+      ['un valor suelto', conConsumidores(`    env: { CONSUMIDOR: "${RENTAS}" }`)],
+      ['una lista de cadenas', conConsumidores(`    needs: ["${RENTAS}"]`)],
+      ['una clave', conConsumidores(`    env: { ${RENTAS}: si }`)],
+      ['dentro de una orden', conConsumidores('    steps:', `      - run: git clone https://github.com/${RENTAS}.git`)],
+    ] as const) {
+      expect(consumidoresEscritosDentro(escrito, [RENTAS]), `${nombre} paso en verde`).toEqual([RENTAS]);
     }
+    // Y la otra direccion: el que lo nombra en un comentario no lo trae escrito.
+    const comentado = conConsumidores('    # antes estaba hneyra/rentas escrito aqui', '    runs-on: ubuntu-latest');
+    expect(consumidoresEscritosDentro(comentado, [RENTAS]), 'un comentario conto como consumidor escrito').toEqual([]);
   });
 
   it('mide DOS veces: la linea base y esta rama', () => {

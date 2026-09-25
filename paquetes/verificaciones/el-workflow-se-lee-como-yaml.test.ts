@@ -73,8 +73,12 @@ describe('un workflow se lee como YAML', () => {
     expect(pasosDe(null)).toEqual([]);
     expect(pasosDe(analizarWorkflow('steps: nada'))).toEqual([]);
     expect(valorEn(workflow, 'jobs', 'x', 'steps')).toBeUndefined();
-    // Una clave del prototipo no es una clave del workflow.
+    // Una clave del prototipo no es una clave del workflow. `constructor` sola no lo prueba: es una
+    // funcion, y `esMapa` ya la descarta. `__proto__` es un objeto, y con `clave in actual` en vez
+    // de `Object.hasOwn` volveria `Object.prototype` como si fuera un trabajo.
     expect(trabajoDe(analizarWorkflow('jobs: {}'), 'constructor')).toBeNull();
+    expect(trabajoDe(analizarWorkflow('jobs: {}'), '__proto__'), 'el prototipo se leyo como un trabajo').toBeNull();
+    expect(valorEn(analizarWorkflow('jobs: {}'), 'jobs', '__proto__')).toBeUndefined();
   });
 
   it('LA MUESTRA: las `paths` se leen aunque un comentario se meta entre dos rutas o vayan en una linea', () => {

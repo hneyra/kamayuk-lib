@@ -311,6 +311,19 @@ describe('las acciones de la CI corren en Node 24', () => {
     expect(ilegibles[0], 'el rojo no dice donde').toContain('muestra.yml:4');
   });
 
+  it('LA MUESTRA: un paso que no es un mapa sale rojo, y no como un paso sin `uses:`', () => {
+    // La otra rama que el docblock de `usesConSuLinea` promete no saltar: la lista esta, pero un
+    // elemento es un escalar —el `uses:` escrito sin su clave—, y GitHub no lo ejecutaria.
+    const muestra = referenciasDeAcciones(
+      'muestra.yml',
+      conPasos('      - actions/checkout@v4', '      - uses: actions/setup-node@v7'),
+    );
+    const ilegibles = lasQueNoSeSabenLeer(muestra);
+    expect(ilegibles, 'un paso escalar paso en silencio').toHaveLength(1);
+    expect(ilegibles[0], 'el rojo no dice donde').toContain('muestra.yml:4');
+    expect(muestra.map((r) => r.talCual), 'el paso bueno de al lado se perdio').toContain('actions/setup-node@v7');
+  });
+
   it('LA MUESTRA: un YAML que no se puede analizar revienta nombrando el archivo', () => {
     // Una clave repetida la resolveria GitHub quedandose con una; aqui no se adivina cual.
     expect(() => referenciasDeAcciones('roto.yml', 'jobs: [')).toThrow(/«roto\.yml» no es un YAML/);
