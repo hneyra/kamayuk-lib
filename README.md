@@ -1,6 +1,7 @@
 # `kamayuk-lib`
 
-Las **librerías comunes del producto Kamayuk**: lo que vale igual en los cuatro sistemas y por
+Las **librerías comunes del producto Kamayuk**: lo que vale igual en los seis sistemas que la
+consumen —los de [`consumidores.json`](consumidores.json), que es quien los cuenta (#113)— y por
 tanto no puede vivir en ninguno.
 
 Lo decide [ADR-0038 — «El corte entre el producto y el suelo»](https://github.com/hneyra/infrastructure/blob/main/docs/30-arquitectura/adr/ADR-0038-el-corte-entre-el-producto-y-el-suelo.md),
@@ -29,7 +30,7 @@ muestra que la viola.
 | [`@kamayuk/sesion`](paquetes/sesion) | OIDC con PKCE S256, la sonda del emisor, la consola de la cuenta, quién entró según el `id_token` y la escalera de peldaños | **Existe.** <!-- cifras:sesion -->**145 pruebas** en 3 archivos<!-- /cifras --> |
 | [`@kamayuk/ui`](paquetes/ui) | los 42 tokens, cuatro identidades por dos modos, las piezas de shadcn y el intérprete de pantallas | **Existe.** <!-- cifras:ui -->**545 pruebas** en 25 archivos, más las **3** de capa<!-- /cifras --> |
 | [`@kamayuk/shell`](paquetes/shell) | barra, árbol de módulos, paleta de mando, enrutado por hash, miga, acciones y el aviso de cambios sin guardar | **Existe.** <!-- cifras:shell -->**151 pruebas** en 14 archivos<!-- /cifras --> |
-| [`@kamayuk/verificaciones`](paquetes/verificaciones) | las barreras, sus muestras y el **arnés del `Request`** que los cinco necesitan para correr con Node 24 | **Existe.** <!-- cifras:verificaciones -->**277 pruebas** en 19 archivos<!-- /cifras --> |
+| [`@kamayuk/verificaciones`](paquetes/verificaciones) | las barreras, sus muestras y el **arnés del `Request`** que los cinco necesitan para correr con Node 24 | **Existe.** <!-- cifras:verificaciones -->**293 pruebas** en 19 archivos<!-- /cifras --> |
 
 ## Cómo se consume
 
