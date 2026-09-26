@@ -1,10 +1,11 @@
-import { useId, useRef, useState } from 'react';
+import { useId, useState } from 'react';
 
 import { entregarAlNavegador } from '../../api/entregar.ts';
 import { BotonConMotivo } from '../shadcn/boton-con-motivo.tsx';
 import type { TextosDeLaPantalla } from '../textos.tsx';
 import { claseDe, motivoDeLaAccion, peticionDe, resolverTodos, textoQueSeGuarda } from './acciones.ts';
 import { type Nombrados, resolverTexto } from './componer.ts';
+import { useEnVuelo } from './en-vuelo.ts';
 import type { InteraccionDeLaPantalla } from './interaccion.ts';
 import type { DefinicionDeAccion } from './tipos-de-los-actos.ts';
 
@@ -23,7 +24,9 @@ import type { DefinicionDeAccion } from './tipos-de-los-actos.ts';
  *   <tr><td>`va`</td><td>pide al marco ir a otra hoja. **El marco decide**: con la hoja sucia
  *     pregunta, y lo que su catalogo no ofrece no lo abre</td></tr>
  *   <tr><td>`hace`</td><td>llama a su operacion; si devuelve una promesa, el boton esta en curso
- *     hasta que acabe, y otra pulsacion no la vuelve a llamar</td></tr>
+ *     hasta que acabe, y otra pulsacion no la vuelve a llamar. **Si lanza en sincrono, el boton
+ *     queda libre y la excepcion no sale** (#117, `useEnVuelo`): como con la promesa rechazada, el
+ *     fallo lo dice el sistema en `lecturas`</td></tr>
  *   <tr><td>`guarda`</td><td>(#86) pone en un `Blob` el texto de `nombrados` **tal cual** y lo
  *     entrega con `entregarAlNavegador` de `@kamayuk/api`, importado por ruta relativa como todo
  *     entre paquetes. Si el navegador no sabe descargar se sabe ANTES —el boton sale impedido con
@@ -71,10 +74,8 @@ export interface GrupoDeAccionesProps {
 
 export function GrupoDeAcciones({ acciones, nombrados, traducir, textos, interaccion, describidoPor }: GrupoDeAccionesProps) {
   const raiz = useId();
-  const [pendientes, setPendientes] = useState<ReadonlySet<number>>(() => new Set());
-  // El estado llega una pintada tarde: la segunda pulsacion de un doble clic la veria libre. La
-  // referencia no espera a pintar, y es la que de verdad corta la segunda llamada.
-  const enVuelo = useRef(new Set<number>());
+  // Lo pendiente de cada `hace`, por su indice: el mismo «en vuelo» que el acto (#117).
+  const enVuelo = useEnVuelo<number>();
   // Las que `guarda` y cuya entrega revento al pulsar: desde ahi dicen `sinDescarga` (#86).
   const [sinEntrega, setSinEntrega] = useState<ReadonlySet<number>>(() => new Set());
 
@@ -95,7 +96,7 @@ export function GrupoDeAcciones({ acciones, nombrados, traducir, textos, interac
     indice,
     motivo: motivoDeLaAccion(accion, {
       ...contexto,
-      enCurso: pendientes.has(indice),
+      enCurso: enVuelo.enCurso(indice),
       ofreceDescarga: ofreceDescarga && !sinEntrega.has(indice),
     }),
   }));
@@ -132,21 +133,9 @@ export function GrupoDeAcciones({ acciones, nombrados, traducir, textos, interac
       }
       case 'hace': {
         const operacion = interaccion.alHacer?.[clase.accion.hace];
-        if (operacion === undefined || enVuelo.current.has(indice)) return;
-        const resultado = operacion();
-        if (!(resultado instanceof Promise)) return;
-        enVuelo.current.add(indice);
-        setPendientes((antes) => new Set(antes).add(indice));
-        const soltar = () => {
-          enVuelo.current.delete(indice);
-          setPendientes((antes) => {
-            const quedan = new Set(antes);
-            quedan.delete(indice);
-            return quedan;
-          });
-        };
-        // Rechazada, el boton vuelve a estar libre: el fallo lo dice el sistema en `lecturas`.
-        resultado.then(soltar, soltar);
+        if (operacion === undefined) return;
+        // Rechazada o lanzada, el boton vuelve a estar libre: el fallo lo dice el sistema en `lecturas`.
+        enVuelo.lanzar(indice, operacion);
         return;
       }
     }
@@ -164,7 +153,7 @@ export function GrupoDeAcciones({ acciones, nombrados, traducir, textos, interac
             data-accion={claveDeLaAccion(accion)}
             motivo={motivo}
             idDelMotivo={motivo === undefined ? undefined : idDe(motivo)}
-            enCurso={pendientes.has(indice)}
+            enCurso={enVuelo.enCurso(indice)}
             aria-describedby={describidoPor}
             onClick={() => {
               pulsar(accion, indice);
