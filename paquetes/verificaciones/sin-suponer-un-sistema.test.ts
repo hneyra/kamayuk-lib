@@ -10,7 +10,7 @@ import { join, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { PAQUETES, RAIZ, archivosDeProduccion, leer, lineasQueCasan, sinComentarios, type Hallazgo } from './texto.ts';
-import { SUPOSICIONES, type Suposicion } from './suposiciones.ts';
+import { SISTEMAS, SISTEMAS_QUE_NO_CONSUMEN, SUPOSICIONES, type Suposicion } from './suposiciones.ts';
 
 /**
  * **Nada en `@kamayuk/*` supone un sistema.**
@@ -203,5 +203,134 @@ describe('LA MUESTRA: la guarda muerde, y se demuestra', () => {
     // VERDE por estar dentro de una URL.
     const linea = "const u = 'https://ejemplo.test/x'; const r = '/rentas/api/v1';";
     expect(sinComentarios(linea)).toContain('/rentas/api');
+  });
+});
+
+/**
+ * **La lista de sistemas dice la verdad: la manda `consumidores.json`** (#113).
+ *
+ * `SISTEMAS` se escribe a mano —la guarda la necesita como dato, y la muestra tambien—, y una lista
+ * escrita a mano se queda vieja sin avisar: hasta #113 le faltaban `ciudadano` y `pcf`, que llevaban
+ * meses en el JSON, y `'/pcf/api/v1'` escrito en `ui` pasaba en verde. Aqui se comprueba **entera y
+ * en los dos sentidos**, como la lista de excepciones de `fetch`: cada consumidor esta en
+ * `SISTEMAS`, y lo que esta en `SISTEMAS` sin consumir se declara aparte con su motivo.
+ */
+const { consumidores } = JSON.parse(leer(join(RAIZ, 'consumidores.json'))) as {
+  consumidores: readonly { readonly repositorio: string }[];
+};
+
+/** El nombre del sistema es el ultimo trozo del repositorio: `hneyra/pcf` → `pcf`. */
+const nombreDe = (repositorio: string): string => repositorio.split('/').at(-1) ?? '';
+
+/** Los consumidores cuyo nombre no esta en la lista dada. Pura, para poder darle una ficticia. */
+function consumidoresFuera(lista: readonly string[], repositorios: readonly string[]): string[] {
+  return repositorios.filter((repositorio) => !lista.includes(nombreDe(repositorio)));
+}
+
+/** Los numeros que se escriben con letra delante de «sistemas» o de «consumidores». */
+const NUMEROS = ['uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve', 'diez'];
+
+/**
+ * «N sistemas» o «N consumidores», con N escrito **con letra o con cifras**.
+ *
+ * Las cifras entraron en la vuelta 1 de la verificacion: con solo las letras, «los 5 sistemas»
+ * escrito en `CLAUDE.md` pasaba en verde y el archivo volvia a contradecirse (medido).
+ */
+const CUANTOS = new RegExp(`\\b(\\d+|${NUMEROS.join('|')})\\s+(?:sistemas|consumidores)\\b`, 'gi');
+
+/** El numero que dice una cuenta: `'seis'` y `'6'` dicen 6. `undefined` si no es ninguno. */
+function numeroDe(palabra: string): number | undefined {
+  if (/^\d+$/.test(palabra)) return Number.parseInt(palabra, 10);
+  const indice = NUMEROS.indexOf(palabra.toLowerCase());
+  return indice === -1 ? undefined : indice + 1;
+}
+
+/**
+ * Las veces que un texto cuenta los sistemas con un numero que NO es `cuantos`. Pura, por lo mismo.
+ *
+ * Mira «N sistemas» y «N consumidores», con letra —que es como `CLAUDE.md` los cuenta— y con
+ * cifras. Hasta #113 los contaba de tres maneras —«cuatro sistemas» arriba, «cinco sistemas» en las
+ * reglas y seis entradas en el JSON— y ninguna la leia nadie.
+ */
+function cuentasQueNoCuadran(texto: string, cuantos: number): string[] {
+  return [...texto.matchAll(CUANTOS)]
+    .filter((casa) => numeroDe(casa[1] ?? '') !== cuantos)
+    .map((casa) => casa[0]);
+}
+
+describe('LA LISTA DE SISTEMAS dice la verdad: sale de `consumidores.json` (#113)', () => {
+  it('EL CENTINELA: el JSON tiene consumidores, y todos con repositorio', () => {
+    // Sin esto, las dos comprobaciones de abajo pasarian sobre la lista vacia.
+    expect(consumidores.length).toBeGreaterThan(0);
+    for (const { repositorio } of consumidores) expect(nombreDe(repositorio)).not.toBe('');
+  });
+
+  it('cada consumidor de `consumidores.json` es un sistema de `SISTEMAS`', () => {
+    expect(
+      consumidoresFuera(SISTEMAS, consumidores.map((c) => c.repositorio)),
+      'Estos consumidores no estan en «SISTEMAS» (paquetes/verificaciones/suposiciones.ts), y la ' +
+        'guarda deja pasar su prefijo en verde: anadelos alli.',
+    ).toEqual([]);
+  });
+
+  it('y lo que esta en `SISTEMAS` sin consumir se declara aparte, entero y con su motivo', () => {
+    // La otra mitad: un sistema que dejara de consumir, o uno escrito con una errata, se quedaria
+    // en la lista sin que nada lo dijera.
+    const consumen = new Set(consumidores.map((c) => nombreDe(c.repositorio)));
+    const sinConsumir = SISTEMAS.filter((s) => !consumen.has(s));
+    expect(
+      Object.keys(SISTEMAS_QUE_NO_CONSUMEN).sort(),
+      '«SISTEMAS_QUE_NO_CONSUMEN» tiene que ser EXACTAMENTE lo que esta en «SISTEMAS» y no en ' +
+        'consumidores.json: ni un consumidor declarado como si no consumiera, ni un sistema sin motivo.',
+    ).toEqual([...sinConsumir].sort());
+    for (const motivo of Object.values(SISTEMAS_QUE_NO_CONSUMEN)) expect(motivo?.trim()).not.toBe('');
+  });
+
+  it('el prefijo de CADA consumidor lo caza la guarda, derivado del JSON y no de la lista', () => {
+    const prefijo = SUPOSICIONES.find((s) => s.clave === 'prefijo-de-un-sistema')?.patron;
+    const escapados = consumidores
+      .map((c) => `'/${nombreDe(c.repositorio)}/api/v1'`)
+      .filter((literal) => !(prefijo?.test(literal) ?? false));
+    expect(escapados, 'estos prefijos pasan «prefijo-de-un-sistema» en verde').toEqual([]);
+  });
+
+  it('LA MUESTRA: los dos que faltaban estan en ella, y la guarda los caza', () => {
+    const prefijo = SUPOSICIONES.find((s) => s.clave === 'prefijo-de-un-sistema');
+    const cazados = prefijo
+      ? hallazgosDe(prefijo, [join(PAQUETES, 'verificaciones/muestras/supone-un-sistema.ts')]).map((h) => h.texto)
+      : [];
+    for (const literal of ['/pcf/api', '/ciudadano/api']) {
+      expect(
+        cazados.some((texto) => texto.includes(literal)),
+        `«${literal}» no lo caza «prefijo-de-un-sistema» sobre la muestra`,
+      ).toBe(true);
+    }
+  });
+
+  it('y la comprobacion muerde: un consumidor ficticio sale rojo nombrado', () => {
+    expect(consumidoresFuera(['rentas'], ['hneyra/rentas', 'hneyra/septimo'])).toEqual(['hneyra/septimo']);
+  });
+});
+
+describe('`CLAUDE.md` cuenta los sistemas con UN numero, el que sale del JSON (#113)', () => {
+  it('ninguna cuenta de «N sistemas» o «N consumidores» contradice a `consumidores.json`', () => {
+    const texto = leer(join(RAIZ, 'CLAUDE.md'));
+    expect(
+      texto.match(CUANTOS)?.length ?? 0,
+      'EL CENTINELA: CLAUDE.md ya no cuenta los sistemas en ningun sitio, y esto no mide nada',
+    ).toBeGreaterThan(0);
+    expect(
+      cuentasQueNoCuadran(texto, consumidores.length),
+      `consumidores.json tiene ${String(consumidores.length)} consumidores, y CLAUDE.md dice otra cosa`,
+    ).toEqual([]);
+  });
+
+  it('LA MUESTRA: la cuenta que no cuadra sale, y la que cuadra no', () => {
+    const muestra = 'Vale en los cuatro sistemas. Vale en los seis sistemas. Y en los cinco consumidores.';
+    expect(cuentasQueNoCuadran(muestra, 6)).toEqual(['cuatro sistemas', 'cinco consumidores']);
+    // Y con cifras (vuelta 1): «5 sistemas» no cuadra, «6 consumidores» si.
+    expect(cuentasQueNoCuadran('En los 5 sistemas. En los 6 consumidores. En los Seis sistemas.', 6)).toEqual([
+      '5 sistemas',
+    ]);
   });
 });
