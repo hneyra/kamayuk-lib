@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import * as ui from '../index.ts';
-import { PIEZA_POR_TIPO, TIPOS_DE_CAMPO, anchoCompleto, seEscribe, tipoDe } from './campos.ts';
+import { COMPORTAMIENTO_POR_TIPO, PIEZA_POR_TIPO, TIPOS_DE_CAMPO, anchoCompleto, seEscribe, tipoDe } from './campos.ts';
 
 /**
  * **Los siete tipos de campo tienen pieza, y la pieza existe** (#11, AC3).
@@ -27,6 +27,28 @@ describe('los siete tipos de campo y su pieza', () => {
       ausentes,
       `La tabla nombra piezas que el paquete no exporta: ${ausentes.join(', ')}`,
     ).toEqual([]);
+  });
+
+  it('`PIEZA_POR_TIPO` es, EN EJECUCION, la columna `pieza` de la tabla y los siete literales (#124)', () => {
+    // La barrera de tipo solo ve el tipo declarado: una derivacion que cruzara dos piezas de la
+    // tabla conserva los siete literales en la union y la asercion `as PiezaPorTipo` la tapa.
+    expect(Object.entries(PIEZA_POR_TIPO)).toEqual([
+      ['', 'Campo'],
+      ['t', 'Campo'],
+      ['s', 'Desplegable'],
+      ['d', 'Calendario'],
+      ['r', 'Dato'],
+      ['c', 'Casilla'],
+      ['a', 'Area'],
+    ]);
+    for (const tipo of TIPOS_DE_CAMPO) {
+      expect(PIEZA_POR_TIPO[tipo], `«${tipo}»`).toBe(COMPORTAMIENTO_POR_TIPO[tipo].pieza);
+    }
+  });
+
+  it('solo la casilla SIEMPRE tiene valor: desmarcada es `false`, una respuesta y no un hueco (#124)', () => {
+    const siempre = TIPOS_DE_CAMPO.filter((t) => COMPORTAMIENTO_POR_TIPO[t].siempreTieneValor);
+    expect(siempre).toEqual(['c']);
   });
 
   it('los dos nombres del campo de texto dan la MISMA pieza', () => {
