@@ -2,11 +2,11 @@ import { useId, useState } from 'react';
 
 import { entregarAlNavegador } from '../../api/entregar.ts';
 import { BotonConMotivo } from '../shadcn/boton-con-motivo.tsx';
-import type { TextosDeLaPantalla } from '../textos.tsx';
 import { claseDe, motivoDeLaAccion, peticionDe, resolverTodos, textoQueSeGuarda } from './acciones.ts';
-import { type Nombrados, resolverTexto } from './componer.ts';
+import type { Nombrados } from './componer.ts';
 import { useEnVuelo } from './en-vuelo.ts';
-import type { InteraccionDeLaPantalla } from './interaccion.ts';
+import { useEntorno, useTexto } from './entorno.tsx';
+import type { AccionesDeLaHoja } from './interaccion.ts';
 import type { DefinicionDeAccion } from './tipos-de-los-actos.ts';
 
 /**
@@ -65,14 +65,15 @@ const navegadorQueDescarga = (): boolean =>
 export interface GrupoDeAccionesProps {
   readonly acciones: readonly DefinicionDeAccion[];
   readonly nombrados: Nombrados;
-  readonly traducir: (texto: string) => string;
-  readonly textos: TextosDeLaPantalla;
-  readonly interaccion: InteraccionDeLaPantalla;
+  /** Lo que cada accion puede hacer: las cuatro de `AccionesDeLaHoja`, y nada del acto abierto (#125). */
+  readonly accionesDeLaHoja: AccionesDeLaHoja;
   /** Lo que ademas describe a cada boton: el detalle de la fila, en una accion por fila (#65). */
   readonly describidoPor?: string;
 }
 
-export function GrupoDeAcciones({ acciones, nombrados, traducir, textos, interaccion, describidoPor }: GrupoDeAccionesProps) {
+export function GrupoDeAcciones({ acciones, nombrados, accionesDeLaHoja, describidoPor }: GrupoDeAccionesProps) {
+  const { traducir, textos } = useEntorno();
+  const texto = useTexto(nombrados);
   const raiz = useId();
   // Lo pendiente de cada `hace`, por su indice: el mismo «en vuelo» que el acto (#117).
   const enVuelo = useEnVuelo<number>();
@@ -86,9 +87,9 @@ export function GrupoDeAcciones({ acciones, nombrados, traducir, textos, interac
     nombrados,
     traducir,
     textos,
-    actos: interaccion.actos,
-    alHacer: interaccion.alHacer,
-    navegacion: interaccion.navegacion,
+    actos: accionesDeLaHoja.actos,
+    alHacer: accionesDeLaHoja.alHacer,
+    navegacion: accionesDeLaHoja.navegacion,
   };
 
   const filas = acciones.map((accion, indice) => ({
@@ -108,23 +109,23 @@ export function GrupoDeAcciones({ acciones, nombrados, traducir, textos, interac
     const clase = claseDe(accion);
     switch (clase.clase) {
       case 'abre':
-        interaccion.abrirActo(clase.accion.abre, resolverTodos(clase.accion.con, nombrados, traducir, textos));
+        accionesDeLaHoja.abrirActo(clase.accion.abre, resolverTodos(clase.accion.con, nombrados, traducir, textos));
         return;
       case 'va': {
         const resuelta = peticionDe(clase.accion.va, nombrados, traducir, textos);
-        if ('peticion' in resuelta) interaccion.navegacion?.ir(resuelta.peticion);
+        if ('peticion' in resuelta) accionesDeLaHoja.navegacion?.ir(resuelta.peticion);
         return;
       }
       case 'guarda': {
         const { guarda } = clase.accion;
-        const texto = textoQueSeGuarda(guarda, nombrados);
-        if (texto === undefined) return;
+        const loQueSeGuarda = textoQueSeGuarda(guarda, nombrados);
+        if (loQueSeGuarda === undefined) return;
         try {
           // El texto TAL CUAL, en un `Blob` de su tipo: ni `traducir`, ni `trim`, ni otra peticion.
           entregarAlNavegador({
-            nombre: resolverTexto(guarda.nombre, nombrados, traducir, textos.datoAusente),
+            nombre: texto(guarda.nombre),
             tipoDeMedio: guarda.tipoDeMedio,
-            contenido: new Blob([texto], { type: guarda.tipoDeMedio }),
+            contenido: new Blob([loQueSeGuarda], { type: guarda.tipoDeMedio }),
           });
         } catch {
           setSinEntrega((antes) => new Set(antes).add(indice));
@@ -132,7 +133,7 @@ export function GrupoDeAcciones({ acciones, nombrados, traducir, textos, interac
         return;
       }
       case 'hace': {
-        const operacion = interaccion.alHacer?.[clase.accion.hace];
+        const operacion = accionesDeLaHoja.alHacer?.[clase.accion.hace];
         if (operacion === undefined) return;
         // Rechazada o lanzada, el boton vuelve a estar libre: el fallo lo dice el sistema en `lecturas`.
         enVuelo.lanzar(indice, operacion);
@@ -159,7 +160,7 @@ export function GrupoDeAcciones({ acciones, nombrados, traducir, textos, interac
               pulsar(accion, indice);
             }}
           >
-            {resolverTexto(accion.rotulo, nombrados, traducir, textos.datoAusente)}
+            {texto(accion.rotulo)}
           </BotonConMotivo>
         ))}
       </div>

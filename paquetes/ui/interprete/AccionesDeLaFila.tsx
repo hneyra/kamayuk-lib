@@ -1,8 +1,8 @@
-import type { TextosDeLaPantalla } from '../textos.tsx';
-import { type Nombrados, resolverTexto } from './componer.ts';
+import { type Nombrados, textoCon } from './componer.ts';
 import type { DatoConNombre, FilaDeLaTabla } from './datos.ts';
+import { useEntorno } from './entorno.tsx';
 import { GrupoDeAcciones } from './GrupoDeAcciones.tsx';
-import type { InteraccionDeLaPantalla } from './interaccion.ts';
+import type { AccionesDeLaHoja } from './interaccion.ts';
 import { accionesQueOfrece, textoDeLaCelda } from './reglas-de-las-tablas.ts';
 import type { AccionesPorFila, Texto } from './tipos.ts';
 
@@ -37,9 +37,7 @@ export interface AccionesDeLaFilaProps {
   readonly fila: FilaDeLaTabla;
   /** Los datos con nombre de la pantalla. Los de la fila van encima. */
   readonly nombrados: Nombrados;
-  readonly traducir: (texto: string) => string;
-  readonly textos: TextosDeLaPantalla;
-  readonly interaccion: InteraccionDeLaPantalla;
+  readonly accionesDeLaHoja: AccionesDeLaHoja;
   /** El `id` del detalle de esta fila, si lo tiene. */
   readonly idDelDetalle?: string;
 }
@@ -48,11 +46,10 @@ export function AccionesDeLaFila({
   definicion,
   fila,
   nombrados,
-  traducir,
-  textos,
-  interaccion,
+  accionesDeLaHoja,
   idDelDetalle,
 }: AccionesDeLaFilaProps) {
+  const { traducir, textos } = useEntorno();
   const ofrecidas = accionesQueOfrece(definicion, fila.datos);
   if (ofrecidas.length === 0) {
     return (
@@ -70,16 +67,14 @@ export function AccionesDeLaFila({
         textos.accionesDeLaFila(
           (fila.celdas[0] === undefined ? null : textoDeLaCelda(fila.celdas[0])) ?? textos.datoAusente,
         )
-      : resolverTexto(definicion.nombreDelGrupo, deLaFila, traducir, textos.datoAusente);
+      : textoCon(deLaFila, traducir, textos)(definicion.nombreDelGrupo);
 
   return (
     <div role="group" aria-label={nombre} data-acciones-de-la-fila="">
       <GrupoDeAcciones
         acciones={ofrecidas}
         nombrados={deLaFila}
-        traducir={traducir}
-        textos={textos}
-        interaccion={interaccion}
+        accionesDeLaHoja={accionesDeLaHoja}
         describidoPor={idDelDetalle}
       />
     </div>

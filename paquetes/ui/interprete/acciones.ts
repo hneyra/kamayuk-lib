@@ -1,6 +1,6 @@
 import { COMPORTAMIENTO_POR_TIPO, seEscribe, tipoDe } from '../shadcn/campos.ts';
 import type { TextosDeLaPantalla } from '../textos.tsx';
-import { datosQueLee, faltaElDato, type Nombrados, resolverTexto, seCumple } from './componer.ts';
+import { datosQueLee, faltaElDato, type Nombrados, seCumple, textoCon } from './componer.ts';
 import type {
   CampoDelActo,
   DefinicionDeAccion,
@@ -30,9 +30,9 @@ import type { Texto } from './tipos.ts';
 
 type Traducir = (texto: string) => string;
 
-/** Un `Texto` resuelto con las palabras del saco. */
+/** Un `Texto` resuelto con las palabras del saco: `textoCon`, el cierre de un solo sitio (#125). */
 const resolver = (texto: Texto, nombrados: Nombrados, traducir: Traducir, textos: TextosDeLaPantalla) =>
-  resolverTexto(texto, nombrados, traducir, textos.datoAusente);
+  textoCon(nombrados, traducir, textos)(texto);
 
 /** El motivo del primer impedimento que se cumple, ya resuelto. `undefined`: ninguno impide. */
 export function motivoDeLosImpedimentos(

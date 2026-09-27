@@ -3,8 +3,8 @@ import { useId } from 'react';
 import { BotonConMotivo } from '../shadcn/boton-con-motivo.tsx';
 import { Boton } from '../shadcn/boton.tsx';
 import { Desplegable, Opcion } from '../shadcn/desplegable.tsx';
-import type { TextosDeLaPantalla } from '../textos.tsx';
-import { type Nombrados, resolverTexto } from './componer.ts';
+import type { Nombrados } from './componer.ts';
+import { useEntorno, useTexto } from './entorno.tsx';
 import type { SitioDeLaHoja } from './hoja.ts';
 import type { PaginaDeUnaTabla } from './reglas-de-las-tablas.ts';
 import type { OrdenDeLaTabla, PaginacionDeLaTabla, Texto } from './tipos.ts';
@@ -53,8 +53,6 @@ export interface MandoDeOrdenProps {
   readonly paginacion?: PaginacionDeLaTabla;
   readonly sitio: SitioDeLaHoja;
   readonly nombrados: Nombrados;
-  readonly traducir: (texto: string) => string;
-  readonly textos: TextosDeLaPantalla;
 }
 
 /** El campo por el que se ordena hoy: el de la ruta si es uno de los admitidos, o el primero. */
@@ -63,7 +61,9 @@ export function campoOrdenado(orden: OrdenDeLaTabla<Texto>, enLaRuta: string | n
   return orden.campos[0]?.valor ?? '';
 }
 
-export function MandoDeOrden({ orden, paginacion, sitio, nombrados, traducir, textos }: MandoDeOrdenProps) {
+export function MandoDeOrden({ orden, paginacion, sitio, nombrados }: MandoDeOrdenProps) {
+  const { traducir, textos } = useEntorno();
+  const texto = useTexto(nombrados);
   const id = useId();
   const campo = campoOrdenado(orden, sitio.leer(orden.enLaRuta));
   const descendente = sitio.leer(orden.sentidoEnLaRuta) === orden.descendente;
@@ -89,7 +89,7 @@ export function MandoDeOrden({ orden, paginacion, sitio, nombrados, traducir, te
         {orden.campos.map((uno) => (
           // El VALOR es el del backend y no pasa por `traducir`; el rotulo, si.
           <Opcion key={uno.valor} value={uno.valor}>
-            {resolverTexto(uno.rotulo, nombrados, traducir, textos.datoAusente)}
+            {texto(uno.rotulo)}
           </Opcion>
         ))}
       </Desplegable>
@@ -117,12 +117,12 @@ export interface MandoDePaginasProps {
   readonly paginacion: PaginacionDeLaTabla;
   readonly pagina: PaginaDeUnaTabla;
   readonly sitio: SitioDeLaHoja;
-  readonly textos: TextosDeLaPantalla;
   /** El nombre de la tabla, para el nombre accesible del grupo. */
   readonly nombreDeLaTabla: string;
 }
 
-export function MandoDePaginas({ paginacion, pagina, sitio, textos, nombreDeLaTabla }: MandoDePaginasProps) {
+export function MandoDePaginas({ paginacion, pagina, sitio, nombreDeLaTabla }: MandoDePaginasProps) {
+  const { textos } = useEntorno();
   const tamanos = paginacion.tamanos ?? [];
   const sitioDelTamano = paginacion.tamanoEnLaRuta;
   const idDelTamano = useId();

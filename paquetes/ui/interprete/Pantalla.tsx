@@ -12,12 +12,13 @@ import type { DatosDeLaPantalla } from './datos.ts';
 import { esBloque } from './componer.ts';
 import { hijasDe, indicesDeLasPiezas, nombradosConLaHoja } from './composicion.ts';
 import { useEnElMarcoOAqui } from './en-el-marco-o-aqui.ts';
+import { type EntornoDelInterprete, ProveedorDelEntorno } from './entorno.tsx';
 import type { HojaDelMarco } from './hoja.ts';
 import { useEnCurso, useLoTecleado, valoresDelBloque } from './lo-tecleado.ts';
 import { PiezaDeLaPantalla, type PiezasDelConsumidor } from './PiezaDeLaPantalla.tsx';
 import { GrupoDeAcciones } from './GrupoDeAcciones.tsx';
 import { tablasDe } from './reglas-de-las-tablas.ts';
-import type { ActoAbierto, InteraccionDeLaPantalla } from './interaccion.ts';
+import type { AccionesDeLaHoja, ActoAbierto, CicloDelActo } from './interaccion.ts';
 import type {
   ManejadoresDeLasAcciones,
   ManejadoresDeLosActos,
@@ -71,6 +72,14 @@ import type { DefinicionDePantalla, PiezaDeLaPantalla as Pieza, TonoDeInsignia }
  * gana cada valor salieron a `useLoTecleado`, `useEnCurso` y `valoresDelBloque`. El acto abierto,
  * controlado o no, lo lleva `useEnElMarcoOAqui`, el mismo «en el marco o aqui» de la ruta de las
  * tablas, el maestro y las pestanas.
+ *
+ * <h2>Desde #125, lo que no cambia de una pieza a otra va en un contexto</h2>
+ *
+ * `traducir`, `textos` (ya fundidos), `tonoDeLaInsignia` y `hoja` no bajan de pieza en pieza: los
+ * pone aqui `ProveedorDelEntorno` (`entorno.tsx`), y una pieza montada fuera de esta pantalla
+ * revienta diciendolo. Lo que la hoja hace baja partido en `AccionesDeLaHoja` y `CicloDelActo`
+ * (`interaccion.ts`). **`PantallaProps` no cambia**: lo vigila una barrera de tipo
+ * (`verificaciones/tipos/barreras-de-las-props-publicas.ts`).
  */
 
 export interface PantallaProps {
@@ -151,15 +160,17 @@ export function Pantalla({
     null,
     (_antes, nuevo) => nuevo,
   );
-  const interaccion: InteraccionDeLaPantalla = {
+  const accionesDeLaHoja: AccionesDeLaHoja = {
     actos,
     alHacer,
     navegacion,
-    abierto,
     abrirActo: (clave, parametros) => {
       fijarAbierto(clave === null ? null : { clave, ...(parametros === undefined ? {} : { parametros }) });
       alAbrirActo?.(clave, parametros);
     },
+  };
+  const ciclo: CicloDelActo = {
+    abierto,
     alEnsuciar,
     alQuedarGuardada: () => {
       alQuedarGuardada();
@@ -170,6 +181,7 @@ export function Pantalla({
     tecleadoDeLosActos: loTecleado.tecleadoDeLosActos,
   };
   const palabras: TextosDeLaPantalla = { ...TEXTOS_DEL_INTERPRETE, ...TEXTOS_DE_LAS_PIEZAS, ...textos };
+  const entorno: EntornoDelInterprete = { traducir, textos: palabras, tonoDeLaInsignia, hoja };
 
   // Los de la hoja van DEBAJO de los del sistema (#67). Sin hoja, `datos` es el mismo objeto.
   const conLaHoja: DatosDeLaPantalla =
@@ -192,12 +204,9 @@ export function Pantalla({
         pieza={pieza}
         indice={i}
         datos={conLaHoja}
-        traducir={traducir}
-        textos={palabras}
         piezas={piezas}
-        interaccion={interaccion}
-        hoja={hoja}
-        tonoDeLaInsignia={tonoDeLaInsignia}
+        accionesDeLaHoja={accionesDeLaHoja}
+        ciclo={ciclo}
         dibujarHija={(j) => {
           const hija = hijasDe(pieza)[j];
           return hija === undefined ? null : dibujar(hija, `${sitio}.${String(j)}`);
@@ -207,12 +216,10 @@ export function Pantalla({
             <BloqueDeLaPantalla
               bloque={pieza}
               valores={valoresDelBloque(i, pieza.campos, datos, hoja, tecleado, enCurso)}
-              filas={datos.filas?.get(i)}
-              conteo={datos.conteos?.get(i)}
-              datosDeLasTablas={datos.tablas}
-              interaccion={interaccion}
-              ausencia={datos.ausencia}
-              ausenciaPorCampo={datos.ausenciaPorCampo}
+              // Con los de la hoja: el bloque lee de aqui sus filas, sus tablas, su ausencia y sus
+              // `nombrados`, que hasta #125 le llegaban en seis `props` sueltas.
+              datos={conLaHoja}
+              accionesDeLaHoja={accionesDeLaHoja}
               indice={i}
               alCambiar={(campo, valor) => {
                 const definicion = pieza.campos[campo];
@@ -226,11 +233,6 @@ export function Pantalla({
                 const definicion = pieza.campos[campo];
                 if (definicion !== undefined) salirDelCampo(pieza, i, campo, definicion);
               }}
-              traducir={traducir}
-              textos={palabras}
-              tonoDeLaInsignia={tonoDeLaInsignia}
-              nombrados={conLaHoja.nombrados}
-              hoja={hoja}
               enLugarDelCuerpo={enLugarDelCuerpo}
               encimaDelCuerpo={encimaDelCuerpo}
               acciones={
@@ -238,9 +240,7 @@ export function Pantalla({
                   <GrupoDeAcciones
                     acciones={pieza.acciones}
                     nombrados={conLaHoja.nombrados}
-                    traducir={traducir}
-                    textos={palabras}
-                    interaccion={interaccion}
+                    accionesDeLaHoja={accionesDeLaHoja}
                   />
                 )
               }
@@ -252,15 +252,17 @@ export function Pantalla({
   };
 
   return (
-    // Con una tabla de cabecera fija, la pantalla cede el alto que le den hasta el marco de esa tabla
-    // (#65). Sin ella, la de siempre.
-    <div className={cedeElAlto(definicion) ? 'flex min-h-0 flex-1 flex-col gap-[14px]' : 'flex flex-col gap-[14px]'}>
-      {/* Una vez, arriba: ver el docblock. Sin frase no hay caja: una alerta vacia es un hueco (#44). */}
-      {datos.ausencia.explicacion === '' ? null : (
-        <Alerta tono={datos.ausencia.tono}>{traducir(datos.ausencia.explicacion)}</Alerta>
-      )}
-      {definicion.bloques.map((pieza, i) => dibujar(pieza, String(i)))}
-    </div>
+    <ProveedorDelEntorno entorno={entorno}>
+      {/* Con una tabla de cabecera fija, la pantalla cede el alto que le den hasta el marco de esa
+          tabla (#65). Sin ella, la de siempre. */}
+      <div className={cedeElAlto(definicion) ? 'flex min-h-0 flex-1 flex-col gap-[14px]' : 'flex flex-col gap-[14px]'}>
+        {/* Una vez, arriba: ver el docblock. Sin frase no hay caja: una alerta vacia es un hueco (#44). */}
+        {datos.ausencia.explicacion === '' ? null : (
+          <Alerta tono={datos.ausencia.tono}>{traducir(datos.ausencia.explicacion)}</Alerta>
+        )}
+        {definicion.bloques.map((pieza, i) => dibujar(pieza, String(i)))}
+      </div>
+    </ProveedorDelEntorno>
   );
 }
 

@@ -86,18 +86,34 @@ los campos que escriben en la ruta y el orden en que gana cada valor viven en `l
   de `useHoja()`, el acto que pasa el sistema— o la pieza. Encima, `useSitioDeLaHoja` (`hoja.ts`):
   la ruta de la hoja o el estado de la pieza, para la tabla, el maestro y las pestañas.
 
-## Cuatro cosas que no se tocan
+**El entorno, en un contexto, y lo que la hoja hace, en dos** (#125). `traducir`, `textos`,
+`tonoDeLaInsignia` y `hoja` no bajan de pieza en pieza: `Pantalla` los pone una vez en
+`EntornoDelInterprete` (`entorno.tsx`, interno) y cada pieza los toma con `useEntorno`; un `Texto`
+se resuelve con `useTexto(nombrados)`, que es `textoCon` (`componer.ts`), **el cierre de un solo
+sitio**. `nombrados` sigue siendo `prop`, porque la fila, el acto y la lista del maestro ponen los
+suyos encima. **Una pieza montada fuera de `<Pantalla>` revienta diciéndolo**: el contexto no tiene
+valor por omisión, que pintaría sin las palabras del sistema. Lo que la hoja hace baja partido en
+`AccionesDeLaHoja` —abrir un acto, ir, hacer— y `CicloDelActo` —el acto abierto, lo tecleado, sucia,
+descartada, guardada— (`interaccion.ts`). `BloqueDeLaPantalla` recibe diez `props`, y no diecinueve.
+`PantallaProps` y `PropsDeUnaPiezaDelConsumidor` **no cambian**: lo vigila
+`verificaciones/tipos/barreras-de-las-props-publicas.ts` contra una copia fijada antes.
+
+## Cinco cosas que no se tocan
 
 - Lo impedido sale con **`BotonConMotivo`**: `aria-disabled` y `aria-describedby` hacia el motivo
   visible, **nunca `disabled`**.
 - `TextosDelInterprete` **no gana claves** y `DefinicionDePantalla` es genérica con el valor por
   omisión de hoy, porque las dos cosas, medidas, rompen la compilación de `rentas`.
 - El árbol, las definiciones y el vocabulario de tonos se quedan en cada sistema, y `traducir`,
-  `textos` y `tonoDeLaInsignia` entran por `props`.
+  `textos` y `tonoDeLaInsignia` entran por `props` de `<Pantalla>` —dentro, por el entorno (#125)—.
 - Lo que necesita del marco es una **forma** y no un import —`HojaDelMarco`
   (`{ ruta, marco?, moverLaRuta, marcarSucia?, marcarGuardada?, tecleado?, alTeclear? }`), que
   `useHoja()` cumple y una barrera de tipo vigila con los cuatro de #86 obligatorios—, así
   **`@kamayuk/ui` no importa `@kamayuk/shell`**.
+- `PantallaProps` y `PropsDeUnaPiezaDelConsumidor` son lo que escriben los seis consumidores:
+  **no cambian** sin cambiar en el mismo PR su copia fijada en
+  `verificaciones/tipos/barreras-de-las-props-publicas.ts` (#125). Y el entorno del intérprete
+  **no tiene valor por omisión**: una pieza fuera de `<Pantalla>` revienta, no pinta sin textos.
 
 ## Lo que se elige en un campo vive en la ruta (#94)
 

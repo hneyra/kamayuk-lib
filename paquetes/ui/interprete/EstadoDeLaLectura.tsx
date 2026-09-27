@@ -2,8 +2,8 @@ import type { ReactElement } from 'react';
 
 import { Alerta } from '../shadcn/alerta.tsx';
 import { Boton } from '../shadcn/boton.tsx';
-import type { TextosDeLaPantalla } from '../textos.tsx';
 import type { EstadoDeUnaLectura } from './datos.ts';
+import { useEntorno } from './entorno.tsx';
 
 /**
  * **Lo que una pieza dice mientras su lectura no esta `con-datos`** (#44, `estados-de-una-lectura`).
@@ -36,10 +36,10 @@ export interface EstadoDeLaLecturaProps {
   readonly estado: Exclude<EstadoDeUnaLectura, { readonly estado: 'con-datos' }>;
   /** La frase de la espera, ya resuelta. Sin ella, la del saco. */
   readonly espera?: string;
-  readonly textos: TextosDeLaPantalla;
 }
 
-export function EstadoDeLaLectura({ estado, espera, textos }: EstadoDeLaLecturaProps): ReactElement {
+export function EstadoDeLaLectura({ estado, espera }: EstadoDeLaLecturaProps): ReactElement {
+  const { textos } = useEntorno();
   switch (estado.estado) {
     case 'en-espera':
       return (
@@ -65,17 +65,17 @@ export function EstadoDeLaLectura({ estado, espera, textos }: EstadoDeLaLecturaP
         </div>
       );
     case 'fallo':
-      return <FalloDeUnaLectura fallo={estado} textos={textos} />;
+      return <FalloDeUnaLectura fallo={estado} />;
   }
 }
 
 export interface FalloDeUnaLecturaProps {
   readonly fallo: Extract<EstadoDeUnaLectura, { readonly estado: 'fallo' }>;
-  readonly textos: TextosDeLaPantalla;
 }
 
 /** El fallo solo. Lo usan el estado de la lectura propia y el aviso del fallo de una vecina. */
-export function FalloDeUnaLectura({ fallo, textos }: FalloDeUnaLecturaProps) {
+export function FalloDeUnaLectura({ fallo }: FalloDeUnaLecturaProps) {
+  const { textos } = useEntorno();
   const { peldano } = fallo;
   const incidencia = peldano.incidencia;
   return (

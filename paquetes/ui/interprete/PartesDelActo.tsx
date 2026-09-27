@@ -13,17 +13,18 @@ import {
 } from '../shadcn/confirmacion.tsx';
 import { Etiqueta } from '../shadcn/etiqueta.tsx';
 import { TarjetaCampos, TarjetaNota } from '../shadcn/tarjeta.tsx';
-import type { TextosDeLaPantalla } from '../textos.tsx';
 import { camposQueFaltan, motivoDeLaObservacion, seEscribeElCampo } from './acciones.ts';
 import { CampoDelBloque } from './CampoDelBloque.tsx';
-import type { Nombrados, resolverTexto } from './componer.ts';
+import type { Nombrados } from './componer.ts';
 import type { Ausencia, EstadoDeUnaLectura } from './datos.ts';
+import { useEntorno } from './entorno.tsx';
 import { FalloDeUnaLectura } from './EstadoDeLaLectura.tsx';
 import { GrupoDeAcciones } from './GrupoDeAcciones.tsx';
 import type { TecleadoDeUnActo } from './hoja.ts';
-import type { InteraccionDeLaPantalla } from './interaccion.ts';
+import type { AccionesDeLaHoja } from './interaccion.ts';
 import { ProsaConMarcas } from './ProsaConMarcas.tsx';
 import type { CampoDelActo, DefinicionDeActo } from './tipos-de-los-actos.ts';
+import type { Texto } from './tipos.ts';
 
 /**
  * **Las partes de un acto: la nota, el fallo, lo hecho, los campos, las salidas y la confirmacion**
@@ -35,27 +36,23 @@ import type { CampoDelActo, DefinicionDeActo } from './tipos-de-los-actos.ts';
  */
 
 /** Un texto de la definicion, resuelto con los datos de la pantalla y los de la fila. */
-type Resolver = (t: Parameters<typeof resolverTexto>[0]) => string;
+type Resolver = (t: Texto) => string;
 
 /** La nota del acto: con marcas, si las trae, que ganan a `nota` (#86, `texto-con-marcas`). */
 export function NotaDelActo({
   acto,
   nombrados,
-  traducir,
   texto,
-  textos,
 }: {
   readonly acto: DefinicionDeActo;
   readonly nombrados: Nombrados;
-  readonly traducir: (texto: string) => string;
   readonly texto: Resolver;
-  readonly textos: TextosDeLaPantalla;
 }) {
   if (acto.notaConMarcas !== undefined && acto.notaConMarcas.length > 0) {
     // Con los datos de la pantalla y los de la fila.
     return (
       <TarjetaNota>
-        <ProsaConMarcas marcas={acto.notaConMarcas} nombrados={nombrados} traducir={traducir} ausente={textos.datoAusente} />
+        <ProsaConMarcas marcas={acto.notaConMarcas} nombrados={nombrados} />
       </TarjetaNota>
     );
   }
@@ -71,18 +68,17 @@ export function FalloDelActo({
   clave,
   fallo,
   rechazado,
-  textos,
 }: {
   readonly clave: string;
   readonly fallo: EstadoDeUnaLectura | undefined;
   readonly rechazado: boolean;
-  readonly textos: TextosDeLaPantalla;
 }) {
+  const { textos } = useEntorno();
   return (
     <>
       {fallo?.estado === 'fallo' ? (
         <div data-fallo-de={clave}>
-          <FalloDeUnaLectura fallo={fallo} textos={textos} />
+          <FalloDeUnaLectura fallo={fallo} />
         </div>
       ) : null}
       {rechazado && fallo?.estado !== 'fallo' ? (
@@ -100,18 +96,15 @@ export function FalloDelActo({
 export function ActoHecho({
   acto,
   nombrados,
-  traducir,
   texto,
-  textos,
-  interaccion,
+  accionesDeLaHoja,
 }: {
   readonly acto: DefinicionDeActo;
   readonly nombrados: Nombrados;
-  readonly traducir: (texto: string) => string;
   readonly texto: Resolver;
-  readonly textos: TextosDeLaPantalla;
-  readonly interaccion: InteraccionDeLaPantalla;
+  readonly accionesDeLaHoja: AccionesDeLaHoja;
 }) {
+  const { textos } = useEntorno();
   return (
     <div data-fase-del-acto="hecho" className="flex flex-col gap-[10px] px-[15px] py-[14px]">
       <Alerta tono="ok" titulo={acto.hecho === undefined ? textos.actoHecho : texto(acto.hecho.titulo)}>
@@ -121,9 +114,7 @@ export function ActoHecho({
         <GrupoDeAcciones
           acciones={acto.hecho.acciones}
           nombrados={nombrados}
-          traducir={traducir}
-          textos={textos}
-          interaccion={interaccion}
+          accionesDeLaHoja={accionesDeLaHoja}
         />
       )}
     </div>
@@ -141,9 +132,7 @@ export function CamposDelActo({
   nombrados,
   ausencia,
   alCambiar,
-  traducir,
   texto,
-  textos,
 }: {
   readonly acto: DefinicionDeActo;
   readonly tecleado: TecleadoDeUnActo;
@@ -152,10 +141,9 @@ export function CamposDelActo({
   readonly ausencia: Ausencia;
   /** Un cambio de lo tecleado: ensucia, y se aplica sobre lo que habia. */
   readonly alCambiar: (cambio: (antes: TecleadoDeUnActo) => TecleadoDeUnActo) => void;
-  readonly traducir: (texto: string) => string;
   readonly texto: Resolver;
-  readonly textos: TextosDeLaPantalla;
 }) {
+  const { traducir, textos } = useEntorno();
   const { valores, observacion, intentado } = tecleado;
   const errorDeLaObservacion = intentado ? motivoDeLaObservacion(acto, observacion, textos) : undefined;
   const faltan = acto.errores === 'trasElPrimerIntento' && intentado ? camposQueFaltan(acto.campos, valores) : [];
@@ -220,7 +208,6 @@ export function SalidasDelActo({
   alPulsarImpedido,
   descartar,
   texto,
-  textos,
 }: {
   readonly acto: DefinicionDeActo;
   readonly motivo: string | undefined;
@@ -231,8 +218,8 @@ export function SalidasDelActo({
   readonly alPulsarImpedido: () => void;
   readonly descartar: () => void;
   readonly texto: Resolver;
-  readonly textos: TextosDeLaPantalla;
 }) {
+  const { textos } = useEntorno();
   return (
     <>
       <div className="flex flex-wrap items-center gap-3 border-t border-linea-2 px-[15px] py-3">
@@ -295,15 +282,14 @@ export function ConfirmacionDelActo({
   abierta,
   cerrar,
   confirmar,
-  textos,
 }: {
   /** La advertencia, ya resuelta. */
   readonly advertencia: string;
   readonly abierta: boolean;
   readonly cerrar: () => void;
   readonly confirmar: () => void;
-  readonly textos: TextosDeLaPantalla;
 }) {
+  const { textos } = useEntorno();
   return (
     <Confirmacion
       open={abierta}

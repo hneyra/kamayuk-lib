@@ -2,16 +2,16 @@ import type { ComponentType, ReactNode } from 'react';
 
 import { Alerta } from '../shadcn/alerta.tsx';
 import type { TextosDeLaPantalla } from '../textos.tsx';
-import { esBloque, resolverTexto, seCumple } from './componer.ts';
+import { esBloque, seCumple } from './componer.ts';
 import type { DatosDeLaPantalla } from './datos.ts';
 import { EstadoDeLaLectura, FalloDeUnaLectura } from './EstadoDeLaLectura.tsx';
 import { ActoDeLaPantalla } from './ActoDeLaPantalla.tsx';
-import type { InteraccionDeLaPantalla } from './interaccion.ts';
-import type { HojaDelMarco } from './hoja.ts';
+import { useEntorno, useTexto } from './entorno.tsx';
+import type { AccionesDeLaHoja, CicloDelActo } from './interaccion.ts';
 import { MaestroDetalle } from './MaestroDetalle.tsx';
 import { PestanasDeLaPantalla } from './PestanasDeLaPantalla.tsx';
 import { PieDeOperaciones } from './PieDeOperaciones.tsx';
-import type { ComunDeUnaPieza, PiezaDeLaPantalla, Texto, TonoDeInsignia } from './tipos.ts';
+import type { ComunDeUnaPieza, PiezaDeLaPantalla, Texto } from './tipos.ts';
 
 /**
  * **Una pieza de la definicion, con sus tres modificadores aplicados** (#44).
@@ -29,7 +29,13 @@ import type { ComunDeUnaPieza, PiezaDeLaPantalla, Texto, TonoDeInsignia } from '
  * manera: una pieza nueva solo tiene que dibujarse con datos.
  */
 
-/** Lo que recibe el componente de una pieza del consumidor: lo mismo que el interprete tiene (AC-2). */
+/**
+ * Lo que recibe el componente de una pieza del consumidor: lo mismo que el interprete tiene (AC-2).
+ *
+ * **Es publico y no cambia con #125**: `traducir` y `textos` se le siguen pasando como `props`,
+ * sacados del entorno de la pantalla, porque el contexto es interno y una pieza del consumidor no
+ * tiene por que saber que existe. Lo vigila `verificaciones/tipos/barreras-de-las-props-publicas.ts`.
+ */
 export interface PropsDeUnaPiezaDelConsumidor {
   /** La clave con la que la definicion la nombro. Un mismo componente puede servir dos claves. */
   readonly clave: string;
@@ -48,20 +54,16 @@ export interface PiezaDeLaPantallaProps {
   readonly pieza: PiezaDeLaPantalla;
   readonly indice: number;
   readonly datos: DatosDeLaPantalla;
-  readonly traducir: (texto: string) => string;
-  readonly textos: TextosDeLaPantalla;
   readonly piezas: PiezasDelConsumidor | undefined;
-  /** Lo que la pantalla sabe hacer: sus actos, sus acciones y a donde puede ir (#66). */
-  readonly interaccion: InteraccionDeLaPantalla;
+  /** Lo que una accion puede hacer: abrir un acto, ir a otra hoja o hacer una operacion (#66, #125). */
+  readonly accionesDeLaHoja: AccionesDeLaHoja;
+  /** El acto abierto y su vida: aqui decide si un acto existe (#66, #125). */
+  readonly ciclo: CicloDelActo;
   /**
    * Como se dibuja un bloque. Lo pone `Pantalla`, que es quien tiene lo tecleado; aqui solo se le
    * dice que va en el sitio del cuerpo y que va encima.
    */
   readonly dibujarBloque: (sustituto: { enLugarDelCuerpo?: ReactNode; encimaDelCuerpo?: ReactNode }) => ReactNode;
-  /** La ruta y el marco de la hoja, si la pantalla va dentro de uno (#67). */
-  readonly hoja?: HojaDelMarco;
-  /** El tono de una insignia deducido de su texto: lo usa la fila del maestro (#67). */
-  readonly tonoDeLaInsignia: (texto: string) => TonoDeInsignia;
   /** Dibuja la hija `j` de `hijasDe(pieza)`, con su indice: lo pone `Pantalla` (#67). */
   readonly dibujarHija: (j: number) => ReactNode;
 }
@@ -70,16 +72,14 @@ export function PiezaDeLaPantalla({
   pieza,
   indice,
   datos,
-  traducir,
-  textos,
   piezas,
-  interaccion,
+  accionesDeLaHoja,
+  ciclo,
   dibujarBloque,
-  hoja,
-  tonoDeLaInsignia,
   dibujarHija,
 }: PiezaDeLaPantallaProps) {
-  const texto = (t: Texto) => resolverTexto(t, datos.nombrados, traducir, textos.datoAusente);
+  const { traducir, textos } = useEntorno();
+  const texto = useTexto(datos.nombrados);
 
   // El pie no tiene modificadores, y lo dice su tipo: sigue ahi con el servidor caido.
   if (pieza.tipo === 'pie') {
@@ -88,7 +88,6 @@ export function PiezaDeLaPantalla({
         lee={pieza.lee}
         escribe={pieza.escribe}
         falta={pieza.falta === undefined ? undefined : texto(pieza.falta)}
-        textos={textos}
       />
     );
   }
@@ -96,10 +95,10 @@ export function PiezaDeLaPantalla({
   const comun: ComunDeUnaPieza = pieza;
   if (!seCumple(comun.cuando, datos.nombrados)) return null;
   // Un acto solo existe abierto (#66): cerrado no dibuja ni su lectura, ni su espera ni sus fallos.
-  if (pieza.tipo === 'acto' && interaccion.abierto?.clave !== pieza.clave) return null;
+  if (pieza.tipo === 'acto' && ciclo.abierto?.clave !== pieza.clave) return null;
 
   const estadoPropio = estadoDe(comun, datos, textos, texto);
-  const encima = fallosDeLasVecinas(comun, datos, textos);
+  const encima = fallosDeLasVecinas(comun, datos);
 
   if (esBloque(pieza)) {
     return dibujarBloque({ enLugarDelCuerpo: estadoPropio, encimaDelCuerpo: encima });
@@ -117,28 +116,12 @@ export function PiezaDeLaPantalla({
       // Las dos piezas que componen la hoja (#67): dibujan sus hijas por `dibujarHija`, con el mismo
       // despachador, asi que una pestana hereda `cuando`, `lectura` y `fallosDe` sin hacer nada.
       cuerpo = (
-        <PestanasDeLaPantalla
-          pieza={pieza}
-          nombrados={datos.nombrados}
-          traducir={traducir}
-          textos={textos}
-          hoja={hoja}
-          dibujarHija={dibujarHija}
-        />
+        <PestanasDeLaPantalla pieza={pieza} nombrados={datos.nombrados} dibujarHija={dibujarHija} />
       );
       break;
     case 'maestroDetalle':
       cuerpo = (
-        <MaestroDetalle
-          pieza={pieza}
-          datos={datos}
-          nombrados={datos.nombrados}
-          traducir={traducir}
-          textos={textos}
-          tonoDeLaInsignia={tonoDeLaInsignia}
-          hoja={hoja}
-          dibujarHija={dibujarHija}
-        />
+        <MaestroDetalle pieza={pieza} datos={datos} nombrados={datos.nombrados} dibujarHija={dibujarHija} />
       );
       break;
     case 'aviso': {
@@ -154,12 +137,11 @@ export function PiezaDeLaPantalla({
       cuerpo = (
         <ActoDeLaPantalla
           // Otra apertura, otro formulario: lo escrito para una fila no pasa a la siguiente.
-          key={JSON.stringify(interaccion.abierto?.parametros ?? {})}
+          key={JSON.stringify(ciclo.abierto?.parametros ?? {})}
           acto={pieza}
           datos={datos}
-          traducir={traducir}
-          textos={textos}
-          interaccion={interaccion}
+          accionesDeLaHoja={accionesDeLaHoja}
+          ciclo={ciclo}
         />
       );
       break;
@@ -225,17 +207,12 @@ function estadoDe(
     <EstadoDeLaLectura
       estado={estado}
       espera={estado.estado === 'en-espera' && espera !== undefined ? texto(espera) : undefined}
-      textos={textos}
     />
   );
 }
 
 /** El fallo de las lecturas vecinas. Su espera y su «pidiendo» no tapan nada, y no se dicen aqui. */
-function fallosDeLasVecinas(
-  comun: ComunDeUnaPieza,
-  datos: DatosDeLaPantalla,
-  textos: TextosDeLaPantalla,
-): ReactNode {
+function fallosDeLasVecinas(comun: ComunDeUnaPieza, datos: DatosDeLaPantalla): ReactNode {
   const fallos = (comun.fallosDe ?? []).flatMap((clave) => {
     // La lectura propia ya dice su fallo en el sitio del cuerpo: repetirlo encima lo diria dos veces.
     if (clave === comun.lectura?.clave) return [];
@@ -245,7 +222,7 @@ function fallosDeLasVecinas(
   if (fallos.length === 0) return undefined;
   return fallos.map(({ clave, estado }) => (
     <div key={clave} data-fallo-de={clave}>
-      <FalloDeUnaLectura fallo={estado} textos={textos} />
+      <FalloDeUnaLectura fallo={estado} />
     </div>
   ));
 }

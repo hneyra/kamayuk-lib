@@ -3,14 +3,14 @@ import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Insignia } from '../Insignia.tsx';
 import { Alerta } from '../shadcn/alerta.tsx';
 import { FOCO } from '../shadcn/foco.ts';
-import type { TextosDeLaPantalla } from '../textos.tsx';
 import { cn } from '../utilidades.ts';
-import { resolverTexto, type Nombrados } from './componer.ts';
+import { textoCon, type Nombrados } from './componer.ts';
 import type { DatosDeLaPantalla, FilaDeUnaLista } from './datos.ts';
+import { useEntorno, useTexto } from './entorno.tsx';
 import { EstadoDeLaLectura } from './EstadoDeLaLectura.tsx';
-import { type HojaDelMarco, useSitioDeLaHoja } from './hoja.ts';
+import { useSitioDeLaHoja } from './hoja.ts';
 import { destinoDeLaTecla, EN_UNA_LISTA } from './teclado.ts';
-import type { DefinicionDeMaestroDetalle, Texto, TonoDeInsignia } from './tipos.ts';
+import type { DefinicionDeMaestroDetalle, Texto } from './tipos.ts';
 
 /**
  * **Lista a la izquierda, detalle a la derecha** (#67, `maestro-detalle`).
@@ -51,10 +51,6 @@ export interface MaestroDetalleProps {
   readonly pieza: DefinicionDeMaestroDetalle;
   readonly datos: DatosDeLaPantalla;
   readonly nombrados: Nombrados;
-  readonly traducir: (texto: string) => string;
-  readonly textos: TextosDeLaPantalla;
-  readonly tonoDeLaInsignia: (texto: string) => TonoDeInsignia;
-  readonly hoja: HojaDelMarco | undefined;
   /** Dibuja la hija `j` del detalle. */
   readonly dibujarHija: (j: number) => ReactNode;
 }
@@ -63,27 +59,19 @@ export function MaestroDetalle({
   pieza,
   datos,
   nombrados,
-  traducir,
-  textos,
-  tonoDeLaInsignia,
-  hoja,
   dibujarHija,
 }: MaestroDetalleProps) {
+  const { traducir, textos, tonoDeLaInsignia, hoja } = useEntorno();
   const sitio = useSitioDeLaHoja(hoja);
   const [foco, setFoco] = useState<number | null>(null);
   const opciones = useRef<(HTMLLIElement | null)[]>([]);
   const { maestro, detalle } = pieza;
 
-  const deLaPantalla = (t: Texto) => resolverTexto(t, nombrados, traducir, textos.datoAusente);
+  const deLaPantalla = useTexto(nombrados);
   // En una fila, una cadena ES una plantilla: todo lo que dice una fila es de ese registro, y
   // `'{nombre}'` escrito como cadena fija dibujaria las llaves.
   const deLaFila = (t: Texto, fila: FilaDeUnaLista) =>
-    resolverTexto(
-      typeof t === 'string' ? { plantilla: t } : t,
-      new Map(Object.entries(fila.campos)),
-      traducir,
-      textos.datoAusente,
-    );
+    textoCon(new Map(Object.entries(fila.campos)), traducir, textos)(typeof t === 'string' ? { plantilla: t } : t);
 
   const elegido = sitio.leer(pieza.enLaRuta);
   const elegir = (fila: FilaDeUnaLista): void => {
@@ -130,7 +118,6 @@ export function MaestroDetalle({
       <EstadoDeLaLectura
         estado={estado}
         espera={estado.estado === 'en-espera' && espera !== undefined ? deLaPantalla(espera) : undefined}
-        textos={textos}
       />
     );
   } else if (filas.length === 0) {
