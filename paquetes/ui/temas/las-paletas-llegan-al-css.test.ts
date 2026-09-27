@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest';
 
 import { leerLosOrigenes, sinComentariosCss } from './base.ts';
 import { COMBINACIONES, derivar } from './derivar.ts';
+import { IDENTIDADES, MODOS } from './ejes.ts';
 
 /**
  * **Las paletas llegan al CSS QUE EL NAVEGADOR RECIBE** (#23). Eran seis, y el archivo se llamaba
@@ -209,7 +210,8 @@ describe('las ocho paletas llegan al CSS emitido', () => {
     // una comprobacion. Y la hoja es la PUBLICADA: si `exports` deja de llevar a ella, esto
     // revienta al resolverla, que es la otra mitad del camino.
     expect(base.size, 'el @theme no declaro ni un color').toBe(38);
-    expect(COMBINACIONES).toHaveLength(8);
+    // Derivado y no a mano (#124): una por identidad y modo. Las ocho de hoy, sin escribir el ocho.
+    expect(COMBINACIONES).toHaveLength(IDENTIDADES.length * MODOS.length);
     // Y cada una con su selector declarado: una combinacion sin entrada en `SELECTORES` se
     // recorreria sobre la lista vacia y saldria verde sin haberse buscado en el CSS.
     expect(

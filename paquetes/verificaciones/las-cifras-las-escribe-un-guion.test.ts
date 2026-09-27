@@ -24,7 +24,7 @@ import {
   reescribir,
   textoDe,
 } from './cifras.mjs';
-import { leerElWorkflow, listasDeRutas } from './rutas-de-la-ci.ts';
+import { leerElWorkflow, loQueNoDisparaLaCi } from './rutas-de-la-ci.ts';
 import { RAIZ, archivosDe, rutaDesde } from './texto.ts';
 import { leerWorkflow, ordenDe, pasosDe, trabajoDe } from './workflow.ts';
 
@@ -330,13 +330,15 @@ describe('el arbol de verdad', () => {
   });
 
   it('y la CI se dispara cuando cambia un archivo con cifras, en `push` y en `pull_request`', () => {
-    const listas = listasDeRutas(leerElWorkflow());
-    expect(listas, 'el workflow dejo de tener sus dos listas de `paths`').toHaveLength(2);
-    for (const lista of listas) {
-      for (const { archivo } of DONDE_HAY_CIFRAS) {
-        expect(lista, `«${archivo}» no dispara la CI: una cifra tocada a mano no se comprobaria`).toContain(archivo);
-      }
-    }
+    // Desde #116 el workflow no filtra por `paths:`, y lo que se pregunta es lo que importa: que un
+    // cambio que solo toque uno de estos archivos dispare `verificar`, con filtro o sin el.
+    expect(
+      loQueNoDisparaLaCi(
+        leerElWorkflow(),
+        DONDE_HAY_CIFRAS.map(({ archivo }) => archivo),
+      ),
+      'una cifra tocada a mano no se comprobaria',
+    ).toEqual([]);
   });
 });
 

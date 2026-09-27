@@ -4,7 +4,6 @@ import { Alerta } from '../shadcn/alerta.tsx';
 import { avisar } from '../shadcn/avisos.tsx';
 import { BotonConMotivo } from '../shadcn/boton-con-motivo.tsx';
 import { Area } from '../shadcn/campo.tsx';
-import { tipoDe } from '../shadcn/campos.ts';
 import {
   Cancelar,
   Confirmacion,
@@ -24,9 +23,11 @@ import {
   motivoDelActo,
   motivoDeLaObservacion,
   seEscribeElCampo,
+  siempreTieneValor,
   valoresQueViajan,
   type ValoresDelActo,
 } from './acciones.ts';
+import { estrecharElCampo } from './campo-estrechado.ts';
 import { CampoDelBloque } from './CampoDelBloque.tsx';
 import { type Nombrados, resolverTexto } from './componer.ts';
 import { useEnVuelo } from './en-vuelo.ts';
@@ -98,15 +99,22 @@ export interface ActoDeLaPantallaProps {
 /** Donde esta el acto: escribiendose, o ya aceptado por el sistema. */
 type Fase = 'escribiendo' | 'hecho';
 
-/** El valor con el que nace un campo: el que el desplegable ensena, y no un hueco que no se ve. */
+/**
+ * El valor con el que nace un campo: el que el desplegable ensena, y no un hueco que no se ve.
+ *
+ * La lista se reconoce por su tipo —`estrecharElCampo`, que trae sus opciones sin preguntar si
+ * estan— y la casilla por `siempreTieneValor`, la columna de `COMPORTAMIENTO_POR_TIPO` (#124): el
+ * que siempre tiene valor nace con el suyo, `false`, que es el unico que una casilla admite.
+ */
 function valoresIniciales(campos: readonly CampoDelActo[]): ValoresDelActo {
   const salida: Record<string, string | boolean> = {};
   for (const campo of campos) {
-    if (tipoDe(campo.tipo) === 's' && 'opciones' in campo) {
-      const primera: unknown = campo.opciones[0];
+    const estrechado = estrecharElCampo(campo);
+    if (estrechado.letra === 's') {
+      const primera: unknown = estrechado.campo.opciones[0];
       if (typeof primera === 'string') salida[campo.nombre] = primera;
     }
-    if (tipoDe(campo.tipo) === 'c') salida[campo.nombre] = false;
+    if (siempreTieneValor(campo)) salida[campo.nombre] = false;
   }
   return salida;
 }

@@ -125,6 +125,19 @@ navegador, y por eso `sin-suponer-un-sistema` no lo barre.
   de `el-texto-visible-es-dato` —`DIBUJAN`, `HABLAN_SIN_DIBUJAR` y `NO_HABLAN_A_UNA_PERSONA`— y las
   claves de `PEER_DECLARADAS`, con `readdir(paquetes)`: un paquete nuevo sale rojo pidiendo que se
   le clasifique. `CLAUDE.md` cuenta los sistemas con un solo número, el del JSON.
+- **La CI no se salta lo que sus guardas leen** (#116): `paquetes.yml` no filtra por `paths:`, y
+  `la-ci-no-se-salta-lo-que-lee` lo vigila con `loQueNoDisparaLaCi` (`rutas-de-la-ci.ts`) sobre el
+  YAML analizado: `push` y `pull_request` están, su `paths:` deja pasar y su `paths-ignore:` no
+  ignora cada archivo de `LO_QUE_LAS_GUARDAS_LEEN` ni cada workflow del directorio; el `types:` de
+  `pull_request`, si se escribe, trae `opened`, `synchronize` y `reopened`, y ningún filtro de ramas
+  deja fuera `main`; y `verificar` corre `yarn verificar` sin `if:` ni `continue-on-error`, ni en
+  el trabajo ni en ninguno de sus pasos. Un patrón que no sabe traducir —`?`, `+`, `[...]`— sale en rojo diciéndolo. La
+  usan también `las-cifras-las-escribe-un-guion` y `el-registro-se-mezcla-solo`.
+- **La versión de Node se declara en un sitio** (#116): `.nvmrc`. `la-version-de-node-es-una`, con
+  `version-de-node.ts`, exige que `engines.node`, la mayor de `@types/node` y cada `setup-node` de
+  cada workflow digan lo mismo, y que cada `setup-node` la **lea** con `node-version-file` del
+  `.nvmrc` que su trabajo clonó —`kamayuk-lib/.nvmrc` en el de los consumidores—: un
+  `node-version` escrito a mano sale rojo aunque diga 24.
 
 ## Los guiones
 

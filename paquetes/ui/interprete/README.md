@@ -27,6 +27,13 @@ que la hoja ceda el alto.
 porque dibujarlo sería un campo de menos sin ningún aviso—, y llevan `marcador`, `ayuda`, `opciones`
 con rótulo propio e `insignia`.
 
+**Lo que decide cada tipo está en UNA tabla**, `COMPORTAMIENTO_POR_TIPO` (`shadcn/campos.ts`, #124):
+la pieza, si se escribe, cuándo escribe en la ruta por omisión y si siempre tiene valor. De ella salen
+`PIEZA_POR_TIPO` —con su tipo literal, que afirma una barrera—, `seEscribe`, `momentoDeLaEleccion` y
+`siempreTieneValor`, y un tipo sin su fila no compila. `CampoDelBloque` estrecha el campo **por su
+`tipo`** con `estrecharElCampo` (`campo-estrechado.ts`): cada rama recibe su campo, y ya no pregunta
+si trae `opciones` o `casilla`.
+
 **Un bloque tiene su tabla y además `tablas`**, cada una con `clave`, que toma sus filas de
 `datos.tablas` **por nombre** —una sin `clave` las toma del bloque por su índice—; una fila es
 `{ celdas, datos? }`, y sus `datos` son lo que leen las reglas: el tono de una insignia, el detalle

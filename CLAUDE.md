@@ -29,13 +29,13 @@ se repite. **Y las cifras de pruebas no se escriben a mano**: las escribe `yarn 
 | [`paquetes/formato`](paquetes/formato/README.md) — `@kamayuk/formato` | **Existe.** Fechas, importes y documento de identidad: la hoja limpia del grafo. <!-- cifras:formato -->**68 pruebas** en 3 archivos<!-- /cifras -->. Le faltan `codigo predial` y `placa` |
 | [`paquetes/api`](paquetes/api/README.md) — `@kamayuk/api` | **Existe.** `crearCliente` y sus cuatro operaciones —`solicitar`, `solicitarRespuesta`, `descargar` y `subir`—, `entregarAlNavegador` y `ErrorDeLaApi` con las cinco extensiones del contrato. <!-- cifras:api -->**146 pruebas** en 6 archivos<!-- /cifras --> |
 | [`paquetes/sesion`](paquetes/sesion/README.md) — `@kamayuk/sesion` | **Existe.** `crearIdentidad` con PKCE S256, la sonda del emisor y `quienEntro()`; `peldanoDe()` con sus nueve peldaños y sus palabras como dato. <!-- cifras:sesion -->**175 pruebas** en 6 archivos<!-- /cifras --> |
-| [`paquetes/ui`](paquetes/ui/README.md) — `@kamayuk/ui` | **Existe.** Los 42 tokens, cuatro identidades × dos modos, las piezas de shadcn y el `ProveedorDeTema`; no escribe ni una palabra. <!-- cifras:ui -->**605 pruebas** en 26 archivos, más las **3** de capa<!-- /cifras --> y las barreras de tipo. Le faltan los tokens contra el artboard y el contraste |
+| [`paquetes/ui`](paquetes/ui/README.md) — `@kamayuk/ui` | **Existe.** Los 42 tokens, cuatro identidades × dos modos, las piezas de shadcn y el `ProveedorDeTema`; no escribe ni una palabra. <!-- cifras:ui -->**609 pruebas** en 26 archivos, más las **3** de capa<!-- /cifras --> y las barreras de tipo. Le faltan los tokens contra el artboard y el contraste |
 | [`paquetes/ui/interprete`](paquetes/ui/interprete/README.md) — el intérprete de pantallas | **Existe**, y dibuja una hoja entera como **dato**: bloques, avisos, pie, actos, maestro-detalle, pestañas y piezas del consumidor, con lo elegido en la ruta. Sus pruebas cuentan en `paquetes/ui` |
 | [`paquetes/shell`](paquetes/shell/README.md) — `@kamayuk/shell` | **Existe.** El armazón de V8, con el catálogo por parámetro y el estado de la hoja en la ruta; no decide permisos ni escribe una palabra. <!-- cifras:shell -->**152 pruebas** en 14 archivos<!-- /cifras --> |
-| [`paquetes/verificaciones`](paquetes/verificaciones/README.md) — `@kamayuk/verificaciones` | **Existe.** Las prohibiciones de ESLint con sus muestras, las guardas del árbol, los guiones de la CI y el arnés del `Request`. <!-- cifras:verificaciones -->**346 pruebas** en 21 archivos<!-- /cifras -->. Le faltan los tokens contra el artboard y el contraste |
+| [`paquetes/verificaciones`](paquetes/verificaciones/README.md) — `@kamayuk/verificaciones` | **Existe.** Las prohibiciones de ESLint con sus muestras, las guardas del árbol, los guiones de la CI y el arnés del `Request`. <!-- cifras:verificaciones -->**361 pruebas** en 23 archivos<!-- /cifras -->. Le faltan los tokens contra el artboard y el contraste |
 | La guarda de la fila del registro | **Existe**, con su autoprueba de **catorce muestras**, adaptada a la forma de este repositorio; desde #128 exige además una fila por issue |
 
-<!-- cifras:total -->**En total: 1492 pruebas en 76 archivos, más las 3 de capa.**<!-- /cifras -->
+<!-- cifras:total -->**En total: 1511 pruebas en 78 archivos, más las 3 de capa.**<!-- /cifras -->
 
 ## La regla que gobierna este repositorio
 
@@ -78,7 +78,9 @@ paquetes/
              (leerQuienEntro), escalera.ts (peldanoDe y su tabla REGLAS), escalera.instantanea.json
              (su salida, #123), textos.ts (los sacos de la escalera y de la puerta)
   ui/        los tokens, las cuatro identidades y sus dos origenes, los componentes de shadcn (once + siete),
-             el interprete (hoja.ts, composicion.ts y sus piezas) y textos.tsx
+             el interprete (hoja.ts, composicion.ts y sus piezas) y textos.tsx;
+             shadcn/campos.ts (COMPORTAMIENTO_POR_TIPO, la unica tabla por tipo de campo) y
+             temas/ejes.ts (las identidades, los modos y su cruce, Combinacion) (#124)
   shell/     el armazon: catalogo.ts, ruta.ts, busqueda.ts, acciones.ts, navegacion.tsx, contexto.tsx,
              textos.ts, las siete piezas y los hooks internos de `Cascara` (#119):
              registro-de-hojas.ts (el reductor), navegacion-guardada.ts, hoja-abierta.ts y
@@ -91,12 +93,14 @@ paquetes/
                    la guarda de la tabla), rutas-de-la-ci.ts, workflow.ts (la unica lectura de
                    los workflows: el YAML analizado, no el texto), sus pruebas y sus muestras/,
                    imports.mjs (lo que importa un archivo, por el arbol sintactico de TypeScript),
+                   version-de-node.ts (los sitios que dicen la version de Node, #116),
                    veredicto.mjs (el veredicto del trabajo consumidores, que el workflow solo llama)
   */README.md      lo que hace cada paquete, contado entero (y ui/interprete/README.md, el interprete)
 docs/
   agent/HISTORY.md            el registro «Verificar antes de afirmar», que se mezcla con merge=union
   00-gobierno/                la guarda de la fila y su autoprueba
 .gitattributes                docs/agent/HISTORY.md merge=union, y solo eso
+.nvmrc                        la version de Node, y el unico sitio que la escribe (#116)
 ```
 
 Los paquetes se importan entre sí **por ruta relativa**, y no hay `paths` ni `alias`. El motivo
@@ -148,6 +152,8 @@ peticiones sin ninguna de las cuatro prohibiciones de importes.
 | — | **La tabla de estado, una línea por pieza** | `el-estado-cabe-en-una-linea.test.ts`, con sus muestras: ninguna fila pasa de 400 bytes y cada `README.md` de `paquetes/**` tiene su fila (#128) |
 | — | **Una guarda de la CI no se satisface con un comentario** | `workflow.ts`: las guardas leen el workflow como **YAML analizado** y preguntan por su forma —un paso con su `id`, `strategy.matrix.include`, un `with['check-latest']`—, no por si el texto «contiene» algo. Hasta #114, quitado el paso de `jq`, el `include: fromJSON` y renombrado el veredicto, `los-consumidores-se-miran` seguía en verde por los comentarios; hoy esas tres roturas son sus muestras, con las de `el-workflow-se-lee-como-yaml` |
 | — | **Ninguna acción de la CI baja de la mayor que declara `node24`** | `las-acciones-corren-en-node-24.test.ts`, con sus muestras. Lee el **directorio** `.github/workflows/`, recorre los `uses:` del YAML analizado (#114) y fija la mayor **medida**, con el `runs.using` literal al lado; lo que decide es ese `runs.using` y **no el número** —`caja` midió un `@v5` que aún declaraba `node20`—. **Sin red al correr**, y lo que no conoce sale en rojo diciéndolo (#93) |
+| — | **La CI no se salta lo que sus guardas leen** | `la-ci-no-se-salta-lo-que-lee.test.ts`, con sus muestras: `paquetes.yml` no filtra por `paths:`, y `loQueNoDisparaLaCi` sale rojo si `push` o `pull_request` dejan fuera un archivo que una guarda lee —`registro.yml`, `yarn.lock` y `docs/agent/HISTORY.md` se quedaban fuera— o si `verificar` se salta o se traga su rojo —un `if:` o un `continue-on-error` en el trabajo o en un paso, un `types:` sin `synchronize`, un filtro de ramas sin `main`— (#116) |
+| — | **La versión de Node se declara en un sitio** | `la-version-de-node-es-una.test.ts`, con sus muestras: `.nvmrc`, `engines.node`, la mayor de `@types/node` y cada `setup-node` dicen lo mismo, y cada `setup-node` la lee con `node-version-file`; un `node-version` a mano sale rojo aunque diga 24 (#116) |
 | — | **El veredicto de `consumidores` es un guion con su tabla, no bash** | `veredicto.mjs`, una función pura con su tabla de **ocho casos** —base ✓/✗ × rama ✓/✗ × rama del consumidor nombrada o no— y el guion corrido como proceso, en `el-veredicto-tiene-su-tabla.test.ts`; una entrada que no es un `outcome` sale con 2. `los-consumidores-se-miran` exige que el paso lo llame en un `run:` de no más de cinco líneas, con `BASE`/`RAMA` cableadas a los pasos que miden y `QUIEN` al consumidor que se clonó, y que su rojo pare: ni el paso ni el trabajo llevan `continue-on-error` ni `if:`. Hasta #115 eran 62 líneas de bash, y cambiar un `exit 0` por un `exit 1` seguía en verde |
 
 **`fetch` tiene DOS sitios legítimos, y la lista se comprueba entera, no se cuenta.** Uno es el
