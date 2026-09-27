@@ -1,6 +1,6 @@
 import { act, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import { remendarElDom } from '../../verificaciones/arnes-del-dom.ts';
 
@@ -8,6 +8,7 @@ import { TEXTOS_DE_LAS_PIEZAS, TEXTOS_DEL_INTERPRETE } from '../textos.tsx';
 import { descripcionDe, monta, SIN_FRASE } from './arnes-del-interprete.tsx';
 import { camposQueFaltan, claseDe, motivoDelActo, peticionDe, valoresQueViajan } from './acciones.ts';
 import type { EstadoDeUnaLectura } from './datos.ts';
+import { MUESTRAS_DE_LOS_CAMPOS_LOS_ACTOS_Y_LA_PROSA } from './muestras-de-los-campos-los-actos-y-la-prosa.ts';
 import { MUESTRAS_DE_LOS_ACTOS } from './muestras.ts';
 import { Pantalla } from './Pantalla.tsx';
 import type { DefinicionDeAccion, DefinicionDeActo, EnvioDeUnActo, NavegacionDeLaPantalla } from './tipos-de-los-actos.ts';
@@ -16,7 +17,8 @@ import type { DefinicionDePantalla, PiezaDeLaPantalla } from './tipos.ts';
 /**
  * **Los cinco huecos de #66: lo que una hoja HACE.**
  *
- * Cada `describe` es un hueco de `HUECOS.md`. Las definiciones son neutras —un grupo, un registro—
+ * Cada `describe` es un hueco de `HUECOS.md`, mas el de #86 que tambien es una accion —guardar como
+ * archivo (H30a), que #127 trajo de `los-campos-los-actos-y-la-prosa`—. Las definiciones son neutras —un grupo, un registro—
  * por lo mismo que en `piezas.test.tsx`: una prueba de la libreria escrita con las palabras de un
  * sistema es la API de ese sistema con otro nombre.
  *
@@ -716,6 +718,144 @@ describe('las reglas puras', () => {
     expect(
       peticionDe({ hoja: 'h', parametros: { activo: { desde: 'activo' }, id: { plantilla: 'x-{id}' } } }, new Map([['activo', false]]), (t) => t, textos),
     ).toEqual({ faltaElDato: 'id' });
+  });
+});
+
+// ── `guardar-como-archivo` (H30a, #86): una accion que entrega un documento ────────────────────
+
+describe('`guardar-como-archivo` (H30a): se guarda EL TEXTO QUE SE VERIFICO, y se dice si no se puede', () => {
+  const { definicion, datos } = MUESTRAS_DE_LOS_CAMPOS_LOS_ACTOS_Y_LA_PROSA['guardar-como-archivo'];
+  const verificado = datos.nombrados.get('lectura.texto') as string;
+  const guardar = () => screen.getByRole('button', { name: 'Guardar como archivo' });
+
+  /** Lo que `entregarAlNavegador` hace, espiado como en `api/entregar.test.ts`: jsdom no descarga. */
+  interface Entrega {
+    readonly nombre: string;
+    readonly contenido: Blob;
+  }
+  let entregas: Entrega[];
+  let creadas: Blob[];
+  const ORIGINALES = { crear: URL.createObjectURL, revocar: URL.revokeObjectURL };
+  const DESCARGA = Object.getOwnPropertyDescriptor(HTMLAnchorElement.prototype, 'download');
+
+  beforeEach(() => {
+    entregas = [];
+    creadas = [];
+    URL.createObjectURL = (blob: Blob | MediaSource) => {
+      creadas.push(blob as Blob);
+      return `blob:http://localhost/${String(creadas.length)}`;
+    };
+    URL.revokeObjectURL = () => {};
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      entregas.push({ nombre: this.download, contenido: creadas.at(-1) as Blob });
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    URL.createObjectURL = ORIGINALES.crear;
+    URL.revokeObjectURL = ORIGINALES.revocar;
+    if (DESCARGA !== undefined) Object.defineProperty(HTMLAnchorElement.prototype, 'download', DESCARGA);
+  });
+
+  /** Un navegador cuyo enlace no sabe `download`: el caso que `sinDescarga` dice. */
+  const sinDescargaEnElNavegador = () => {
+    Reflect.deleteProperty(HTMLAnchorElement.prototype, 'download');
+    expect('download' in HTMLAnchorElement.prototype).toBe(false);
+  };
+
+  /** Lo que hay dentro del `Blob`, byte a byte, leido como texto. */
+  const leer = (blob: Blob) =>
+    new Promise<string>((si) => {
+      const lector = new FileReader();
+      lector.onload = () => {
+        si(lector.result as string);
+      };
+      lector.readAsText(blob);
+    });
+
+  it('guarda el texto de `nombrados` TAL CUAL —`1.0`, el escape y el salto final—, con su tipo y su nombre', async () => {
+    monta(definicion, datos);
+    fireEvent.click(guardar());
+    expect(entregas).toHaveLength(1);
+    const [entrega] = entregas as [Entrega];
+    expect(entrega.nombre).toBe('registro-00042.json');
+    expect(entrega.contenido.type).toBe('application/json');
+    expect(await leer(entrega.contenido), 'se guardo otro texto que el verificado').toBe(verificado);
+  });
+
+  it('el texto NO pasa por `traducir`: es un dato, y traducirlo lo cambia', async () => {
+    monta(definicion, datos, { traducir: (t) => `«${t}»` });
+    fireEvent.click(screen.getByRole('button', { name: '«Guardar como archivo»' }));
+    // El rotulo y el nombre SI son frases de la definicion; el contenido, no.
+    expect((entregas[0] as Entrega).nombre).toBe('«registro-00042.json»');
+    expect(await leer((entregas[0] as Entrega).contenido)).toBe(verificado);
+  });
+
+  it('sin el texto todavia, impedido CON su motivo —nunca `disabled`— y pulsarlo no entrega nada', () => {
+    monta(definicion, { ...datos, nombrados: new Map([['registroId', '00042']]) });
+    expect(guardar().getAttribute('aria-disabled')).toBe('true');
+    expect((guardar() as HTMLButtonElement).disabled).toBe(false);
+    expect(descripcionDe(guardar())).toBe(T.faltaParaGuardar('lectura.texto'));
+    fireEvent.click(guardar());
+    expect(entregas).toEqual([]);
+  });
+
+  it('y sin el dato de su nombre, tampoco: se guardaria un archivo llamado «—»', () => {
+    monta(definicion, { ...datos, nombrados: new Map([['lectura.texto', verificado]]) });
+    expect(descripcionDe(guardar())).toBe(T.faltaParaGuardar('registroId'));
+  });
+
+  it('un navegador sin descarga lo DICE con `sinDescarga`, antes de pulsar; sin ella, con la frase del saco', () => {
+    sinDescargaEnElNavegador();
+    const { unmount } = monta(definicion, datos);
+    expect(guardar().getAttribute('aria-disabled')).toBe('true');
+    expect(descripcionDe(guardar()), '`sinDescarga` se quedo mudo').toBe(
+      'Este navegador no guarda archivos: copie el texto desde la vista.',
+    );
+    fireEvent.click(guardar());
+    expect(entregas).toEqual([]);
+    unmount();
+
+    const bloque = definicion.bloques[0];
+    const [accion] = bloque.acciones;
+    monta({ instruccion: '', bloques: [{ ...bloque, acciones: [{ ...accion, sinDescarga: undefined }] }] }, datos);
+    expect(descripcionDe(guardar())).toBe(T.sinDescarga);
+  });
+
+  it('si la entrega revienta al pulsar, lo dice desde ese momento: nunca un boton que no hizo nada', () => {
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {
+      throw new Error('el navegador rechazo la descarga');
+    });
+    monta(definicion, datos);
+    fireEvent.click(guardar());
+    expect(guardar().getAttribute('aria-disabled')).toBe('true');
+    expect(descripcionDe(guardar())).toBe('Este navegador no guarda archivos: copie el texto desde la vista.');
+  });
+
+  it('SIN la accion, las de siempre no cambian: el mismo grupo, y nada se entrega', () => {
+    const { container } = monta(
+      { instruccion: '', bloques: [{ titulo: 'B', nota: '', campos: [], acciones: [{ rotulo: 'Volver a leer', hace: 'releer' }] }] },
+      {},
+      { alHacer: { releer: () => {} } },
+    );
+    expect(container.querySelector('[data-slot="grupo-de-acciones"]')?.outerHTML).toBe(
+      '<div data-slot="grupo-de-acciones" class="flex flex-col gap-[6px]"><div class="flex flex-wrap items-center gap-2">' +
+        (container.querySelector('[data-accion="hace:releer"]')?.outerHTML ?? '«no hay boton»') +
+        '</div></div>',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Volver a leer' }));
+    expect(creadas).toEqual([]);
+  });
+
+  it('TECLADO: Tab llega al boton, y Enter guarda', async () => {
+    const teclado = userEvent.setup({ delay: null });
+    monta(definicion, datos);
+    await teclado.tab();
+    expect(document.activeElement).toBe(guardar());
+    await teclado.keyboard('{Enter}');
+    expect(entregas).toHaveLength(1);
+    expect(await leer((entregas[0] as Entrega).contenido)).toBe(verificado);
   });
 });
 

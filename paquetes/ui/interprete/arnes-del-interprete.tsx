@@ -1,5 +1,6 @@
 import { render } from '@testing-library/react';
 import { useState, type ReactElement } from 'react';
+import { vi } from 'vitest';
 
 import type { Ausencia, DatosDeLaPantalla } from './datos.ts';
 import { actoEnLaRuta, type CambioDeLaRuta, type HojaDelMarco, type RutaDeLaHoja } from './hoja.ts';
@@ -11,7 +12,8 @@ import type { DefinicionDePantalla, PiezaDeLaPantalla, TonoDeInsignia } from './
  *
  * Hasta #127 cada suite se escribia lo suyo: `SIN_FRASE` en siete archivos, `monta` en seis,
  * `ConHoja` en cuatro —con un reductor de dieciocho lineas que imita al marco copiado letra a letra—
- * y `descripcionDe` en dos. Lo que variaba de una copia a otra (el formulario de fuera, el tono de la
+ * y `descripcionDe` en dos; y `hojaEspiada`, que al partir por tema la prueba de #86 habria copiado
+ * en tres. Lo que variaba de una copia a otra (el formulario de fuera, el tono de la
  * insignia, lo que dice el hueco de un campo sin dato) son aqui opciones con nombre.
  *
  * **Todo monta por `<Pantalla>`**, y por tanto con el entorno del interprete que ella da
@@ -165,6 +167,16 @@ export function ConHoja({
     />,
     enUnFormulario,
   );
+}
+
+/** Una hoja escrita a mano: sin ruta, con la marca de sucia y la de guardada espiadas. */
+export function hojaEspiada(): HojaDelMarco & { marcarSucia: ReturnType<typeof vi.fn>; marcarGuardada: ReturnType<typeof vi.fn> } {
+  return {
+    ruta: { sujeto: null, parametros: {} },
+    moverLaRuta: () => {},
+    marcarSucia: vi.fn(),
+    marcarGuardada: vi.fn(),
+  };
 }
 
 /**

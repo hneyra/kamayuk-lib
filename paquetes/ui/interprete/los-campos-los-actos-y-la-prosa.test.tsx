@@ -1,18 +1,17 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { remendarElDom } from '../../verificaciones/arnes-del-dom.ts';
 
 import { Avisos, avisar } from '../shadcn/avisos.tsx';
 import { TEXTOS_DE_LAS_PIEZAS, TEXTOS_DEL_INTERPRETE } from '../textos.tsx';
-import { descripcionDe, monta, SIN_FRASE } from './arnes-del-interprete.tsx';
+import { descripcionDe, hojaEspiada, monta, SIN_FRASE } from './arnes-del-interprete.tsx';
 import { datosQueLee } from './componer.ts';
 import type { HojaDelMarco, LoTecleado } from './hoja.ts';
 import { MUESTRAS_DE_LOS_CAMPOS_LOS_ACTOS_Y_LA_PROSA as MUESTRAS } from './muestras-de-los-campos-los-actos-y-la-prosa.ts';
 import { Pantalla, type PantallaProps } from './Pantalla.tsx';
-import { conteoDelFiltro, filtrarLasFilas, SIN_FILTRO } from './reglas-de-las-tablas.ts';
 import type { DefinicionDeActo } from './tipos-de-los-actos.ts';
 import type { DefinicionDePantalla, PiezaDeLaPantalla } from './tipos.ts';
 
@@ -27,6 +26,11 @@ import type { DefinicionDePantalla, PiezaDeLaPantalla } from './tipos.ts';
  * Lo que necesita el marco entero —irse por la barra de direcciones y volver— se prueba en
  * `shell/lo-tecleado-sobrevive.test.tsx`, con el `Armazon` de verdad. Aqui la hoja es una forma
  * escrita a mano, que es lo que `HojaDelMarco` permite.
+ *
+ * **Va por tema, no por issue** (#127). Hasta #127 eran seis grupos, de la A a la F, en el orden en
+ * que #86 los fue cerrando, y dos no eran de aqui: el filtro en el cliente (H02) vive ahora con las
+ * demas tablas, en `tablas.test.tsx`, y guardar como archivo (H30a) con las demas acciones, en
+ * `actos.test.tsx`. El centinela de las muestras de #86 se queda: las recorre todas.
  */
 
 // Los remiendos que Radix, `cmdk` y `sonner` le piden a jsdom: escritos una vez, en el arnes (#127).
@@ -36,16 +40,6 @@ type Definicion = DefinicionDePantalla<PiezaDeLaPantalla>;
 
 const T = TEXTOS_DE_LAS_PIEZAS;
 const TEXTOS_DE_LAS_PIEZAS_Y_EL_INTERPRETE = { ...TEXTOS_DEL_INTERPRETE, ...TEXTOS_DE_LAS_PIEZAS };
-
-/** Una hoja escrita a mano: sin ruta, con la marca espiada. */
-function hojaEspiada(): HojaDelMarco & { marcarSucia: ReturnType<typeof vi.fn>; marcarGuardada: ReturnType<typeof vi.fn> } {
-  return {
-    ruta: { sujeto: null, parametros: {} },
-    moverLaRuta: () => {},
-    marcarSucia: vi.fn(),
-    marcarGuardada: vi.fn(),
-  };
-}
 
 /**
  * Un marco de juguete que GUARDA lo tecleado, como el `Armazon`: el estado vive fuera de la
@@ -87,7 +81,7 @@ const escribir = (rotulo: string, valor: string) => {
 
 const valorDe = (rotulo: string) => (screen.getByLabelText(rotulo) as HTMLInputElement).value;
 
-// ── Grupo A ─────────────────────────────────────────────────────────────────────────────────────
+// ── La hoja: se marca sucia al teclear, lo tecleado sobrevive y se descarta ────────────────────
 
 describe('`la-hoja-se-marca-sucia-al-teclear` (H38)', () => {
   const { definicion } = MUESTRAS['la-hoja-se-marca-sucia-al-teclear'];
@@ -305,7 +299,7 @@ describe('`descartar-lo-escrito` (H48)', () => {
   });
 });
 
-// ── Grupo B ─────────────────────────────────────────────────────────────────────────────────────
+// ── Los campos: opcional, errores tras el primer intento y ayuda de solo lectura ───────────────
 
 /** La marca «(opcional)» dentro del rotulo de un campo, buscada por su rotulo. */
 function marcadoOpcional(rotulo: string): boolean {
@@ -422,7 +416,7 @@ describe('`ayuda-en-un-campo-de-solo-lectura` (H50)', () => {
   });
 });
 
-// ── Grupo C ─────────────────────────────────────────────────────────────────────────────────────
+// ── Despues del acto y en la cabecera: el aviso efimero y las insignias fijas ──────────────────
 
 describe('`aviso-efimero-tras-un-acto` (H37): `avisar`, con `<Avisos>` montado', () => {
   const { definicion } = MUESTRAS['aviso-efimero-tras-un-acto'];
@@ -538,7 +532,7 @@ describe('`insignias-fijas-en-la-cabecera` (H42)', () => {
   });
 });
 
-// ── Grupo D ─────────────────────────────────────────────────────────────────────────────────────
+// ── La prosa: el texto con marcas ──────────────────────────────────────────────────────────────
 
 describe('`texto-con-marcas` (H43, N6): `code` y `strong` dentro de la MISMA frase', () => {
   const { definicion, datos } = MUESTRAS['texto-con-marcas'];
@@ -622,320 +616,6 @@ describe('`texto-con-marcas` (H43, N6): `code` y `strong` dentro de la MISMA fra
     expect(document.activeElement?.textContent).toBe('Retirar');
     await teclado.tab();
     expect(document.activeElement?.closest('[data-slot="tarjeta-nota"]')).toBeNull();
-  });
-});
-
-// ── Grupo E ─────────────────────────────────────────────────────────────────────────────────────
-
-describe('`filtro-en-el-cliente-con-conteo` (H02): acota lo que LLEGO, y dice cuantas deja', () => {
-  const { definicion, datos } = MUESTRAS['filtro-en-el-cliente-con-conteo'];
-  const bloque = definicion.bloques[0];
-  const tabla = bloque.tablas[0];
-  const conTabla = (cambios: object): Definicion => ({
-    instruccion: '',
-    bloques: [{ ...bloque, tablas: [{ ...tabla, ...cambios }] }],
-  });
-  const codigos = () =>
-    screen
-      .getAllByRole('row')
-      .slice(1)
-      .map((fila) => fila.querySelector('td')?.textContent);
-  const buscador = () => screen.getByRole('searchbox', { name: 'Buscar en esta pagina' });
-  const chip = (rotulo: string) => screen.getByRole('button', { name: rotulo });
-  const estado = () => document.querySelector('[data-slot="conteo-del-filtro"]') as HTMLElement;
-
-  it('SIN el dato, la tabla es la de antes: ni buscador, ni chips, ni region viva, y el conteo de siempre', () => {
-    const { container } = monta(conTabla({ filtroLocal: undefined }), datos);
-    expect(screen.queryByRole('searchbox')).toBeNull();
-    expect(container.querySelector('[data-slot="filtro-local"], [data-chip], [role="status"]')).toBeNull();
-    expect(container.querySelector('[data-slot="tarjeta-barra-de-tabla"]')?.textContent).toBe(
-      'Registros de la pagina4 registros',
-    );
-    expect(codigos()).toEqual(['R-001', 'R-002', 'R-003', 'R-004']);
-  });
-
-  it('CON el dato: un grupo con nombre, el buscador con el suyo, los chips sin pulsar y la region viva ya montada', () => {
-    monta(definicion, datos);
-    const grupo = screen.getByRole('group', { name: T.filtrarLaTabla('Registros de la pagina') });
-    expect(within(grupo).getByRole('searchbox').getAttribute('aria-label')).toBe('Buscar en esta pagina');
-    expect(buscador().getAttribute('placeholder')).toBe('Codigo o descripcion');
-    expect(chip('Vigentes').getAttribute('aria-pressed')).toBe('false');
-    expect(chip('Anulados').getAttribute('aria-pressed')).toBe('false');
-    expect(estado().getAttribute('role')).toBe('status');
-    expect(estado().textContent, 'sin filtro puesto, la region viva no dice nada').toBe('');
-    expect(screen.getByText('4 registros')).toBeTruthy();
-  });
-
-  it('buscar deja las que casan —sin mayusculas ni tildes— y dice «N de M · T en total», con el total DEL SISTEMA', () => {
-    monta(definicion, datos);
-    fireEvent.change(buscador(), { target: { value: 'BODEGA' } });
-    expect(codigos()).toEqual(['R-001', 'R-002']);
-    expect(estado().textContent).toBe(T.filasQueDejaElFiltro(2, 4, '57'));
-    expect(estado().textContent).toBe('2 de 4 · 57 en total');
-    // El conteo de siempre se calla: «4 registros» junto a dos filas se leeria como dos que faltan.
-    expect(screen.queryByText('4 registros')).toBeNull();
-  });
-
-  it('sin el total del sistema, NO se escribe ninguno: M es lo que llego, no lo que hay', () => {
-    monta(definicion, { ...datos, nombrados: new Map([['registros.hayMas', true]]) });
-    fireEvent.change(buscador(), { target: { value: 'bodega' } });
-    expect(estado().textContent, 'el conteo invento un total que no llego').toBe('2 de 4');
-  });
-
-  it('los chips leen el DATO de la fila; los del mismo dato se suman, y con el buscador se cruzan', () => {
-    monta(definicion, datos);
-    fireEvent.click(chip('Anulados'));
-    expect(chip('Anulados').getAttribute('aria-pressed')).toBe('true');
-    expect(codigos()).toEqual(['R-002']);
-    fireEvent.click(chip('Vigentes'));
-    expect(codigos()).toEqual(['R-001', 'R-002', 'R-003', 'R-004']);
-    fireEvent.change(buscador(), { target: { value: 'bodega' } });
-    fireEvent.click(chip('Anulados'));
-    expect(codigos()).toEqual(['R-001']);
-    expect(estado().textContent).toBe('1 de 4 · 57 en total');
-  });
-
-  it('NO viaja: ni a la ruta ni a quien pide —ni un `moverLaRuta`, ni un `alHacer`— y no ensucia la hoja', () => {
-    const hoja = { ...hojaEspiada(), moverLaRuta: vi.fn() };
-    const alHacer = { releer: vi.fn() };
-    monta({ ...definicion, hoja: { suciaAlTeclear: true } }, datos, { hoja, alHacer });
-    fireEvent.change(buscador(), { target: { value: 'bodega' } });
-    fireEvent.click(chip('Anulados'));
-    expect(hoja.moverLaRuta, 'el filtro viajo a la ruta: `?estado=` seria un 422').not.toHaveBeenCalled();
-    expect(alHacer.releer).not.toHaveBeenCalled();
-    expect(hoja.marcarSucia, 'un filtro no es trabajo sin guardar').not.toHaveBeenCalled();
-  });
-
-  it('en la paginacion de CLIENTE filtra TODAS las recibidas antes de cortar, y vuelve a la primera sin llevar el filtro', () => {
-    const hoja = { ruta: { sujeto: null, parametros: { pagina: '1' } }, moverLaRuta: vi.fn() };
-    monta(conTabla({ paginacion: { en: 'cliente', enLaRuta: 'pagina', tamano: 2 } }), datos, { hoja });
-    expect(codigos()).toEqual(['R-003', 'R-004']);
-    fireEvent.change(buscador(), { target: { value: 'almacen' } });
-    // La que casa es la cuarta de lo recibido, y queda sola en la primera pagina de lo filtrado:
-    // cortar primero y filtrar despues buscaria en otra pagina y no dejaria ninguna.
-    expect(codigos(), 'se filtro la pagina ya cortada, y no todas las recibidas').toEqual(['R-004']);
-    expect(estado().textContent).toBe('1 de 4 · 57 en total');
-    // Lo unico que se mueve es la pagina, a la primera: el texto buscado no esta en ningun cambio.
-    expect(hoja.moverLaRuta.mock.calls).toEqual([[{ parametros: { pagina: null } }]]);
-    expect(JSON.stringify(hoja.moverLaRuta.mock.calls)).not.toContain('almacen');
-  });
-
-  it('si el filtro no deja ninguna, lo dice con SU frase —no con el `vacio` de la tabla—; sin ella, la del saco', () => {
-    const { container, unmount } = monta(definicion, datos);
-    fireEvent.change(buscador(), { target: { value: 'no existe' } });
-    expect(container.querySelector('[data-sin-coincidencias]')?.textContent).toBe(
-      'Ningun registro de esta pagina pasa el filtro.',
-    );
-    expect(container.querySelector('[data-vacio]'), 'el filtro reuso el `vacio` de la tabla').toBeNull();
-    expect(screen.queryByText('El servidor no devolvio ningun registro.')).toBeNull();
-    expect(container.querySelector('[data-tabla-sin-motivo]')).toBeNull();
-    expect(estado().textContent).toBe('0 de 4 · 57 en total');
-    unmount();
-
-    const otra = monta(conTabla({ filtroLocal: { ...tabla.filtroLocal, sinCoincidencias: undefined } }), datos);
-    fireEvent.change(buscador(), { target: { value: 'no existe' } });
-    expect(otra.container.querySelector('[data-sin-coincidencias]')?.textContent).toBe(T.ningunaPasaElFiltro);
-  });
-
-  it('sin dato y con `[]` no hay nada que acotar: ni buscador ni conteo; cada una dice lo suyo, como desde #61', () => {
-    const { container, unmount } = monta(definicion, { ...datos, tablas: new Map() });
-    expect(screen.queryByRole('searchbox')).toBeNull();
-    expect(container.querySelector('[data-sin-dato]')).not.toBeNull();
-    unmount();
-    const vacia = monta(definicion, { ...datos, tablas: new Map([['registros', { filas: [] }]]) });
-    expect(screen.queryByRole('searchbox')).toBeNull();
-    expect(vacia.container.querySelector('[role="status"]')).toBeNull();
-    expect(vacia.container.querySelector('[data-vacio]')?.textContent).toBe('El servidor no devolvio ningun registro.');
-  });
-
-  it('TECLADO: Tab llega al buscador y a cada chip; se escribe, y Espacio y Enter pulsan y sueltan', async () => {
-    const teclado = userEvent.setup({ delay: null });
-    monta(definicion, datos);
-    await teclado.tab();
-    expect(document.activeElement).toBe(buscador());
-    await teclado.keyboard('taller');
-    expect(codigos()).toEqual(['R-003']);
-    await teclado.tab();
-    expect(document.activeElement).toBe(chip('Vigentes'));
-    await teclado.keyboard(' ');
-    expect(chip('Vigentes').getAttribute('aria-pressed')).toBe('true');
-    await teclado.tab();
-    expect(document.activeElement).toBe(chip('Anulados'));
-    await teclado.keyboard('{Enter}');
-    expect(chip('Anulados').getAttribute('aria-pressed')).toBe('true');
-    await teclado.keyboard('{Enter}');
-    expect(chip('Anulados').getAttribute('aria-pressed')).toBe('false');
-    expect(estado().textContent).toBe('1 de 4 · 57 en total');
-  });
-});
-
-describe('`filtrarLasFilas` y `conteoDelFiltro`: la regla, sin montar', () => {
-  const filtro = MUESTRAS['filtro-en-el-cliente-con-conteo'].definicion.bloques[0].tablas[0].filtroLocal;
-  const fila = (codigo: string, descripcion: string | null, estado?: string) => ({
-    celdas: [codigo, { texto: descripcion }],
-    ...(estado === undefined ? {} : { datos: new Map([['estado', estado]]) }),
-  });
-  const filas = [fila('A-1', 'Bodega', 'VIGENTE'), fila('A-2', null, 'ANULADO'), fila('A-3', 'Otra')];
-
-  it('sin nada elegido, todas; unos blancos no son una busqueda', () => {
-    expect(filtrarLasFilas(filtro, filas, SIN_FILTRO)).toEqual(filas);
-    expect(filtrarLasFilas(filtro, filas, { busqueda: '   ', chips: [] })).toEqual(filas);
-  });
-
-  it('una celda sin dato no casa con nada, y un chip no mira el texto: una fila sin `datos` no pasa', () => {
-    expect(filtrarLasFilas(filtro, filas, { busqueda: 'a-', chips: [] })).toHaveLength(3);
-    expect(filtrarLasFilas(filtro, filas, { busqueda: 'null', chips: [] })).toEqual([]);
-    expect(filtrarLasFilas(filtro, filas, { busqueda: '', chips: [0] }).map((f) => f.celdas[0])).toEqual(['A-1']);
-  });
-
-  it('busca solo en las `columnas` que la definicion dice', () => {
-    const soloLaPrimera = { ...filtro, buscador: { rotulo: 'B', columnas: [0] } };
-    expect(filtrarLasFilas(soloLaPrimera, filas, { busqueda: 'bodega', chips: [] })).toEqual([]);
-  });
-
-  it('el total es el que dio el sistema, o ninguno', () => {
-    expect(conteoDelFiltro(1, 3, '57')).toEqual({ visibles: 1, recibidas: 3, total: '57' });
-    for (const noEsUnTotal of [undefined, null, '', true]) {
-      expect(conteoDelFiltro(1, 3, noEsUnTotal)).toEqual({ visibles: 1, recibidas: 3 });
-    }
-  });
-});
-
-// ── Grupo F ─────────────────────────────────────────────────────────────────────────────────────
-
-describe('`guardar-como-archivo` (H30a): se guarda EL TEXTO QUE SE VERIFICO, y se dice si no se puede', () => {
-  const { definicion, datos } = MUESTRAS['guardar-como-archivo'];
-  const verificado = datos.nombrados.get('lectura.texto') as string;
-  const guardar = () => screen.getByRole('button', { name: 'Guardar como archivo' });
-
-  /** Lo que `entregarAlNavegador` hace, espiado como en `api/entregar.test.ts`: jsdom no descarga. */
-  interface Entrega {
-    readonly nombre: string;
-    readonly contenido: Blob;
-  }
-  let entregas: Entrega[];
-  let creadas: Blob[];
-  const ORIGINALES = { crear: URL.createObjectURL, revocar: URL.revokeObjectURL };
-  const DESCARGA = Object.getOwnPropertyDescriptor(HTMLAnchorElement.prototype, 'download');
-
-  beforeEach(() => {
-    entregas = [];
-    creadas = [];
-    URL.createObjectURL = (blob: Blob | MediaSource) => {
-      creadas.push(blob as Blob);
-      return `blob:http://localhost/${String(creadas.length)}`;
-    };
-    URL.revokeObjectURL = () => {};
-    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
-      entregas.push({ nombre: this.download, contenido: creadas.at(-1) as Blob });
-    });
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-    URL.createObjectURL = ORIGINALES.crear;
-    URL.revokeObjectURL = ORIGINALES.revocar;
-    if (DESCARGA !== undefined) Object.defineProperty(HTMLAnchorElement.prototype, 'download', DESCARGA);
-  });
-
-  /** Un navegador cuyo enlace no sabe `download`: el caso que `sinDescarga` dice. */
-  const sinDescargaEnElNavegador = () => {
-    Reflect.deleteProperty(HTMLAnchorElement.prototype, 'download');
-    expect('download' in HTMLAnchorElement.prototype).toBe(false);
-  };
-
-  /** Lo que hay dentro del `Blob`, byte a byte, leido como texto. */
-  const leer = (blob: Blob) =>
-    new Promise<string>((si) => {
-      const lector = new FileReader();
-      lector.onload = () => {
-        si(lector.result as string);
-      };
-      lector.readAsText(blob);
-    });
-
-  it('guarda el texto de `nombrados` TAL CUAL —`1.0`, el escape y el salto final—, con su tipo y su nombre', async () => {
-    monta(definicion, datos);
-    fireEvent.click(guardar());
-    expect(entregas).toHaveLength(1);
-    const [entrega] = entregas as [Entrega];
-    expect(entrega.nombre).toBe('registro-00042.json');
-    expect(entrega.contenido.type).toBe('application/json');
-    expect(await leer(entrega.contenido), 'se guardo otro texto que el verificado').toBe(verificado);
-  });
-
-  it('el texto NO pasa por `traducir`: es un dato, y traducirlo lo cambia', async () => {
-    monta(definicion, datos, { traducir: (t) => `«${t}»` });
-    fireEvent.click(screen.getByRole('button', { name: '«Guardar como archivo»' }));
-    // El rotulo y el nombre SI son frases de la definicion; el contenido, no.
-    expect((entregas[0] as Entrega).nombre).toBe('«registro-00042.json»');
-    expect(await leer((entregas[0] as Entrega).contenido)).toBe(verificado);
-  });
-
-  it('sin el texto todavia, impedido CON su motivo —nunca `disabled`— y pulsarlo no entrega nada', () => {
-    monta(definicion, { ...datos, nombrados: new Map([['registroId', '00042']]) });
-    expect(guardar().getAttribute('aria-disabled')).toBe('true');
-    expect((guardar() as HTMLButtonElement).disabled).toBe(false);
-    expect(descripcionDe(guardar())).toBe(T.faltaParaGuardar('lectura.texto'));
-    fireEvent.click(guardar());
-    expect(entregas).toEqual([]);
-  });
-
-  it('y sin el dato de su nombre, tampoco: se guardaria un archivo llamado «—»', () => {
-    monta(definicion, { ...datos, nombrados: new Map([['lectura.texto', verificado]]) });
-    expect(descripcionDe(guardar())).toBe(T.faltaParaGuardar('registroId'));
-  });
-
-  it('un navegador sin descarga lo DICE con `sinDescarga`, antes de pulsar; sin ella, con la frase del saco', () => {
-    sinDescargaEnElNavegador();
-    const { unmount } = monta(definicion, datos);
-    expect(guardar().getAttribute('aria-disabled')).toBe('true');
-    expect(descripcionDe(guardar()), '`sinDescarga` se quedo mudo').toBe(
-      'Este navegador no guarda archivos: copie el texto desde la vista.',
-    );
-    fireEvent.click(guardar());
-    expect(entregas).toEqual([]);
-    unmount();
-
-    const bloque = definicion.bloques[0];
-    const [accion] = bloque.acciones;
-    monta({ instruccion: '', bloques: [{ ...bloque, acciones: [{ ...accion, sinDescarga: undefined }] }] }, datos);
-    expect(descripcionDe(guardar())).toBe(T.sinDescarga);
-  });
-
-  it('si la entrega revienta al pulsar, lo dice desde ese momento: nunca un boton que no hizo nada', () => {
-    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {
-      throw new Error('el navegador rechazo la descarga');
-    });
-    monta(definicion, datos);
-    fireEvent.click(guardar());
-    expect(guardar().getAttribute('aria-disabled')).toBe('true');
-    expect(descripcionDe(guardar())).toBe('Este navegador no guarda archivos: copie el texto desde la vista.');
-  });
-
-  it('SIN la accion, las de siempre no cambian: el mismo grupo, y nada se entrega', () => {
-    const { container } = monta(
-      { instruccion: '', bloques: [{ titulo: 'B', nota: '', campos: [], acciones: [{ rotulo: 'Volver a leer', hace: 'releer' }] }] },
-      {},
-      { alHacer: { releer: () => {} } },
-    );
-    expect(container.querySelector('[data-slot="grupo-de-acciones"]')?.outerHTML).toBe(
-      '<div data-slot="grupo-de-acciones" class="flex flex-col gap-[6px]"><div class="flex flex-wrap items-center gap-2">' +
-        (container.querySelector('[data-accion="hace:releer"]')?.outerHTML ?? '«no hay boton»') +
-        '</div></div>',
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Volver a leer' }));
-    expect(creadas).toEqual([]);
-  });
-
-  it('TECLADO: Tab llega al boton, y Enter guarda', async () => {
-    const teclado = userEvent.setup({ delay: null });
-    monta(definicion, datos);
-    await teclado.tab();
-    expect(document.activeElement).toBe(guardar());
-    await teclado.keyboard('{Enter}');
-    expect(entregas).toHaveLength(1);
-    expect(await leer((entregas[0] as Entrega).contenido)).toBe(verificado);
   });
 });
 
