@@ -18,6 +18,13 @@ import type { Modo as ModoPublicado } from '../../ui/index.ts';
 /** Unas reglas cualesquiera, para quitarles o anadirles una entrada sin escribir las cinco. */
 declare const reglas: ReglasDeLosTemas;
 
+/**
+ * Las de UNA combinacion, como tipo y no leidas de `reglas`: leidas, con `noUncheckedIndexedAccess`
+ * y unas reglas aflojadas a `Record<string, …>`, darian `… | undefined`, y ese error ajeno
+ * satisfaria las directivas de abajo sin que la barrera midiera nada. Medido al romperla.
+ */
+declare const unaRegla: ReglasDeLosTemas['sepia/oscuro'];
+
 /** Las reglas sin las de `sepia/oscuro`: lo que quedaria al borrarlas. */
 declare const sinSepiaOscuro: Omit<ReglasDeLosTemas, 'sepia/oscuro'>;
 
@@ -26,11 +33,11 @@ export const faltaUnaCombinacion: ReglasDeLosTemas = sinSepiaOscuro;
 
 export const barrerasDeLasReglas: readonly ReglasDeLosTemas[] = [
   // @ts-expect-error `institucional/claro` ES un origen: no se deriva, y unas reglas suyas lo moverian
-  { ...reglas, 'institucional/claro': reglas['institucional/oscuro'] },
+  { ...reglas, 'institucional/claro': unaRegla },
   // @ts-expect-error `clasico/claro` tampoco (#56): es el otro origen
-  { ...reglas, 'clasico/claro': reglas['clasico/oscuro'] },
+  { ...reglas, 'clasico/claro': unaRegla },
   // @ts-expect-error una combinacion que no existe: un tercer modo no lo dibuja nadie
-  { ...reglas, 'sepia/penumbra': reglas['sepia/oscuro'] },
+  { ...reglas, 'sepia/penumbra': unaRegla },
 ];
 
 /** Una combinacion es una identidad y un modo, y nada mas. */
