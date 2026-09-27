@@ -98,7 +98,7 @@ descartada, guardada— (`interaccion.ts`). `BloqueDeLaPantalla` recibe diez `pr
 `PantallaProps` y `PropsDeUnaPiezaDelConsumidor` **no cambian**: lo vigila
 `verificaciones/tipos/barreras-de-las-props-publicas.ts` contra una copia fijada antes.
 
-## Cuatro cosas que no se tocan
+## Cinco cosas que no se tocan
 
 - Lo impedido sale con **`BotonConMotivo`**: `aria-disabled` y `aria-describedby` hacia el motivo
   visible, **nunca `disabled`**.
@@ -110,6 +110,10 @@ descartada, guardada— (`interaccion.ts`). `BloqueDeLaPantalla` recibe diez `pr
   (`{ ruta, marco?, moverLaRuta, marcarSucia?, marcarGuardada?, tecleado?, alTeclear? }`), que
   `useHoja()` cumple y una barrera de tipo vigila con los cuatro de #86 obligatorios—, así
   **`@kamayuk/ui` no importa `@kamayuk/shell`**.
+- `PantallaProps` y `PropsDeUnaPiezaDelConsumidor` son lo que escriben los seis consumidores:
+  **no cambian** sin cambiar en el mismo PR su copia fijada en
+  `verificaciones/tipos/barreras-de-las-props-publicas.ts` (#125). Y el entorno del intérprete
+  **no tiene valor por omisión**: una pieza fuera de `<Pantalla>` revienta, no pinta sin textos.
 
 ## Lo que se elige en un campo vive en la ruta (#94)
 
