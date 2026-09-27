@@ -95,6 +95,16 @@ navegador, y por eso `sin-suponer-un-sistema` no lo barre.
   registro tiene que cazar. Además le pregunta a git por el árbol **entero** —con los
   `.gitattributes` anidados, que anulan el de la raíz sin tocarlo— que el registro siga en `union`,
   y exige que la CI se dispare con cualquier `.gitattributes`.
+- **Lo que un archivo importa lo dice el analizador de TypeScript, no una expresión regular**
+  (#112): `imports.mjs` —en JavaScript, porque lo carga el guion del arnés— saca el especificador
+  de cada import recorriendo el árbol sintáctico (`ts.createSourceFile`), y así ven el import de
+  efecto, el dinámico, el `export … from` —también `export * as x from`, que `ts.preProcessFile`,
+  lo primero que se usó, no devuelve—, el `require`, el tipo `import('x')` y el subcamino
+  (`@kamayuk/ui/estilos.css`), sin contar los comentarios, las cadenas ni el texto JSX; el `@import` de los `.css` va aparte, en todas sus formas —también
+  `url(x)` sin comillas, que se escapaba—. Lo usan
+  `sin-nombre-publico-entre-paquetes`, `el-marco-no-decide-permisos` —con su muestra,
+  `marco-que-decide-permisos.ts`— y el guion del arnés. Lo que no ve, y lo dice: un
+  `import(variable)`.
 - **Las listas escritas a mano se comparan con lo que mandan** (#113): `SISTEMAS` —de donde sale
   `prefijo-de-un-sistema`— con `consumidores.json` en los dos sentidos —cada consumidor está, y lo
   que está sin consumir, `identidad`, va en `SISTEMAS_QUE_NO_CONSUMEN` con su motivo—; y las clases
