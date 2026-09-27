@@ -1,11 +1,12 @@
-import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useId, useRef, type KeyboardEvent, type ReactNode } from 'react';
 
 import { FOCO } from '../shadcn/foco.ts';
 import type { TextosDeLaPantalla } from '../textos.tsx';
 import { cn } from '../utilidades.ts';
 import { resolverTexto, type Nombrados } from './componer.ts';
 import { pestanaAbierta } from './composicion.ts';
-import { cambioEn, valorEnLaRuta, type HojaDelMarco } from './hoja.ts';
+import { type HojaDelMarco, useSitioDeLaHoja } from './hoja.ts';
+import { destinoDeLaTecla, EN_UNAS_PESTANAS } from './teclado.ts';
 import type { DefinicionDePestanas } from './tipos.ts';
 
 /**
@@ -16,7 +17,8 @@ import type { DefinicionDePestanas } from './tipos.ts';
  * Con `hoja`, cambiar de pestana **escribe la ruta** (`?ver=historial`) y la ruta **la restituye**:
  * quien recarga o comparte el enlace ve la misma pestana. Lo que esta pieza no guarda no se le puede
  * desincronizar de la barra de direcciones. Sin `hoja` —la pantalla montada fuera del marco— la
- * guarda en su estado, y entonces no sobrevive a recargar, que es lo unico que no puede dar.
+ * guarda en su estado, y entonces no sobrevive a recargar, que es lo unico que no puede dar. Las dos
+ * cosas las hace `useSitioDeLaHoja`, el mismo de la tabla y el maestro (#120).
  *
  * <h2>Solo se dibuja la abierta</h2>
  *
@@ -28,7 +30,7 @@ import type { DefinicionDePestanas } from './tipos.ts';
  *
  * `tablist`, `tab` y `tabpanel`, con **tabulador itinerante**: el tabulador entra por la abierta y
  * sale al panel; ←/→ pasan a la anterior o la siguiente —dando la vuelta— e Inicio/Fin a la primera
- * y la ultima, y **la activan** al llegar. Activar al llegar es la opcion de WAI-ARIA para pestanas
+ * y la ultima —`destinoDeLaTecla`, el de la tabla y el maestro (#120)—, y **la activan** al llegar. Activar al llegar es la opcion de WAI-ARIA para pestanas
  * cuyo panel se dibuja sin esperar, y aqui el panel dice en su sitio que esta pidiendo.
  */
 
@@ -43,38 +45,24 @@ export interface PestanasDeLaPantallaProps {
 }
 
 export function PestanasDeLaPantalla({ pieza, nombrados, traducir, textos, hoja, dibujarHija }: PestanasDeLaPantallaProps) {
-  const [local, setLocal] = useState<string | null>(null);
+  const sitio = useSitioDeLaHoja(hoja);
   const base = useId();
   const botones = useRef<(HTMLButtonElement | null)[]>([]);
   const texto = (t: DefinicionDePestanas['rotulo']) => resolverTexto(t, nombrados, traducir, textos.datoAusente);
 
-  const enLaRuta = hoja === undefined ? local : valorEnLaRuta(hoja.ruta, pieza.enLaRuta);
+  const enLaRuta = sitio.leer(pieza.enLaRuta);
   const abierta = pestanaAbierta(pieza, enLaRuta);
   const indiceAbierta = abierta === undefined ? -1 : pieza.pestanas.indexOf(abierta);
 
   const abrir = (k: number, enfocar: boolean): void => {
     const pestana = pieza.pestanas[k];
     if (pestana === undefined) return;
-    if (hoja === undefined) {
-      setLocal(pestana.clave);
-    } else if (pestana.clave !== enLaRuta) {
-      hoja.moverLaRuta(cambioEn(pieza.enLaRuta, pestana.clave));
-    }
+    if (pestana.clave !== enLaRuta) sitio.fijar({ [pieza.enLaRuta]: pestana.clave });
     if (enfocar) botones.current[k]?.focus();
   };
 
   const alPulsar = (evento: KeyboardEvent<HTMLButtonElement>, k: number): void => {
-    const cuantas = pieza.pestanas.length;
-    const destino =
-      evento.key === 'ArrowRight'
-        ? (k + 1) % cuantas
-        : evento.key === 'ArrowLeft'
-          ? (k - 1 + cuantas) % cuantas
-          : evento.key === 'Home'
-            ? 0
-            : evento.key === 'End'
-              ? cuantas - 1
-              : null;
+    const destino = destinoDeLaTecla(evento.key, k, pieza.pestanas.length, EN_UNAS_PESTANAS);
     if (destino === null) return;
     evento.preventDefault();
     abrir(destino, true);

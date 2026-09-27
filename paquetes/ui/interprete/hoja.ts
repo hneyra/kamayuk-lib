@@ -1,3 +1,5 @@
+import { useEnElMarcoOAqui } from './en-el-marco-o-aqui.ts';
+
 /**
  * **Lo que el interprete necesita del marco para leer y escribir la ruta de una hoja** (#67).
  *
@@ -143,6 +145,54 @@ export function cambiosEn(sitios: Readonly<Record<EnLaRuta, string | null>>): Ca
   return {
     ...(sujeto === undefined ? {} : { sujeto }),
     ...(Object.keys(parametros).length === 0 ? {} : { parametros }),
+  };
+}
+
+/**
+ * **Como se lee y como se escribe lo que una pieza guarda en la ruta** (#61; aqui desde #120).
+ *
+ * `leer` da lo que vale un sitio —`'sujeto'` o un parametro—; `fijar` mueve varios **en un solo
+ * movimiento**, con `null` para quitar uno. Nacio en `MandosDeLaTabla.tsx` como el sitio de la
+ * tabla, y lo usan tambien el maestro y las pestanas, que hasta #120 lo escribian cada una a su modo.
+ */
+export interface SitioDeLaHoja {
+  readonly leer: (sitio: EnLaRuta) => string | null;
+  readonly fijar: (cambios: Readonly<Record<EnLaRuta, string | null>>) => void;
+}
+
+/** Sin hoja, la pieza empieza sin nada elegido. Uno solo, para no cambiar en cada pintada. */
+const RUTA_VACIA: RutaDeLaHoja = { sujeto: null, parametros: {} };
+
+/** Una ruta con un cambio aplicado: lo que no se nombra se queda, y `null` lo quita. */
+function conElCambio(ruta: RutaDeLaHoja, cambio: CambioDeLaRuta): RutaDeLaHoja {
+  const parametros: Record<string, string> = { ...ruta.parametros };
+  for (const [nombre, valor] of Object.entries(cambio.parametros ?? {})) {
+    if (valor === null) delete parametros[nombre];
+    else parametros[nombre] = valor;
+  }
+  return { sujeto: cambio.sujeto === undefined ? ruta.sujeto : cambio.sujeto, parametros };
+}
+
+/**
+ * **El sitio de una pieza: la ruta de la hoja, o el estado de la pieza** (#120).
+ *
+ * Con `hoja`, lo elegido se escribe en la ruta y de ahi se restituye: recargar lo conserva. Sin ella
+ * —la pantalla montada fuera del marco— la pieza lo guarda en su estado **con la misma forma**, una
+ * ruta, y entonces no sobrevive a recargar, que es lo unico que no puede dar. Es un hook: se llama
+ * siempre, con hoja o sin ella.
+ */
+export function useSitioDeLaHoja(hoja: HojaDelMarco | undefined): SitioDeLaHoja {
+  const { valor: ruta, cambiar } = useEnElMarcoOAqui<RutaDeLaHoja, CambioDeLaRuta>(
+    hoja === undefined ? undefined : { valor: hoja.ruta, cambiar: hoja.moverLaRuta },
+    RUTA_VACIA,
+    conElCambio,
+  );
+  return {
+    leer: (donde) => valorEnLaRuta(ruta, donde),
+    // Un solo movimiento, aunque cambien dos sitios a la vez: ver `cambiosEn`.
+    fijar: (cambios) => {
+      cambiar(cambiosEn(cambios));
+    },
   };
 }
 

@@ -5,7 +5,7 @@ import { Boton } from '../shadcn/boton.tsx';
 import { Desplegable, Opcion } from '../shadcn/desplegable.tsx';
 import type { TextosDeLaPantalla } from '../textos.tsx';
 import { type Nombrados, resolverTexto } from './componer.ts';
-import type { EnLaRuta } from './hoja.ts';
+import type { SitioDeLaHoja } from './hoja.ts';
 import type { PaginaDeUnaTabla } from './reglas-de-las-tablas.ts';
 import type { OrdenDeLaTabla, PaginacionDeLaTabla, Texto } from './tipos.ts';
 
@@ -40,19 +40,18 @@ import type { OrdenDeLaTabla, PaginacionDeLaTabla, Texto } from './tipos.ts';
  *
  * Cambiar de orden **vuelve a la primera pagina**, en un solo movimiento de la ruta: seguir en la
  * pagina 7 de otro orden es una lectura que nadie quiso.
+ *
+ * <h2>El sitio donde escriben es el de la hoja</h2>
+ *
+ * `sitio` es un `SitioDeLaHoja` (`hoja.ts`): la ruta, o el estado de la tabla sin `hoja`. Hasta
+ * #120 se llamaba `SitioDeLaTabla` y vivia aqui; lo usan tambien el maestro y las pestanas.
  */
-
-/** Como se lee y como se escribe el sitio de la tabla: la ruta de la hoja, o el estado de la tabla. */
-export interface SitioDeLaTabla {
-  readonly leer: (sitio: EnLaRuta) => string | null;
-  readonly fijar: (cambios: Readonly<Record<EnLaRuta, string | null>>) => void;
-}
 
 export interface MandoDeOrdenProps {
   readonly orden: OrdenDeLaTabla<Texto>;
   /** Donde vive la pagina, si la tabla pagina: cambiar de orden vuelve a la primera. */
   readonly paginacion?: PaginacionDeLaTabla;
-  readonly sitio: SitioDeLaTabla;
+  readonly sitio: SitioDeLaHoja;
   readonly nombrados: Nombrados;
   readonly traducir: (texto: string) => string;
   readonly textos: TextosDeLaPantalla;
@@ -117,7 +116,7 @@ export function MandoDeOrden({ orden, paginacion, sitio, nombrados, traducir, te
 export interface MandoDePaginasProps {
   readonly paginacion: PaginacionDeLaTabla;
   readonly pagina: PaginaDeUnaTabla;
-  readonly sitio: SitioDeLaTabla;
+  readonly sitio: SitioDeLaHoja;
   readonly textos: TextosDeLaPantalla;
   /** El nombre de la tabla, para el nombre accesible del grupo. */
   readonly nombreDeLaTabla: string;

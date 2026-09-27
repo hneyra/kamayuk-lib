@@ -8,7 +8,8 @@ import { cn } from '../utilidades.ts';
 import { resolverTexto, type Nombrados } from './componer.ts';
 import type { DatosDeLaPantalla, FilaDeUnaLista } from './datos.ts';
 import { EstadoDeLaLectura } from './EstadoDeLaLectura.tsx';
-import { cambioEn, valorEnLaRuta, type HojaDelMarco } from './hoja.ts';
+import { type HojaDelMarco, useSitioDeLaHoja } from './hoja.ts';
+import { destinoDeLaTecla, EN_UNA_LISTA } from './teclado.ts';
 import type { DefinicionDeMaestroDetalle, Texto, TonoDeInsignia } from './tipos.ts';
 
 /**
@@ -18,12 +19,13 @@ import type { DefinicionDeMaestroDetalle, Texto, TonoDeInsignia } from './tipos.
  *
  * Con `hoja`, elegir una fila **escribe la ruta** —`#/<slug>/42`— y la ruta **la restituye**:
  * recargar deja elegida la misma y realzada. Sin `hoja`, la eleccion va en el estado de la pieza.
+ * Las dos cosas las hace `useSitioDeLaHoja`, el mismo de la tabla y las pestanas (#120).
  *
  * <h2>El teclado: la eleccion NO sigue al foco</h2>
  *
  * La lista es un `listbox` de `option` con `aria-selected` y tabulador itinerante: el tabulador
- * entra por la elegida (o por la primera), ↑/↓ mueven el foco, Inicio/Fin van a los extremos, e
- * **Intro o Espacio eligen**. WAI-ARIA admite las dos formas, y aqui se toma la que no pide: elegir
+ * entra por la elegida (o por la primera), ↑/↓ mueven el foco sin dar la vuelta, Inicio/Fin van a
+ * los extremos —`destinoDeLaTecla`, el de la tabla (#120)—, e **Intro o Espacio eligen**. WAI-ARIA admite las dos formas, y aqui se toma la que no pide: elegir
  * cambia la ruta, y la ruta hace que el sistema pida el detalle. Si la eleccion siguiera al foco,
  * bajar diez filas con la flecha serian diez lecturas del detalle y nueve respuestas tiradas.
  *
@@ -67,7 +69,7 @@ export function MaestroDetalle({
   hoja,
   dibujarHija,
 }: MaestroDetalleProps) {
-  const [local, setLocal] = useState<string | null>(null);
+  const sitio = useSitioDeLaHoja(hoja);
   const [foco, setFoco] = useState<number | null>(null);
   const opciones = useRef<(HTMLLIElement | null)[]>([]);
   const { maestro, detalle } = pieza;
@@ -83,11 +85,10 @@ export function MaestroDetalle({
       textos.datoAusente,
     );
 
-  const elegido = hoja === undefined ? local : valorEnLaRuta(hoja.ruta, pieza.enLaRuta);
+  const elegido = sitio.leer(pieza.enLaRuta);
   const elegir = (fila: FilaDeUnaLista): void => {
     if (fila.clave === elegido) return;
-    if (hoja === undefined) setLocal(fila.clave);
-    else hoja.moverLaRuta(cambioEn(pieza.enLaRuta, fila.clave));
+    sitio.fijar({ [pieza.enLaRuta]: fila.clave });
   };
 
   // El estado de la lista. Sin lectura declarada, la lista es lo que haya en `datos.listas`.
@@ -103,22 +104,12 @@ export function MaestroDetalle({
   };
 
   const alPulsar = (evento: KeyboardEvent<HTMLLIElement>, k: number, fila: FilaDeUnaLista): void => {
-    const ultima = filas.length - 1;
     if (evento.key === 'Enter' || evento.key === ' ') {
       evento.preventDefault();
       elegir(fila);
       return;
     }
-    const destino =
-      evento.key === 'ArrowDown'
-        ? Math.min(k + 1, ultima)
-        : evento.key === 'ArrowUp'
-          ? Math.max(k - 1, 0)
-          : evento.key === 'Home'
-            ? 0
-            : evento.key === 'End'
-              ? ultima
-              : null;
+    const destino = destinoDeLaTecla(evento.key, k, filas.length, EN_UNA_LISTA);
     if (destino === null) return;
     evento.preventDefault();
     moverElFoco(destino);
