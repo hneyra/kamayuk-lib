@@ -69,6 +69,8 @@
  * ADR-0005): esto es para escribirlo en la pantalla, no para ponerlo en una peticion.
  */
 
+import { decodificarBase64url } from './pkce.ts';
+
 /** Lo que el emisor dijo de quien entro. Tres campos, y los tres pueden faltar. */
 export interface QuienEntro {
   /** El claim `name`: el nombre para mostrar, o `null` si el emisor no lo mando. */
@@ -123,7 +125,8 @@ export function leerQuienEntro(idToken: string | null): QuienEntro | null {
  * **La segunda parte y no la primera**: la primera es la cabecera —`alg`, `kid`—, que no dice
  * quien entro. Y se decodifica con `TextDecoder` sobre los bytes, no con el texto que `atob`
  * devuelve: `atob` entrega un byte por caracter, asi que «José» leido tal cual sale «JosÃ©». El
- * nombre de quien entra en estas interfaces lleva tildes casi siempre.
+ * nombre de quien entra en estas interfaces lleva tildes casi siempre. Los bytes los da
+ * `decodificarBase64url` (`pkce.ts`), que vive junto a la codificacion desde #122.
  */
 function cargaUtilDe(jwt: string | null): Record<string, unknown> | null {
   if (jwt === null) return null;
@@ -132,9 +135,7 @@ function cargaUtilDe(jwt: string | null): Record<string, unknown> | null {
   const carga = partes[1];
   if (carga === undefined || carga === '') return null;
   try {
-    const porByte = atob(carga.replace(/-/g, '+').replace(/_/g, '/'));
-    const bytes = Uint8Array.from(porByte, (letra) => letra.charCodeAt(0));
-    const leido: unknown = JSON.parse(new TextDecoder().decode(bytes));
+    const leido: unknown = JSON.parse(new TextDecoder().decode(decodificarBase64url(carga)));
     if (typeof leido !== 'object' || leido === null || Array.isArray(leido)) return null;
     return leido as Record<string, unknown>;
   } catch {

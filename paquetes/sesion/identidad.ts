@@ -67,9 +67,22 @@
  * `crearIdentidad`, igual que las de la escalera por el de `peldanoDe`. Este archivo era la unica
  * excepcion de la cuarta forma de `el-texto-visible-es-dato`, y ya no lo es: una frase escrita aqui
  * sale roja con su linea.
+ *
+ * <h2>Y en piezas: la fabrica compone, no calcula (#122)</h2>
+ *
+ * `crearIdentidad` llego a 321 lineas con nueve preocupaciones en un mismo cierre. Hoy las cuentas
+ * del PKCE —los aleatorios, el reto S256 y `base64url` en los dos sentidos— viven en `pkce.ts`, y
+ * las cinco claves del rebote en `rebote.ts`, un almacen con nombre en vez de dieciocho llamadas
+ * sueltas a `sessionStorage`. La sonda, el canje y la pestana de la cuenta son funciones de este
+ * archivo, fuera del cierre: **los dos `fetch` se quedan aqui**, que es el sitio declarado, y no se
+ * inyecta `fetch` como parametro —uno con su forma y otro nombre se saltaria
+ * `fetch-fuera-del-cliente`—. Los numeros tienen nombre, y lo vigila `la-puerta-en-piezas.test.ts`
+ * con los topes del issue: 180 lineas la fabrica y 60 el canje.
  */
 
+import { aleatorio, LARGO_DEL_ESTADO, LARGO_DEL_VERIFICADOR, reto } from './pkce.ts';
 import { leerQuienEntro, type QuienEntro } from './quien-entro.ts';
+import { crearRebote, type ClavesDelRebote } from './rebote.ts';
 import { TEXTOS_DE_LA_PUERTA, type TextosDeLaPuerta } from './textos.ts';
 
 /**
@@ -261,9 +274,29 @@ export interface Identidad {
  * entrar. Y no treinta: mas alla de unos segundos, quien mira ya cree que la pagina esta rota.
  *
  * Es la cifra de `rentas#112` y no es parametro: ningun sistema ha pedido otra. Si alguno la
- * pide, entra como `topeDeIdas`, opcional y con esta de omision.
+ * pide, entra como un campo opcional de `ConfiguracionDeIdentidad` —como ya entra `topeDeIdas`—,
+ * con esta de omision.
  */
 const ESPERA_DE_LA_SONDA = 8_000;
+
+/**
+ * Lo que se espera al canje antes de darlo por perdido (#122 le da nombre; la cifra es de siempre).
+ *
+ * Con tope, porque sin el un emisor que no contesta deja la aplicacion SIN DIBUJAR NADA para
+ * siempre —ni un error ni un esqueleto—: el arranque espera el canje antes de montar. Casi el doble
+ * que la sonda porque el canje si hace trabajo —valida el codigo y el verificador, firma los
+ * tokens— y la sonda solo pregunta si el emisor esta.
+ */
+const ESPERA_DEL_CANJE = 15_000;
+
+/**
+ * Cuantas idas seguidas se admiten si la configuracion no dice otra cosa. Ver
+ * `ConfiguracionDeIdentidad.topeDeIdas`: tres idas sin canjear son un bucle, no mala suerte.
+ */
+const TOPE_DE_IDAS_POR_OMISION = 3;
+
+/** Las esperas se escriben en milisegundos, que es lo que pide `AbortSignal`, y se dicen en segundos. */
+const MILISEGUNDOS_POR_SEGUNDO = 1_000;
 
 /** Lo que se le anade al emisor para llegar a cada pagina. Ver `PaginaDeLaCuenta`. */
 const RUTA_DE_LA_CUENTA: Readonly<Record<PaginaDeLaCuenta, string>> = {
@@ -273,10 +306,42 @@ const RUTA_DE_LA_CUENTA: Readonly<Record<PaginaDeLaCuenta, string>> = {
   contrasena: 'account/account-security/signing-in',
 };
 
+/**
+ * Las URL del emisor que la puerta usa, **todas derivadas del realm**. Ver
+ * `ConfiguracionDeIdentidad.realm`: no hay una segunda sena que mantener.
+ */
+interface UrlsDelEmisor {
+  readonly autorizacion: string;
+  readonly canje: string;
+  readonly fin: string;
+  readonly descubrimiento: string;
+}
+
+function urlsDelEmisor(realm: string): UrlsDelEmisor {
+  return {
+    autorizacion: `${realm}/protocol/openid-connect/auth`,
+    canje: `${realm}/protocol/openid-connect/token`,
+    fin: `${realm}/protocol/openid-connect/logout`,
+    descubrimiento: `${realm}/.well-known/openid-configuration`,
+  };
+}
+
+/** Sin `crypto.subtle` no hay S256, y el navegador no lo expone fuera de un origen seguro. */
+function hayPuerta(): boolean {
+  return typeof crypto !== 'undefined' && crypto.subtle !== undefined;
+}
+
+/** Una `Vuelta` fallida: el motivo y el detalle, que es lo que la pantalla dice. */
+function fallo(motivo: string, detalle: string): Vuelta {
+  return { estado: 'fallo', motivo, detalle };
+}
+
 /** Lo que paso, dicho como el navegador lo dice. Ver `FallaDeLaPuerta.motivo`. */
 function enPalabrasDelNavegador(falla: unknown, t: TextosDeLaPuerta): string {
   if (!(falla instanceof Error)) return t.laPeticionNoLlegoACompletarse;
-  if (falla.name === 'TimeoutError') return t.noContestoEn(ESPERA_DE_LA_SONDA / 1000);
+  if (falla.name === 'TimeoutError') {
+    return t.noContestoEn(ESPERA_DE_LA_SONDA / MILISEGUNDOS_POR_SEGUNDO);
+  }
   return falla.message === '' ? falla.name : falla.message;
 }
 
@@ -298,26 +363,203 @@ function motivoDelEmisor(error: string, t: TextosDeLaPuerta): string {
   }
 }
 
-function aleatorio(largo: number): string {
-  const bytes = new Uint8Array(largo);
-  crypto.getRandomValues(bytes);
-  return base64url(bytes);
+/**
+ * La vuelta con `?error=`: el motivo sale del codigo de OAuth, y el detalle es lo que el emisor
+ * dijo —`error_description`, que es el dato— o, si no dijo nada, el codigo mismo.
+ */
+function vueltaConError(url: URL, error: string, t: TextosDeLaPuerta): Vuelta {
+  return fallo(
+    motivoDelEmisor(error, t),
+    url.searchParams.get('error_description') ?? t.elEmisorContesto(error),
+  );
 }
 
-/** El reto S256: `BASE64URL(SHA256(ASCII(verificador)))`, tal cual lo pide RFC 7636 §4.2. */
-async function reto(verificador: string): Promise<string> {
-  const resumen = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verificador));
-  return base64url(new Uint8Array(resumen));
+/**
+ * **Si el emisor esta, ANTES de mandarle el navegador entero** (`hneyra/rentas#112`).
+ *
+ * <h2>El defecto que esto cierra</h2>
+ *
+ * `entrar()` termina en `location.assign(...)`, y quien la llama no monta nada despues **a
+ * proposito**: la pagina se va. Pero cuando la navegacion se RECHAZA —el emisor apagado, un DNS
+ * que no resuelve, un cortafuegos que traga— no hay documento nuevo *ni* aplicacion. Medido en
+ * `rentas` con `yarn dev` y nada mas levantado: `body.innerText` vacio, `body.innerHTML` vacio y
+ * la consola con dos lineas de Vite, ni un error. Nada que leer en ninguna parte.
+ *
+ * <h2>Por que una sonda y no un tiempo de espera despues de navegar</h2>
+ *
+ * Porque despues de `assign` ya es tarde: Chromium **cambia de documento** —se midio el marco
+ * principal navegando a `chrome-error://chromewebdata/`—, asi que un `setTimeout` que montara la
+ * aplicacion correria sobre un documento que el navegador acaba de tirar. Y en el camino bueno
+ * haria lo contrario de lo que se quiere: pintar la pantalla justo antes de que la navegacion
+ * buena se la lleve, o sea un parpadeo.
+ *
+ * Preguntando ANTES, el camino bueno no cambia en nada: `assign` sigue siendo lo ultimo que pasa.
+ *
+ * <h2>Se pregunta al documento de descubrimiento, y NO se lee</h2>
+ *
+ * `/.well-known/openid-configuration` es publico, barato y no abre ninguna sesion; pedir el
+ * `authorization_endpoint` como sonda seria abrir una peticion de autorizacion de verdad —con su
+ * rastro en el emisor— para tirarla.
+ *
+ * Y va con `mode: 'no-cors'` **a proposito**: la respuesta no se lee. La pregunta no es «que
+ * contesta el emisor» sino «llega el navegador hasta el», que es exactamente lo que decide si
+ * `assign` va a aterrizar. Leyendo el cuerpo haria falta que el emisor publicara CORS, y un
+ * intermediario que no lo publique convertiria un emisor VIVO en esta pantalla de error.
+ *
+ * <h2>Y sin credenciales, dicho y no heredado: la unica linea que la de `rentas` no tiene</h2>
+ *
+ * La de `rentas` no dice `credentials`, y `fetch` pone entonces `'same-origin'`: **manda las
+ * cookies cuando el emisor comparte origen con la interfaz**. Y en el cluster lo comparte: el
+ * emisor es `https://<dominio>/keycloak/realms/kamayuk` y las interfaces se sirven en
+ * `https://<dominio>/<sistema>/` (ADR-0030 §2). No es una suposicion: el registro de
+ * `infrastructure` anota que `vmd205066` sirve `/rentas/` y `/catastro/` con 200 y que su
+ * descubrimiento dice `issuer: https://vmd205066.contaboserver.net/keycloak/realms/kamayuk`. Medido
+ * en Chromium 151 contra un servidor que pone una cookie en la pagina y anota lo que le llega en
+ * el descubrimiento, del mismo origen: la sonda de `rentas` tal cual llego con
+ * `Cookie: KEYCLOAK_SESSION=…`; la misma con `credentials: 'omit'`, sin cabecera `Cookie`. Las dos
+ * sin `Authorization`, porque ninguna manda cabeceras.
+ *
+ * La sonda no necesita nada de eso para saber si el emisor contesta, y mandarle a un documento
+ * publico la sesion de quien mira es regalar lo que no se pidio. Por eso aqui se dice.
+ *
+ * <h2>Fuera de la fabrica, pero en este archivo (#122)</h2>
+ *
+ * Fuera del cierre porque no necesita nada de el: el emisor, la URL y las frases entran por
+ * argumento. Y en `identidad.ts` porque es uno de los dos `fetch` de la puerta, y el sitio
+ * declarado para ellos es este.
+ */
+async function laPuertaContesta(
+  emisor: string,
+  descubrimiento: string,
+  t: TextosDeLaPuerta,
+): Promise<FallaDeLaPuerta | null> {
+  try {
+    await fetch(descubrimiento, {
+      mode: 'no-cors',
+      // Sin cache: una respuesta guardada diria que el emisor esta cuando ya no.
+      cache: 'no-store',
+      credentials: 'omit',
+      signal: AbortSignal.timeout(ESPERA_DE_LA_SONDA),
+    });
+    return null;
+  } catch (falla) {
+    return { emisor, url: descubrimiento, motivo: enPalabrasDelNavegador(falla, t) };
+  }
 }
 
-function base64url(bytes: Uint8Array): string {
-  let texto = '';
-  bytes.forEach((b) => (texto += String.fromCharCode(b)));
-  return btoa(texto).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+/** Lo que el canje manda al emisor, ademas del `grant_type`. */
+interface CamposDelCanje {
+  readonly cliente: string;
+  readonly codigo: string;
+  readonly retorno: string;
+  readonly verificador: string;
+}
+
+/**
+ * **El canje del codigo por los tokens**: el otro `fetch` de la puerta, y por eso en este archivo.
+ *
+ * Devuelve la respuesta tal cual, o `null` si no llego ninguna —el emisor no contesto, o se agoto
+ * `ESPERA_DEL_CANJE`—. Leerla es de `leerElCanje`, y no va aqui a proposito: entre las dos,
+ * `canjearSiVuelve` limpia la URL, y ese orden es el de siempre.
+ */
+async function pedirElCanje(canje: string, campos: CamposDelCanje): Promise<Response | null> {
+  try {
+    return await fetch(canje, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        client_id: campos.cliente,
+        code: campos.codigo,
+        redirect_uri: campos.retorno,
+        code_verifier: campos.verificador,
+      }).toString(),
+      signal: AbortSignal.timeout(ESPERA_DEL_CANJE),
+    });
+  } catch {
+    return null;
+  }
+}
+
+/** Lo que salio del canje: los dos tokens, o la `Vuelta` fallida que lo explica. */
+type Canje =
+  | { readonly token: string; readonly identidad: string | null }
+  | { readonly fallo: Vuelta };
+
+/** Lee la respuesta del canje. Un cuerpo que no es JSON se lee como uno vacio: no trae el token. */
+async function leerElCanje(respuesta: Response, t: TextosDeLaPuerta): Promise<Canje> {
+  if (!respuesta.ok) {
+    return { fallo: fallo(t.elEmisorRechazoElCanje, t.elCanjeVolvioCon(respuesta.status)) };
+  }
+  const cuerpo = (await respuesta.json().catch(() => ({}))) as {
+    access_token?: string;
+    id_token?: string;
+  };
+  if (cuerpo.access_token === undefined) {
+    return { fallo: fallo(t.elEmisorNoDevolvioNingunToken, t.laRespuestaDelCanjeNoTraeElToken) };
+  }
+  return { token: cuerpo.access_token, identidad: cuerpo.id_token ?? null };
+}
+
+/**
+ * Abre `url` **en otra pestana**, y si el navegador la niega, va en esta.
+ *
+ * <h2>Por que otra pestana</h2>
+ *
+ * Porque el token vive EN MEMORIA —es la decision de la cabecera de este archivo— y se muere
+ * con el documento. Irse a Keycloak en esta misma pestana tiraria la sesion de trabajo: al
+ * volver, el arranque tendria que rebotar otra vez por la puerta. Con una pestana nueva, quien
+ * mira el perfil vuelve al sistema y sigue donde estaba.
+ *
+ * <h2>Por que se mira lo que devuelve, y por que NO lleva «noopener» en las opciones</h2>
+ *
+ * Porque el sintoma que `rentas#115` vino a quitar es **que no pase nada**. Un bloqueador de
+ * ventanas emergentes puede negar la pestana, y entonces `window.open` devuelve `null`: sin
+ * mirarlo, el boton volveria a ser un `al: () => {}`, esta vez sin que se vea en el codigo. Con
+ * el `null` mirado, el peor caso es irse en esta pestana, que es feo y es visible.
+ *
+ * Y por eso mismo `noopener` **no** puede ir en la cadena de opciones: HTML manda devolver
+ * `null` cuando se pide, asi que la comprobacion de arriba daria siempre positivo y la pestana
+ * nueva no se usaria nunca. Se consigue lo mismo soltando el `opener` despues.
+ */
+function abrirEnOtraPestana(url: string): void {
+  const otra = window.open(url, '_blank');
+  if (otra === null) {
+    window.location.assign(url);
+    return;
+  }
+  // La pestana nueva no necesita poder tocar esta. Ver arriba: aqui y no en las opciones.
+  otra.opener = null;
+}
+
+/**
+ * **Las cinco claves del rebote, compuestas AQUI y con este nombre** (#122).
+ *
+ * `rebote.ts` guarda y lee, pero las claves nacen en este archivo, escritas como
+ * `` `${prefijoDeClaves}.pkce.…` ``, porque un consumidor las lee asi: la guarda
+ * `el-token-vive-en-memoria` de `ciudadano` abre `@kamayuk/sesion/identidad.ts` y busca esa forma
+ * para comparar lo que la libreria guarda con lo que el portal decidio guardar. Medido: con las
+ * claves en `rebote.ts` y la variable llamada `prefijo`, la CI de `consumidores` sale roja en
+ * `ciudadano` —«no se encontro ni una clave compuesta en `@kamayuk/sesion`»—. Lo fija
+ * `la-puerta-en-piezas.test.ts`.
+ */
+export function clavesDelRebote(prefijoDeClaves: string): ClavesDelRebote {
+  return {
+    verificador: `${prefijoDeClaves}.pkce.verificador`,
+    estado: `${prefijoDeClaves}.pkce.estado`,
+    destino: `${prefijoDeClaves}.pkce.destino`,
+    idas: `${prefijoDeClaves}.pkce.idas`,
+    salida: `${prefijoDeClaves}.pkce.salida`,
+  };
 }
 
 /**
  * La puerta de identidad de UN sistema. Cada interfaz construye la suya una vez.
+ *
+ * **Compone y no calcula** (#122): las cuentas del PKCE estan en `pkce.ts`, lo que sobrevive al
+ * rebote en `rebote.ts`, y la sonda, el canje y la pestana de la cuenta son funciones de este
+ * archivo fuera del cierre. Dentro queda lo que es de la instancia: el token y quien entro, en
+ * memoria.
  *
  * @param configuracion lo que el sistema tiene que decir para tener puerta. Ver
  *   `ConfiguracionDeIdentidad`.
@@ -331,25 +573,10 @@ export function crearIdentidad(
   textos: Partial<TextosDeLaPuerta> = {},
 ): Identidad {
   const { realm, cliente, alcance, retorno, destinoPorOmision, prefijoDeClaves } = configuracion;
-  const topeDeIdas = configuracion.topeDeIdas ?? 3;
+  const topeDeIdas = configuracion.topeDeIdas ?? TOPE_DE_IDAS_POR_OMISION;
   const t: TextosDeLaPuerta = { ...TEXTOS_DE_LA_PUERTA, ...textos };
-
-  const autorizacion = `${realm}/protocol/openid-connect/auth`;
-  const canje = `${realm}/protocol/openid-connect/token`;
-  const fin = `${realm}/protocol/openid-connect/logout`;
-  const descubrimiento = `${realm}/.well-known/openid-configuration`;
-
-  /**
-   * Las cinco claves del rebote.
-   *
-   * Ninguna lleva `token`, `jwt`, `bearer`, `credencial`, `contrasena`, `acceso` ni `sesion`: lo
-   * que se guarda aqui no es ninguna de esas cosas.
-   */
-  const VERIFICADOR = `${prefijoDeClaves}.pkce.verificador`;
-  const ESTADO = `${prefijoDeClaves}.pkce.estado`;
-  const DESTINO = `${prefijoDeClaves}.pkce.destino`;
-  const IDAS = `${prefijoDeClaves}.pkce.idas`;
-  const SALIDA = `${prefijoDeClaves}.pkce.salida`;
+  const urls = urlsDelEmisor(realm);
+  const rebote = crearRebote(clavesDelRebote(prefijoDeClaves));
 
   /** El token. En el cierre y en ningun otro sitio: al cerrar la pestana desaparece. */
   let enMemoria: string | null = null;
@@ -373,78 +600,11 @@ export function crearIdentidad(
    */
   let quienEntroEnMemoria: QuienEntro | null = null;
 
-  const idas = (): number => Number(sessionStorage.getItem(IDAS) ?? 0);
-
-  const hayPuerta = (): boolean => typeof crypto !== 'undefined' && crypto.subtle !== undefined;
-
   const fijarToken = (nuevo: string | null, identidad: string | null = null): void => {
     enMemoria = nuevo;
     identidadEnMemoria = identidad;
     quienEntroEnMemoria = leerQuienEntro(identidad);
   };
-
-  /**
-   * **Si el emisor esta, ANTES de mandarle el navegador entero** (`hneyra/rentas#112`).
-   *
-   * <h2>El defecto que esto cierra</h2>
-   *
-   * `entrar()` termina en `location.assign(...)`, y quien la llama no monta nada despues **a
-   * proposito**: la pagina se va. Pero cuando la navegacion se RECHAZA —el emisor apagado, un DNS
-   * que no resuelve, un cortafuegos que traga— no hay documento nuevo *ni* aplicacion. Medido en
-   * `rentas` con `yarn dev` y nada mas levantado: `body.innerText` vacio, `body.innerHTML` vacio y
-   * la consola con dos lineas de Vite, ni un error. Nada que leer en ninguna parte.
-   *
-   * <h2>Por que una sonda y no un tiempo de espera despues de navegar</h2>
-   *
-   * Porque despues de `assign` ya es tarde: Chromium **cambia de documento** —se midio el marco
-   * principal navegando a `chrome-error://chromewebdata/`—, asi que un `setTimeout` que montara la
-   * aplicacion correria sobre un documento que el navegador acaba de tirar. Y en el camino bueno
-   * haria lo contrario de lo que se quiere: pintar la pantalla justo antes de que la navegacion
-   * buena se la lleve, o sea un parpadeo.
-   *
-   * Preguntando ANTES, el camino bueno no cambia en nada: `assign` sigue siendo lo ultimo que pasa.
-   *
-   * <h2>Se pregunta al documento de descubrimiento, y NO se lee</h2>
-   *
-   * `/.well-known/openid-configuration` es publico, barato y no abre ninguna sesion; pedir el
-   * `authorization_endpoint` como sonda seria abrir una peticion de autorizacion de verdad —con su
-   * rastro en el emisor— para tirarla.
-   *
-   * Y va con `mode: 'no-cors'` **a proposito**: la respuesta no se lee. La pregunta no es «que
-   * contesta el emisor» sino «llega el navegador hasta el», que es exactamente lo que decide si
-   * `assign` va a aterrizar. Leyendo el cuerpo haria falta que el emisor publicara CORS, y un
-   * intermediario que no lo publique convertiria un emisor VIVO en esta pantalla de error.
-   *
-   * <h2>Y sin credenciales, dicho y no heredado: la unica linea que la de `rentas` no tiene</h2>
-   *
-   * La de `rentas` no dice `credentials`, y `fetch` pone entonces `'same-origin'`: **manda las
-   * cookies cuando el emisor comparte origen con la interfaz**. Y en el cluster lo comparte: el
-   * emisor es `https://<dominio>/keycloak/realms/kamayuk` y las interfaces se sirven en
-   * `https://<dominio>/<sistema>/` (ADR-0030 §2). No es una suposicion: el registro de
-   * `infrastructure` anota que `vmd205066` sirve `/rentas/` y `/catastro/` con 200 y que su
-   * descubrimiento dice `issuer: https://vmd205066.contaboserver.net/keycloak/realms/kamayuk`. Medido
-   * en Chromium 151 contra un servidor que pone una cookie en la pagina y anota lo que le llega en
-   * el descubrimiento, del mismo origen: la sonda de `rentas` tal cual llego con
-   * `Cookie: KEYCLOAK_SESSION=…`; la misma con `credentials: 'omit'`, sin cabecera `Cookie`. Las dos
-   * sin `Authorization`, porque ninguna manda cabeceras.
-   *
-   * La sonda no necesita nada de eso para saber si el emisor contesta, y mandarle a un documento
-   * publico la sesion de quien mira es regalar lo que no se pidio. Por eso aqui se dice.
-   */
-  async function laPuertaContesta(): Promise<FallaDeLaPuerta | null> {
-    try {
-      await fetch(descubrimiento, {
-        mode: 'no-cors',
-        // Sin cache: una respuesta guardada diria que el emisor esta cuando ya no.
-        cache: 'no-store',
-        credentials: 'omit',
-        signal: AbortSignal.timeout(ESPERA_DE_LA_SONDA),
-      });
-      return null;
-    } catch (falla) {
-      return { emisor: realm, url: descubrimiento, motivo: enPalabrasDelNavegador(falla, t) };
-    }
-  }
 
   const urlDeLaCuenta = (pagina: PaginaDeLaCuenta): string =>
     `${realm}/${RUTA_DE_LA_CUENTA[pagina]}`;
@@ -454,28 +614,22 @@ export function crearIdentidad(
     quienEntro: () => quienEntroEnMemoria,
     fijarToken,
     hayPuerta,
-    puedeIrALaPuerta: () => idas() < topeDeIdas,
-    vieneDeSalir: () => sessionStorage.getItem(SALIDA) === '1',
-    olvidarLaParada: () => {
-      sessionStorage.removeItem(IDAS);
-      sessionStorage.removeItem(SALIDA);
-    },
+    puedeIrALaPuerta: () => rebote.idas() < topeDeIdas,
+    vieneDeSalir: () => rebote.vieneDeSalir(),
+    olvidarLaParada: () => rebote.olvidarLaParada(),
 
     /**
      * La sonda va antes de tocar `sessionStorage`: una ida que no llego a ocurrir no es una ida, y
      * contarla en el tope gastaria los tres intentos contra un emisor que nunca los recibio.
      */
     async entrar(): Promise<FallaDeLaPuerta | null> {
-      const falla = await laPuertaContesta();
+      const falla = await laPuertaContesta(realm, urls.descubrimiento, t);
       if (falla !== null) return falla;
 
-      const verificador = aleatorio(64);
-      const estado = aleatorio(24);
-      sessionStorage.setItem(VERIFICADOR, verificador);
-      sessionStorage.setItem(ESTADO, estado);
-      sessionStorage.setItem(DESTINO, window.location.hash || destinoPorOmision);
-      sessionStorage.setItem(IDAS, String(idas() + 1));
-      sessionStorage.removeItem(SALIDA);
+      const verificador = aleatorio(LARGO_DEL_VERIFICADOR);
+      const estado = aleatorio(LARGO_DEL_ESTADO);
+      rebote.guardarIda({ verificador, estado, destino: window.location.hash || destinoPorOmision });
+      rebote.contarIda();
 
       const parametros = new URLSearchParams({
         response_type: 'code',
@@ -486,7 +640,7 @@ export function crearIdentidad(
         code_challenge: await reto(verificador),
         code_challenge_method: 'S256',
       });
-      window.location.assign(`${autorizacion}?${parametros.toString()}`);
+      window.location.assign(`${urls.autorizacion}?${parametros.toString()}`);
       return null;
     },
 
@@ -499,111 +653,53 @@ export function crearIdentidad(
     async canjearSiVuelve(): Promise<Vuelta> {
       const url = new URL(window.location.href);
       const codigo = url.searchParams.get('code');
-      const fallo = url.searchParams.get('error');
+      const error = url.searchParams.get('error');
 
-      if (codigo === null && fallo === null) return { estado: 'sin-vuelta' };
+      if (codigo === null && error === null) return { estado: 'sin-vuelta' };
 
-      const verificador = sessionStorage.getItem(VERIFICADOR);
-      const esperado = sessionStorage.getItem(ESTADO);
-      const destino = sessionStorage.getItem(DESTINO) ?? destinoPorOmision;
-      sessionStorage.removeItem(VERIFICADOR);
-      sessionStorage.removeItem(ESTADO);
-      sessionStorage.removeItem(DESTINO);
-
+      const { verificador, estado, destino } = rebote.tomarIda();
       // La URL se limpia SIEMPRE, saliera bien o mal: un codigo ya usado no vale dos veces, y
       // dejarlo en la barra hace que recargar de un error que no tiene nada que ver con lo que
       // paso.
       const limpiar = () => {
-        window.history.replaceState(null, '', url.pathname + destino);
+        window.history.replaceState(null, '', url.pathname + (destino ?? destinoPorOmision));
       };
 
-      if (fallo !== null) {
+      if (error !== null) {
         limpiar();
-        return {
-          estado: 'fallo',
-          motivo: motivoDelEmisor(fallo, t),
-          detalle: url.searchParams.get('error_description') ?? t.elEmisorContesto(fallo),
-        };
+        return vueltaConError(url, error, t);
       }
 
       // El estado es lo unico que distingue nuestra vuelta de un codigo que alguien nos hizo
       // llegar. Sin comprobarlo, la puerta acepta cualquier codigo.
-      if (
-        codigo === null ||
-        verificador === null ||
-        esperado === null ||
-        url.searchParams.get('state') !== esperado
-      ) {
+      const cuadra = url.searchParams.get('state') === estado;
+      if (codigo === null || verificador === null || estado === null || !cuadra) {
         limpiar();
-        return {
-          estado: 'fallo',
-          motivo: t.laVueltaNoCuadraConLaIda,
-          detalle: t.elCodigoLlegoSinSuEstado,
-        };
+        return fallo(t.laVueltaNoCuadraConLaIda, t.elCodigoLlegoSinSuEstado);
       }
 
-      let respuesta: Response;
-      try {
-        // Con tope. Sin el, un emisor que no contesta deja la aplicacion SIN DIBUJAR NADA para
-        // siempre —ni un error ni un esqueleto—, porque el arranque espera aqui antes de montar.
-        respuesta = await fetch(canje, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({
-            grant_type: 'authorization_code',
-            client_id: cliente,
-            code: codigo,
-            redirect_uri: retorno,
-            code_verifier: verificador,
-          }).toString(),
-          signal: AbortSignal.timeout(15_000),
-        });
-      } catch {
-        limpiar();
-        return {
-          estado: 'fallo',
-          motivo: t.elEmisorNoContesto,
-          detalle: t.elCanjeNoLlegoACompletarse,
-        };
-      }
-
+      const respuesta = await pedirElCanje(urls.canje, { cliente, codigo, retorno, verificador });
       limpiar();
-      if (!respuesta.ok) {
-        return {
-          estado: 'fallo',
-          motivo: t.elEmisorRechazoElCanje,
-          detalle: t.elCanjeVolvioCon(respuesta.status),
-        };
-      }
+      if (respuesta === null) return fallo(t.elEmisorNoContesto, t.elCanjeNoLlegoACompletarse);
 
-      const cuerpo = (await respuesta.json().catch(() => ({}))) as {
-        access_token?: string;
-        id_token?: string;
-      };
-      if (cuerpo.access_token === undefined) {
-        return {
-          estado: 'fallo',
-          motivo: t.elEmisorNoDevolvioNingunToken,
-          detalle: t.laRespuestaDelCanjeNoTraeElToken,
-        };
-      }
+      const canje = await leerElCanje(respuesta, t);
+      if ('fallo' in canje) return canje.fallo;
 
-      fijarToken(cuerpo.access_token, cuerpo.id_token ?? null);
+      fijarToken(canje.token, canje.identidad);
       // Salio bien: la cuenta de idas vuelve a cero, para que el tope proteja de una racha de
       // fallos y no de haber entrado muchas veces en el dia.
-      sessionStorage.removeItem(IDAS);
+      rebote.olvidarLasIdas();
       return { estado: 'canjeado' };
     },
 
     salir(): void {
       const identidad = identidadEnMemoria;
       fijarToken(null);
-      sessionStorage.removeItem(IDAS);
       // La marca es lo que impide volver a entrar solo al instante: `post_logout_redirect_uri`
       // trae de vuelta sin token, y el arranque veia eso y llamaba a `entrar()` — con la sesion
       // del emisor viva, el usuario acababa DENTRO OTRA VEZ con la misma cuenta sin haber hecho
       // nada.
-      sessionStorage.setItem(SALIDA, '1');
+      rebote.marcarSalida();
 
       if (!hayPuerta()) {
         window.location.reload();
@@ -611,39 +707,10 @@ export function crearIdentidad(
       }
       const parametros = new URLSearchParams({ post_logout_redirect_uri: retorno });
       if (identidad !== null) parametros.set('id_token_hint', identidad);
-      window.location.assign(`${fin}?${parametros.toString()}`);
+      window.location.assign(`${urls.fin}?${parametros.toString()}`);
     },
 
     urlDeLaCuenta,
-
-    /**
-     * <h2>Por que otra pestana</h2>
-     *
-     * Porque el token vive EN MEMORIA —es la decision de la cabecera de este archivo— y se muere
-     * con el documento. Irse a Keycloak en esta misma pestana tiraria la sesion de trabajo: al
-     * volver, el arranque tendria que rebotar otra vez por la puerta. Con una pestana nueva, quien
-     * mira el perfil vuelve al sistema y sigue donde estaba.
-     *
-     * <h2>Por que se mira lo que devuelve, y por que NO lleva «noopener» en las opciones</h2>
-     *
-     * Porque el sintoma que `rentas#115` vino a quitar es **que no pase nada**. Un bloqueador de
-     * ventanas emergentes puede negar la pestana, y entonces `window.open` devuelve `null`: sin
-     * mirarlo, el boton volveria a ser un `al: () => {}`, esta vez sin que se vea en el codigo. Con
-     * el `null` mirado, el peor caso es irse en esta pestana, que es feo y es visible.
-     *
-     * Y por eso mismo `noopener` **no** puede ir en la cadena de opciones: HTML manda devolver
-     * `null` cuando se pide, asi que la comprobacion de arriba daria siempre positivo y la pestana
-     * nueva no se usaria nunca. Se consigue lo mismo soltando el `opener` despues.
-     */
-    abrirLaCuenta(pagina: PaginaDeLaCuenta): void {
-      const url = urlDeLaCuenta(pagina);
-      const otra = window.open(url, '_blank');
-      if (otra === null) {
-        window.location.assign(url);
-        return;
-      }
-      // La pestana nueva no necesita poder tocar esta. Ver arriba: aqui y no en las opciones.
-      otra.opener = null;
-    },
+    abrirLaCuenta: (pagina) => abrirEnOtraPestana(urlDeLaCuenta(pagina)),
   };
 }

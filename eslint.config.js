@@ -4,7 +4,7 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
-import { PROHIBICIONES } from './paquetes/verificaciones/prohibiciones.mjs';
+import { PROHIBICIONES, PUERTA_DE_IDENTIDAD } from './paquetes/verificaciones/prohibiciones.mjs';
 
 /**
  * El lint de las librerias comunes.
@@ -37,6 +37,13 @@ const EN_TODAS_PARTES = PROHIBICIONES.map(({ selector, message }) => ({ selector
  * prohibicion que se anadio ayer, y la deja apagada en un directorio entero.
  */
 const EXCEPCIONES = [...new Set(PROHIBICIONES.flatMap((p) => p.salvo ?? []))];
+
+/**
+ * `fetch` nombrado de cualquier forma: llamado, leido de un objeto (`globalThis.fetch`,
+ * `window['fetch']`), prestado (`fetch.call`), con alias o como tipo (`typeof fetch`). Solo se usa
+ * dentro de la puerta de identidad, fuera de `identidad.ts` (#122).
+ */
+const FETCH_NOMBRADO_DE_CUALQUIER_FORMA = "Identifier[name='fetch'], Literal[value='fetch']";
 
 /** @type {import('eslint').Linter.Config[]} */
 const bloquesDeExcepcion = EXCEPCIONES.map((directorio) => ({
@@ -78,6 +85,40 @@ export default tseslint.config(
     },
   },
   ...bloquesDeExcepcion,
+  {
+    // **DENTRO DE LA PUERTA, `fetch` VIVE EN UN SOLO ARCHIVO** (#122).
+    //
+    // La excepcion de `fetch-fuera-del-cliente` es un DIRECTORIO —`PUERTA_DE_IDENTIDAD`,
+    // `paquetes/sesion/`— y no cambia: cada consumidor la situa en su `SALVO_EN_ESTE_ARBOL`, y
+    // tocar su valor es un cambio coordinado en cinco repositorios. Pero el sitio legitimo es UN
+    // archivo, `identidad.ts`, con la sonda y el canje; y desde que la puerta se partio en piezas
+    // (`pkce.ts`, `rebote.ts`), un `fetch` en cualquiera de ellas pasaba el lint entero. Medido: un
+    // `fetch` anadido a `rebote.ts` daba `eslint` RC=0.
+    //
+    // Este bloque le devuelve la prohibicion al resto del directorio, en este arbol y solo en el:
+    // la lista de excepciones de `PROHIBICIONES` es la misma, y ningun consumidor ve este config.
+    // Va DESPUES de las excepciones —en el config plano, el ultimo `no-restricted-syntax` gana— y
+    // ANTES del bloque de las pruebas, que la apaga.
+    //
+    // **Y aqui la prohibicion mira MAS que el nombre desnudo.** Su selector,
+    // `CallExpression[callee.name='fetch']`, solo ve `fetch(...)`: medido, un
+    // `globalThis.fetch('/x')` al final de `rebote.ts` daba `eslint` sin salida y RC=0, y lo mismo
+    // `window.fetch`, `fetch.call` o un alias. Dentro de la puerta ninguna pieza tiene por que NOMBRAR
+    // `fetch` —ni para llamarlo ni para recibirlo como parametro con `typeof fetch`, que es el
+    // puerto que el issue descarta—, asi que aqui se prohibe el nombre entero. Fuera de la puerta
+    // el selector es el de `PROHIBICIONES`, que es el que derivan los consumidores y no se toca aqui.
+    files: [`${PUERTA_DE_IDENTIDAD}**/*.{ts,tsx}`],
+    ignores: [`${PUERTA_DE_IDENTIDAD}identidad.ts`],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...PROHIBICIONES.map(({ clave, selector, message }) => ({
+          selector: clave === 'fetch-fuera-del-cliente' ? FETCH_NOMBRADO_DE_CUALQUIER_FORMA : selector,
+          message,
+        })),
+      ],
+    },
+  },
   {
     // **LA EXHAUSTIVIDAD, TAMBIEN EN EL LINT** (#111).
     //
