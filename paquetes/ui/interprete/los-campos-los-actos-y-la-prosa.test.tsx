@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -423,9 +423,18 @@ describe('`aviso-efimero-tras-un-acto` (H37): `avisar`, con `<Avisos>` montado',
   const acto = definicion.bloques[0] as DefinicionDeActo;
   const sinElDato: Definicion = { instruccion: '', bloques: [{ ...acto, alTerminar: undefined, alFallar: undefined }] };
 
-  afterEach(() => {
+  // Descartar no basta: `sonner` quita el aviso con un `setTimeout` de 200 ms (su
+  // `TIME_BEFORE_UNMOUNT`), y un temporizador que sobrevive a la suite dispara cuando jsdom ya se
+  // desmonto — `ReferenceError: window is not defined` en `sonner/dist/index.mjs:1011`, y
+  // `yarn test` con RC=1 aunque las pruebas pasen. Hasta #127 lo tapaban por azar las 46 pruebas que
+  // venian detras; al partir la suite quedaron 24, y el rojo salio 1 de cada 3 veces. Asi que se
+  // ESPERA a que el aviso se desmonte: cuando no queda ninguno, su temporizador ya disparo.
+  afterEach(async () => {
     act(() => {
       avisar.dismiss();
+    });
+    await waitFor(() => {
+      expect(document.querySelector('[data-sonner-toast]'), 'el aviso no se desmonto').toBeNull();
     });
   });
 

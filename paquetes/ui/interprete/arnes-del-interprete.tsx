@@ -100,8 +100,11 @@ const RUTA_VACIA: RutaDeLaHoja = { sujeto: null, parametros: {} };
 /**
  * Lo que hace el marco con la ruta cuando la pantalla pide moverla: el sujeto, si viene, sustituye
  * al de antes; los parametros se funden, y uno que llega a `null` se quita. Es el marco sin el hash.
+ *
+ * Se exporta solo para su prueba, `arnes-del-interprete.test.ts`: quien lee la ruta trata un `null`
+ * como ausente, asi que dejar de quitarlo no lo ve ninguna suite que monte (medido en #127).
  */
-function rutaTrasElCambio(antes: RutaDeLaHoja, cambio: CambioDeLaRuta): RutaDeLaHoja {
+export function rutaTrasElCambio(antes: RutaDeLaHoja, cambio: CambioDeLaRuta): RutaDeLaHoja {
   return {
     sujeto: cambio.sujeto === undefined ? antes.sujeto : cambio.sujeto,
     parametros: Object.fromEntries(

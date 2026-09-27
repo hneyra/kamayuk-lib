@@ -181,6 +181,12 @@ Los otros tres arneses de #127 viven con lo que prueban —`api/respuestas-de-pr
 nombre porque no tienen pruebas; `sin-suponer-un-sistema` y `el-texto-visible-es-dato` los barren
 como producción **a propósito**, y sus centinelas lo exigen.
 
+**Y no se vuelven a copiar**: `los-arneses-de-prueba-no-se-copian.test.ts` saca del árbol sintáctico
+lo que exporta cada uno de los cuatro, y sale rojo si en `paquetes/` otra declaración lleva ese
+nombre —en una prueba a cualquier profundidad, dentro de un `describe` también; en producción sólo
+la de primer nivel— o si `ResizeObserver` se instala fuera de `arnes-del-dom.ts`, por asignación,
+`vi.stubGlobal` u `Object.defineProperty`. Con su muestra, `muestras/arnes-de-prueba-copiado.ts`.
+
 ## Lo que le falta
 
 Los tokens contra el artboard y el contraste.
