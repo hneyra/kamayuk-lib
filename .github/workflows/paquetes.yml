@@ -60,9 +60,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # La version se lee de `.nvmrc`, y no se escribe en ningun `setup-node` (#116): hasta entonces
+      # se decia en seis sitios que no coincidian. Lo vigila `la-version-de-node-es-una.test.ts`.
       - uses: actions/setup-node@v7
         with:
-          node-version: "24"
+          node-version-file: .nvmrc
           cache: yarn
 
       # `--frozen-lockfile`: si el `yarn.lock` no cuadra con los `package.json`, se para aqui en
@@ -161,11 +163,12 @@ jobs:
 
       # Node hace falta ANTES de clonar al consumidor, porque lo que decide contra que rama clonarlo
       # es un guion de esta libreria. La version no se deja a la que traiga la imagen del corredor:
-      # este repositorio declara `node >=24`. El `setup-node` de mas abajo se queda donde esta,
-      # porque el suyo cachea el `yarn.lock` DEL CONSUMIDOR y ese archivo todavia no existe aqui.
+      # se lee del `.nvmrc` de esta libreria, que en este trabajo esta en `kamayuk-lib/` (#116). El
+      # `setup-node` de mas abajo se queda donde esta, porque el suyo cachea el `yarn.lock` DEL
+      # CONSUMIDOR y ese archivo todavia no existe aqui.
       - uses: actions/setup-node@v7
         with:
-          node-version: "24"
+          node-version-file: kamayuk-lib/.nvmrc
 
       # CONTRA QUE RAMA DEL CONSUMIDOR SE MIDE ESTE PR (#26).
       #
@@ -223,7 +226,7 @@ jobs:
       # tiene que no quedarse atras. Lo vigila `los-consumidores-se-miran.test.ts`.
       - uses: actions/setup-node@v7
         with:
-          node-version: "24"
+          node-version-file: kamayuk-lib/.nvmrc
           check-latest: true
           cache: yarn
           cache-dependency-path: ${{ format('{0}/{1}/yarn.lock', matrix.directorio, matrix.ruta) }}
