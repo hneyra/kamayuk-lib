@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { RAIZ } from './texto.ts';
-import { analizarWorkflow, esMapa, valorEn } from './workflow.ts';
+import { analizarWorkflow, esMapa, ordenDe, pasosDe, trabajoDe, valorEn } from './workflow.ts';
 
 const WORKFLOW = '.github/workflows/paquetes.yml';
 const DIRECTORIO_DE_WORKFLOWS = '.github/workflows';
@@ -85,6 +85,16 @@ export function lasRutasQueLeenLasGuardas(): string[] {
 /** Los dos eventos con los que `verificar` tiene que correr: el PR y lo que llega a `main`. */
 const EVENTOS_QUE_VERIFICAN = ['push', 'pull_request'] as const;
 
+/** La rama a la que llega lo que se mezcla, y contra la que se abren los PR de este repositorio. */
+const RAMA_QUE_RECIBE = 'main';
+
+/**
+ * Los tipos de `pull_request` con los que GitHub corre si no se escribe `types:` —abrir, empujar y
+ * reabrir—, y por eso los que un `types:` escrito tiene que traer: sin `synchronize`, un empujon al
+ * PR no verifica nada; con `types: [closed]`, `verificar` solo corre al cerrarlo.
+ */
+const TIPOS_QUE_VERIFICAN = ['opened', 'synchronize', 'reopened'] as const;
+
 /**
  * Un patron de filtro de GitHub como expresion regular, o `null` si trae algo que esta lectura no
  * sabe traducir.
@@ -130,14 +140,87 @@ function casa(patrones: readonly string[], archivo: string): boolean | { readonl
 }
 
 /**
+ * Lo que los filtros de `on.<evento>` que NO son de rutas dejan fuera: `types` en `pull_request`,
+ * `branches`/`branches-ignore` contra `main`, y un `push` que solo filtra `tags` —GitHub no lo
+ * dispara entonces con ningun push a una rama—.
+ */
+function loQueSusFiltrosDejanFuera(evento: string, filtros: unknown): string[] {
+  const renglones: string[] = [];
+  if (evento === 'pull_request') {
+    const tipos = valorEn(filtros, 'types');
+    if (tipos !== undefined && !Array.isArray(tipos)) {
+      renglones.push(`«${evento}.types» no es una lista: no se sabe que deja pasar`);
+    } else if (Array.isArray(tipos)) {
+      const escritos = tipos.map(String);
+      for (const tipo of TIPOS_QUE_VERIFICAN.filter((t) => !escritos.includes(t))) {
+        renglones.push(`«${evento}.types» no trae «${tipo}»: \`verificar\` no corre en ese momento del PR`);
+      }
+    }
+  }
+  for (const clave of ['branches', 'branches-ignore'] as const) {
+    const patrones = valorEn(filtros, clave);
+    if (patrones === undefined) continue;
+    if (!Array.isArray(patrones)) {
+      renglones.push(`«${evento}.${clave}» no es una lista: no se sabe que deja pasar`);
+      continue;
+    }
+    const decision = casa(patrones.map(String), RAMA_QUE_RECIBE);
+    if (typeof decision === 'object') {
+      renglones.push(`«${evento}.${clave}» trae «${decision.ilegible}», que esta guarda no sabe leer`);
+    } else if (decision !== (clave === 'branches')) {
+      renglones.push(`«${evento}.${clave}» deja fuera «${RAMA_QUE_RECIBE}»: \`verificar\` no corre con ese evento`);
+    }
+  }
+  const filtraRamas = valorEn(filtros, 'branches') !== undefined || valorEn(filtros, 'branches-ignore') !== undefined;
+  const filtraEtiquetas = valorEn(filtros, 'tags') !== undefined || valorEn(filtros, 'tags-ignore') !== undefined;
+  if (evento === 'push' && filtraEtiquetas && !filtraRamas) {
+    renglones.push(`«${evento}» solo filtra etiquetas: un push a «${RAMA_QUE_RECIBE}» no lo dispara`);
+  }
+  return renglones;
+}
+
+/** Si un `continue-on-error` deja pasar un rojo: cualquier cosa que no sea `false`, una expresion incluida. */
+const noParaElRojo = (valor: unknown) => valor !== undefined && valor !== false;
+
+/**
+ * Lo que, dentro del trabajo `verificar`, deja un PR en verde sin haber verificado: un `if:` o un
+ * `continue-on-error` en el trabajo o en cualquiera de sus pasos, o que ningun paso corra
+ * `yarn verificar`. Un `if:` en el paso de `yarn verificar` es el mismo salto que uno en el trabajo,
+ * un nivel mas abajo, y la primera version de esta guarda solo miraba el del trabajo (vuelta 1 de
+ * #116).
+ */
+function loQueElTrabajoSeSalta(analizado: Readonly<Record<string, unknown>>): string[] {
+  const renglones: string[] = [];
+  const trabajo = trabajoDe(analizado, 'verificar');
+  if (valorEn(trabajo, 'if') !== undefined) {
+    renglones.push('el trabajo `verificar` lleva un `if:`: puede saltarse lo que sus guardas leen');
+  }
+  if (noParaElRojo(valorEn(trabajo, 'continue-on-error'))) {
+    renglones.push('el trabajo `verificar` lleva `continue-on-error`: su rojo no para el PR');
+  }
+  const pasos = pasosDe(trabajo);
+  pasos.forEach((paso, indice) => {
+    const nombre = typeof paso['name'] === 'string' ? ` («${paso['name']}»)` : '';
+    const cual = `el paso ${indice + 1}${nombre} del trabajo \`verificar\``;
+    if (paso['if'] !== undefined) renglones.push(`${cual} lleva un \`if:\`: puede saltarse lo que sus guardas leen`);
+    if (noParaElRojo(paso['continue-on-error'])) renglones.push(`${cual} lleva \`continue-on-error\`: su rojo no para el PR`);
+  });
+  const corre = pasos.some((paso) => ordenDe(paso).split('\n').some((linea) => linea.trim() === 'yarn verificar'));
+  if (!corre) renglones.push('ningun paso del trabajo `verificar` corre `yarn verificar`');
+  return renglones;
+}
+
+/**
  * **Lo que un cambio podria tocar sin que `verificar` corra** (#116), como renglones que dicen el
  * evento y el archivo. Vacio es verde.
  *
  * Mira `on.push` y `on.pull_request` del workflow ANALIZADO: que esten —un `on` escrito como cadena
  * o como lista los declara sin filtro—, que su `paths:` deje pasar cada archivo y que su
  * `paths-ignore:` no ignore ninguno. Sin `paths:` ni `paths-ignore:` todo pasa, que es lo que hay
- * desde #116. Y el trabajo `verificar` no puede llevar un `if:`: una condicion de trabajo saltaria
- * lo mismo que un filtro de `paths:`.
+ * desde #116. Los demas filtros del evento tampoco pueden dejar fuera un PR ni `main`
+ * (`loQueSusFiltrosDejanFuera`), y el trabajo `verificar` no puede saltarse ni tragarse su rojo
+ * (`loQueElTrabajoSeSalta`): una condicion de trabajo o de paso saltaria lo mismo que un filtro de
+ * `paths:`.
  */
 export function loQueNoDisparaLaCi(workflow: string, archivos: readonly string[]): string[] {
   const analizado = analizarWorkflow(workflow, WORKFLOW);
@@ -152,6 +235,7 @@ export function loQueNoDisparaLaCi(workflow: string, archivos: readonly string[]
       renglones.push(`«${evento}» no esta en \`on:\`: \`verificar\` no corre con ese evento`);
       continue;
     }
+    renglones.push(...loQueSusFiltrosDejanFuera(evento, declarados[evento]));
     for (const clave of ['paths', 'paths-ignore'] as const) {
       const patrones = valorEn(declarados[evento], clave);
       if (patrones === undefined) continue;
@@ -171,8 +255,6 @@ export function loQueNoDisparaLaCi(workflow: string, archivos: readonly string[]
       }
     }
   }
-  if (valorEn(analizado, 'jobs', 'verificar', 'if') !== undefined) {
-    renglones.push('el trabajo `verificar` lleva un `if:`: puede saltarse lo que sus guardas leen');
-  }
+  renglones.push(...loQueElTrabajoSeSalta(analizado));
   return renglones;
 }

@@ -21,7 +21,8 @@ name: Paquetes
 # bajara `registro.yml` a `setup-node@v4` no corria ni lint ni pruebas: `main` se ponia rojo y lo
 # pagaba el PR siguiente. `verificar` corre siempre, y lo vigila `la-ci-no-se-salta-lo-que-lee.test.ts`
 # con el workflow analizado: un `paths:` o un `paths-ignore:` que deje fuera lo que una guarda lee,
-# o un `if:` en `verificar`, sale rojo.
+# un `types:` o un filtro de ramas que deje fuera un PR o `main`, o un `if:` o un
+# `continue-on-error` en `verificar` o en uno de sus pasos, sale rojo.
 on:
   push:
     branches: [main]

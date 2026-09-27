@@ -128,8 +128,10 @@ navegador, y por eso `sin-suponer-un-sistema` no lo barre.
 - **La CI no se salta lo que sus guardas leen** (#116): `paquetes.yml` no filtra por `paths:`, y
   `la-ci-no-se-salta-lo-que-lee` lo vigila con `loQueNoDisparaLaCi` (`rutas-de-la-ci.ts`) sobre el
   YAML analizado: `push` y `pull_request` están, su `paths:` deja pasar y su `paths-ignore:` no
-  ignora cada archivo de `LO_QUE_LAS_GUARDAS_LEEN` ni cada workflow del directorio, y `verificar` no
-  lleva `if:`. Un patrón que no sabe traducir —`?`, `+`, `[...]`— sale en rojo diciéndolo. La
+  ignora cada archivo de `LO_QUE_LAS_GUARDAS_LEEN` ni cada workflow del directorio; el `types:` de
+  `pull_request`, si se escribe, trae `opened`, `synchronize` y `reopened`, y ningún filtro de ramas
+  deja fuera `main`; y `verificar` corre `yarn verificar` sin `if:` ni `continue-on-error`, ni en
+  el trabajo ni en ninguno de sus pasos. Un patrón que no sabe traducir —`?`, `+`, `[...]`— sale en rojo diciéndolo. La
   usan también `las-cifras-las-escribe-un-guion` y `el-registro-se-mezcla-solo`.
 - **La versión de Node se declara en un sitio** (#116): `.nvmrc`. `la-version-de-node-es-una`, con
   `version-de-node.ts`, exige que `engines.node`, la mayor de `@types/node` y cada `setup-node` de
