@@ -30,7 +30,7 @@ muestra que la viola.
 | [`@kamayuk/sesion`](paquetes/sesion) | OIDC con PKCE S256, la sonda del emisor, la consola de la cuenta, quién entró según el `id_token` y la escalera de peldaños | **Existe.** <!-- cifras:sesion -->**175 pruebas** en 6 archivos<!-- /cifras --> |
 | [`@kamayuk/ui`](paquetes/ui) | los 42 tokens, cuatro identidades por dos modos, las piezas de shadcn y el intérprete de pantallas | **Existe.** <!-- cifras:ui -->**794 pruebas** en 27 archivos, más las **3** de capa<!-- /cifras --> |
 | [`@kamayuk/shell`](paquetes/shell) | barra, árbol de módulos, paleta de mando, enrutado por hash, miga, acciones y el aviso de cambios sin guardar | **Existe.** <!-- cifras:shell -->**152 pruebas** en 14 archivos<!-- /cifras --> |
-| [`@kamayuk/verificaciones`](paquetes/verificaciones) | las barreras, sus muestras y el **arnés del `Request`** que los cinco necesitan para correr con Node 24 | **Existe.** <!-- cifras:verificaciones -->**361 pruebas** en 23 archivos<!-- /cifras --> |
+| [`@kamayuk/verificaciones`](paquetes/verificaciones) | las barreras, sus muestras y el **arnés del `Request`** que los cinco necesitan para correr con Node 24 | **Existe.** <!-- cifras:verificaciones -->**362 pruebas** en 23 archivos<!-- /cifras --> |
 
 ## Cómo se consume
 

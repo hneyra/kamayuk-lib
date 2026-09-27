@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement } from 'react';
 
 import { Alerta } from '../shadcn/alerta.tsx';
 import type { TextosDeLaPantalla } from '../textos.tsx';
@@ -31,8 +31,13 @@ import type { DefinicionDeTabla, Texto } from './tipos.ts';
  *
  * Hasta #120 eran cinco condicionales seguidos, cada uno con su propia condicion, y nada impedia que
  * dos se cumplieran a la vez. Ahora esta pieza recibe la respuesta de `queDiceSinFilas` y dibuja esa:
- * un `switch` con un `case` por respuesta y el retorno anotado, asi que una sexta que no tenga el
- * suyo no compila.
+ * un `switch` con un `case` por respuesta y el retorno anotado **`ReactElement | null`**, asi que una
+ * sexta que no tenga el suyo no compila —TS2366, con el `tsconfig` de cada consumidor—.
+ *
+ * **Y la anotacion no puede ser `ReactNode`**, medido en la revision de #120: `ReactNode` admite
+ * `undefined`, el `switch` que se queda corto cae por el final devolviendolo, y `tsc` salia en RC=0
+ * con una sexta respuesta sin su `case`; solo el lint de aqui lo decia, y el consumidor no lo corre.
+ * Lo vigila `la-exhaustividad-viaja.test.ts`.
  */
 export function SinFilasDeLaTabla({
   dice,
@@ -52,7 +57,7 @@ export function SinFilasDeLaTabla({
   readonly textos: TextosDeLaPantalla;
   readonly nombrados: Nombrados | undefined;
   readonly interaccion: InteraccionDeLaPantalla;
-}): ReactNode {
+}): ReactElement | null {
   const { conSalida, vacio } = elVacioQueDice(tabla);
   switch (dice) {
     case 'ausencia':

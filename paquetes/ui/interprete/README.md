@@ -67,7 +67,9 @@ fuera del índice; «qué es un bloque», sólo en `esBloque` (#110).
 **Qué dice una tabla sin filas lo contesta UNA función** (#120): `queDiceSinFilas` →
 `'ausencia' | 'vacioConSalida' | 'vacio' | 'sinCoincidencias' | 'sinMotivo' | null`, pura, y
 `SinFilasDeLaTabla` dibuja esa respuesta y sólo esa —eran cinco condicionales sueltos y nada
-impedía que salieran dos; medido antes de cambiarlo, ninguna combinación pintaba dos—. Qué filas se
+impedía que salieran dos; medido antes de cambiarlo, ninguna combinación pintaba dos—, con el retorno
+anotado `ReactElement | null`: una sexta respuesta sin su `case` no compila en el consumidor
+(`ReactNode` admite `undefined`, y con él compilaba). Qué filas se
 ven con el filtro y la página, `lasFilasQueSeVen`, también pura.
 
 **La tabla, el acto y la pantalla, en piezas** (#120). `TablaDelBloque` lee y compone; las filas y
