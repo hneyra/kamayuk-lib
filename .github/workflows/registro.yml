@@ -41,9 +41,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      # La version se lee de `.nvmrc` y no se escribe aqui (#116): lo vigila
+      # `la-version-de-node-es-una.test.ts`.
       - uses: actions/setup-node@v7
         with:
-          node-version: "24"
+          node-version-file: .nvmrc
 
       - name: La autoprueba de la guarda, antes de usarla
         run: node docs/00-gobierno/verificar-las-muestras-del-registro.mjs

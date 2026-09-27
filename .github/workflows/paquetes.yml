@@ -11,41 +11,22 @@
 
 name: Paquetes
 
-# `CLAUDE.md` y `README.md` estan aqui desde #128, y no por ser documentacion: `yarn verificar`
-# corre `yarn cifras --comprobar`, que LEE esos dos archivos y sale en rojo si una cifra de pruebas
-# escrita no es la medida. Sin ellos en la lista, un PR que solo tocara una cifra a mano no dispararia
-# la comprobacion que existe para cazarlo. Lo vigila `las-cifras-las-escribe-un-guion.test.ts`,
-# que lee la lista de archivos de `cifras.mjs` y no una copia.
+# SIN `paths:`, A PROPOSITO (#116).
 #
-# Y `.gitattributes`, por lo mismo: `el-registro-se-mezcla-solo.test.ts` monta la mezcla del
-# registro con ESE archivo y exige que salga limpia. Un PR que solo borrara la linea de
-# `merge=union` no dispararia, sin esto, la prueba que existe para pararlo. Y `**/.gitattributes`
-# tambien: uno ANIDADO —`docs/agent/.gitattributes` con `HISTORY.md -merge`— anula el de la raiz
-# sin tocarlo, y `docs/**` no esta en la lista (medido en la segunda revision de #128).
+# Hasta #116 `push` y `pull_request` llevaban una lista `paths:` escrita dos veces, y cada guarda
+# nueva que leia un archivo de fuera obligaba a acordarse de anadirlo: #128 anadio `CLAUDE.md`,
+# `README.md` y los `.gitattributes`, y aun asi faltaban `registro.yml` —que barre
+# `las-acciones-corren-en-node-24`—, `yarn.lock` —que alimenta `--frozen-lockfile`—,
+# `docs/agent/HISTORY.md` y cada `.md` que barre `las-cifras-las-escribe-un-guion`. Un PR que solo
+# bajara `registro.yml` a `setup-node@v4` no corria ni lint ni pruebas: `main` se ponia rojo y lo
+# pagaba el PR siguiente. `verificar` corre siempre, y lo vigila `la-ci-no-se-salta-lo-que-lee.test.ts`
+# con el workflow analizado: un `paths:` o un `paths-ignore:` que deje fuera lo que una guarda lee,
+# un `types:` o un filtro de ramas que deje fuera un PR o `main`, o un `if:` o un
+# `continue-on-error` en `verificar` o en uno de sus pasos, sale rojo.
 on:
   push:
     branches: [main]
-    paths:
-      - "paquetes/**"
-      - "*.json"
-      - "*.ts"
-      - "eslint.config.js"
-      - ".github/workflows/paquetes.yml"
-      - "CLAUDE.md"
-      - "README.md"
-      - ".gitattributes"
-      - "**/.gitattributes"
   pull_request:
-    paths:
-      - "paquetes/**"
-      - "*.json"
-      - "*.ts"
-      - "eslint.config.js"
-      - ".github/workflows/paquetes.yml"
-      - "CLAUDE.md"
-      - "README.md"
-      - ".gitattributes"
-      - "**/.gitattributes"
 
 permissions:
   contents: read
@@ -60,9 +41,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # La version se lee de `.nvmrc`, y no se escribe en ningun `setup-node` (#116): hasta entonces
+      # se decia en seis sitios que no coincidian. Lo vigila `la-version-de-node-es-una.test.ts`.
       - uses: actions/setup-node@v7
         with:
-          node-version: "24"
+          node-version-file: .nvmrc
           cache: yarn
 
       # `--frozen-lockfile`: si el `yarn.lock` no cuadra con los `package.json`, se para aqui en
@@ -161,11 +144,12 @@ jobs:
 
       # Node hace falta ANTES de clonar al consumidor, porque lo que decide contra que rama clonarlo
       # es un guion de esta libreria. La version no se deja a la que traiga la imagen del corredor:
-      # este repositorio declara `node >=24`. El `setup-node` de mas abajo se queda donde esta,
-      # porque el suyo cachea el `yarn.lock` DEL CONSUMIDOR y ese archivo todavia no existe aqui.
+      # se lee del `.nvmrc` de esta libreria, que en este trabajo esta en `kamayuk-lib/` (#116). El
+      # `setup-node` de mas abajo se queda donde esta, porque el suyo cachea el `yarn.lock` DEL
+      # CONSUMIDOR y ese archivo todavia no existe aqui.
       - uses: actions/setup-node@v7
         with:
-          node-version: "24"
+          node-version-file: kamayuk-lib/.nvmrc
 
       # CONTRA QUE RAMA DEL CONSUMIDOR SE MIDE ESTE PR (#26).
       #
@@ -223,7 +207,7 @@ jobs:
       # tiene que no quedarse atras. Lo vigila `los-consumidores-se-miran.test.ts`.
       - uses: actions/setup-node@v7
         with:
-          node-version: "24"
+          node-version-file: kamayuk-lib/.nvmrc
           check-latest: true
           cache: yarn
           cache-dependency-path: ${{ format('{0}/{1}/yarn.lock', matrix.directorio, matrix.ruta) }}

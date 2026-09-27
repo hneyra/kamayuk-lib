@@ -9,7 +9,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { leerElWorkflow, listasDeRutas } from './rutas-de-la-ci.ts';
+import { leerElWorkflow, loQueNoDisparaLaCi } from './rutas-de-la-ci.ts';
 import { RAIZ } from './texto.ts';
 
 /**
@@ -203,14 +203,11 @@ describe('el registro se mezcla solo', () => {
 
   it('y la CI se dispara cuando cambia CUALQUIER `.gitattributes`, en `push` y en `pull_request`', () => {
     // Sin esto, un PR que sólo borrara la línea del atributo no correría la prueba que lo vigila. Y
-    // el de la raíz no basta: uno anidado lo anula, y `docs/**` no está en los `paths`.
-    const listas = listasDeRutas(leerElWorkflow());
-    expect(listas, 'el workflow dejó de tener sus dos listas de `paths`').toHaveLength(2);
-    for (const lista of listas) {
-      expect(lista, '«.gitattributes» no dispara la CI').toContain('.gitattributes');
-      expect(lista, '«**/.gitattributes» no dispara la CI: uno anidado anula el de la raíz').toContain(
-        '**/.gitattributes',
-      );
-    }
+    // el de la raíz no basta: uno anidado lo anula. Desde #116 el workflow no filtra por `paths:`, y
+    // lo que se pregunta es si un cambio que sólo toque uno de ellos dispara `verificar`.
+    expect(
+      loQueNoDisparaLaCi(leerElWorkflow(), ['.gitattributes', 'docs/agent/.gitattributes', REGISTRO]),
+      'un `.gitattributes` o el registro no disparan la CI',
+    ).toEqual([]);
   });
 });
