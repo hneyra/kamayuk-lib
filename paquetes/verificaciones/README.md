@@ -184,8 +184,10 @@ como producción **a propósito**, y sus centinelas lo exigen.
 **Y no se vuelven a copiar**: `los-arneses-de-prueba-no-se-copian.test.ts` saca del árbol sintáctico
 lo que exporta cada uno de los cuatro, y sale rojo si en `paquetes/` otra declaración lleva ese
 nombre —en una prueba a cualquier profundidad, dentro de un `describe` también; en producción sólo
-la de primer nivel— o si `ResizeObserver` se instala fuera de `arnes-del-dom.ts`, por asignación,
-`vi.stubGlobal` u `Object.defineProperty`. Con su muestra, `muestras/arnes-de-prueba-copiado.ts`.
+la de primer nivel— o si `ResizeObserver` se instala fuera de `arnes-del-dom.ts`: por asignación
+—`=`, `??=`, `||=` o `&&=`—, por `vi.stubGlobal`, `Object.defineProperty` o `Reflect.set`, o como
+clave de un literal de objeto, que es lo que recibe `Object.assign` u `Object.defineProperties`.
+Con su muestra, `muestras/arnes-de-prueba-copiado.ts`, que las lleva las once.
 
 ## Lo que le falta
 

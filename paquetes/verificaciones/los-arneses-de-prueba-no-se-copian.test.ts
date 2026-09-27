@@ -28,9 +28,14 @@ import { PAQUETES, PRUEBAS, RAIZ, archivosDe, leer, rutaDesde } from './texto.ts
  *     interfaz puede llevar uno de esos nombres, **a ninguna profundidad**: una copia dentro de un
  *     `describe` es la misma copia.
  *   - **La instalacion de `ResizeObserver`** fuera de `arnes-del-dom.ts`, de cualquiera de las
- *     formas: `x.ResizeObserver = …`, `x['ResizeObserver'] = …`, `vi.stubGlobal('ResizeObserver', …)`
- *     y `Object.defineProperty(x, 'ResizeObserver', …)`. Es el remiendo que SOLO tenian las ocho
- *     copias, y el que AC5 rompe.
+ *     formas: `x.ResizeObserver = …` o `x['ResizeObserver'] = …`, con `=` o con la asignacion
+ *     logica —`??=`, la del «instalalo si falta», `||=` y `&&=`—; `vi.stubGlobal('ResizeObserver', …)`,
+ *     `Object.defineProperty(x, 'ResizeObserver', …)` y `Reflect.set(x, 'ResizeObserver', …)`; y
+ *     **una clave `ResizeObserver` en un literal de objeto**, que es lo que se le pasa a
+ *     `Object.assign` o a `Object.defineProperties`, directo o por una variable. Es el remiendo que
+ *     SOLO tenian las ocho copias, y el que AC5 rompe. Hasta la segunda vuelta de #127 solo veia el
+ *     `=` y las dos llamadas: `??=` y `Object.assign(globalThis, { ResizeObserver: … })` pegados en
+ *     `armazon.test.tsx` salian en verde (medido por la verificacion independiente).
  *
  * <h2>Lo que no mira, dicho</h2>
  *
@@ -136,20 +141,41 @@ const esElNombre = (nodo: ts.Node): boolean =>
     ts.isStringLiteralLike(nodo.argumentExpression) &&
     nodo.argumentExpression.text === OBSERVADOR);
 
-/** Donde un archivo instala `ResizeObserver`, de cualquiera de las cuatro formas. */
+/** `=` y las tres asignaciones logicas: `x.ResizeObserver ??= …` instala tanto como `=`. */
+const ASIGNACIONES: ReadonlySet<ts.SyntaxKind> = new Set([
+  ts.SyntaxKind.EqualsToken,
+  ts.SyntaxKind.QuestionQuestionEqualsToken,
+  ts.SyntaxKind.BarBarEqualsToken,
+  ts.SyntaxKind.AmpersandAmpersandEqualsToken,
+]);
+
+/** `{ ResizeObserver: … }`, `{ ResizeObserver }`, `{ ResizeObserver() {} }` o `{ ['ResizeObserver']: … }`. */
+const esLaClave = (nodo: ts.Node): boolean => {
+  if (!ts.isObjectLiteralElementLike(nodo) || !ts.isObjectLiteralExpression(nodo.parent)) return false;
+  const nombre = nodo.name;
+  if (nombre === undefined) return false;
+  if (ts.isIdentifier(nombre) || ts.isStringLiteralLike(nombre)) return nombre.text === OBSERVADOR;
+  return (
+    ts.isComputedPropertyName(nombre) &&
+    ts.isStringLiteralLike(nombre.expression) &&
+    nombre.expression.text === OBSERVADOR
+  );
+};
+
+/** Donde un archivo instala `ResizeObserver`, de cualquiera de las formas del docblock. */
 export function instalacionesDelObservador(texto: string, archivo: string): Sitio[] {
   const fuente = arbolDe(texto, archivo);
   const sitios: Sitio[] = [];
   const visitar = (nodo: ts.Node): void => {
     const asignacion =
-      ts.isBinaryExpression(nodo) &&
-      nodo.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
-      esElNombre(nodo.left);
+      ts.isBinaryExpression(nodo) && ASIGNACIONES.has(nodo.operatorToken.kind) && esElNombre(nodo.left);
     const llamada =
       ts.isCallExpression(nodo) &&
-      /(?:stubGlobal|defineProperty)$/.test(nodo.expression.getText(fuente)) &&
+      /(?:stubGlobal|defineProperty|Reflect\.set)$/.test(nodo.expression.getText(fuente)) &&
       nodo.arguments.some((a) => ts.isStringLiteralLike(a) && a.text === OBSERVADOR);
-    if (asignacion || llamada) sitios.push({ nombre: OBSERVADOR, linea: lineaDe(fuente, nodo) });
+    if (asignacion || llamada || esLaClave(nodo)) {
+      sitios.push({ nombre: OBSERVADOR, linea: lineaDe(fuente, nodo) });
+    }
     ts.forEachChild(nodo, visitar);
   };
   visitar(fuente);
@@ -232,9 +258,11 @@ describe('los arneses de prueba se importan, no se copian (#127)', () => {
     // Leida como produccion, lo que va dentro del `describe` es local y no cuenta: la regla de la
     // profundidad, que es la que deja pasar el `const problema` de `api/subir.ts`.
     expect(copiados('api/descargar.ts')).toEqual([]);
-    // Las cuatro formas de instalarlo, y ni una mas: la muestra lo nombra tambien en un comentario
-    // y en una cadena que no instalan nada.
-    expect(instalacionesDelObservador(texto, ruta)).toHaveLength(4);
+    // Las once formas de instalarlo, cada una en su linea, y ni una mas: la muestra lo nombra
+    // tambien en un comentario y en una cadena que no instalan nada.
+    const formas = instalacionesDelObservador(texto, ruta);
+    expect(formas).toHaveLength(11);
+    expect(new Set(formas.map(({ linea }) => linea)).size).toBe(11);
     // Y el barrido de verdad no la recoge: `muestras/` esta apartado.
     expect(ARCHIVOS.some((a) => a.ruta.includes('/muestras/'))).toBe(false);
     expect(rutaDesde(RAIZ, join(PAQUETES, ruta))).toBe(`paquetes/${ruta}`);
@@ -247,6 +275,9 @@ describe('los arneses de prueba se importan, no se copian (#127)', () => {
       'const respuesta = { problema: 1 };',
       'if (globalThis.ResizeObserver === undefined) {}',
       "const nombre = 'ResizeObserver';",
+      // Leerlo, desestructurado o comparado, tampoco lo instala: un patron no es un literal.
+      'const { ResizeObserver } = globalThis;',
+      'const hay = globalThis.ResizeObserver ?? null;',
     ].join('\n');
     expect(declaracionesDe(uso, 'uso.ts').filter(({ nombre }) => DUENNO.has(nombre))).toEqual([]);
     expect(instalacionesDelObservador(uso, 'uso.ts')).toEqual([]);

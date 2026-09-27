@@ -3,7 +3,7 @@
  *
  * Es lo que habia hasta #127 en `descargar.test.ts` y en siete suites del interprete: `problema` y
  * `SIN_FRASE` escritos otra vez en vez de importados, y el remiendo de `ResizeObserver` pegado de
- * las cuatro formas que la guarda reconoce. Si alguien "arregla" este archivo, la guarda se queda
+ * las once formas que la guarda reconoce —las siete ultimas, desde la segunda vuelta de #127—. Si alguien "arregla" este archivo, la guarda se queda
  * sin demostracion y sale roja sola.
  *
  * Lleva a proposito un comentario y una cadena que NOMBRAN la copia sin hacerla:
@@ -31,6 +31,13 @@ describe('una suite que se copio el arnes', () => {
     (window as unknown as Record<string, unknown>)['ResizeObserver'] = Observador;
     vi.stubGlobal('ResizeObserver', Observador);
     Object.defineProperty(globalThis, 'ResizeObserver', { value: Observador });
+    globalThis.ResizeObserver ??= Observador as unknown as typeof ResizeObserver;
+    globalThis.ResizeObserver ||= Observador as unknown as typeof ResizeObserver;
+    globalThis.ResizeObserver &&= Observador as unknown as typeof ResizeObserver;
+    Object.assign(globalThis, { ResizeObserver: Observador });
+    Object.assign(window, { ['ResizeObserver']: Observador });
+    Object.defineProperties(globalThis, { ResizeObserver: { value: Observador } });
+    Reflect.set(globalThis, 'ResizeObserver', Observador);
     // globalThis.ResizeObserver = Observador;  <- comentario: no cuenta
     const nombre = 'globalThis.ResizeObserver = Observador;';
     return nombre;
