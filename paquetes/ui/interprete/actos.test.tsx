@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import { TEXTOS_DE_LAS_PIEZAS, TEXTOS_DEL_INTERPRETE } from '../textos.tsx';
 import { claseDe, motivoDelActo, peticionDe, valoresQueViajan } from './acciones.ts';
@@ -79,6 +79,24 @@ function diferida() {
     rechazar = no;
   });
   return { promesa, resolver, rechazar };
+}
+
+/**
+ * Las excepciones que escapan de un manejador de React y acaban en `window` como `error` (#117):
+ * la que nadie captura. Se recogen —y se callan, para que no ensucien la salida— hasta que acaba la
+ * prueba, y la prueba afirma que no hubo ninguna.
+ */
+function recogerLasExcepcionesSueltas(): readonly unknown[] {
+  const sueltas: unknown[] = [];
+  const oir = (evento: ErrorEvent) => {
+    sueltas.push(evento.error);
+    evento.preventDefault();
+  };
+  window.addEventListener('error', oir);
+  onTestFinished(() => {
+    window.removeEventListener('error', oir);
+  });
+  return sueltas;
 }
 
 const abrirElActo = () => {
@@ -218,6 +236,45 @@ describe('`acciones-del-bloque`', () => {
     expect(releer).toHaveBeenCalledTimes(2);
   });
 
+  it('una doble pulsacion que llega ANTES de pintar tampoco vuelve a llamar: la corta la referencia (#117)', async () => {
+    // Con `fireEvent.click` dos veces React pinta entre las dos, y la segunda ya encuentra el boton
+    // impedido por el ESTADO: esa prueba seguia verde sin la referencia de `useEnVuelo`. Dentro de
+    // un solo `act` no hay pintada en medio, y lo unico que puede cortar la segunda es la referencia.
+    const pendiente = diferida();
+    const releer = vi.fn(() => pendiente.promesa);
+    monta(definicion, {}, { alHacer: { releer } });
+    const boton = screen.getByRole('button', { name: 'Volver a leer' });
+
+    act(() => {
+      boton.click();
+      boton.click();
+    });
+    expect(releer, 'dos pulsaciones antes de pintar, dos llamadas').toHaveBeenCalledTimes(1);
+    await act(async () => {
+      pendiente.resolver();
+      await pendiente.promesa;
+    });
+  });
+
+  it('`hace` que LANZA en sincrono: la excepcion no se escapa y el boton queda libre (#117)', () => {
+    // Lo coherente con el acto: soltar el boton y no dejar la excepcion suelta. Decir «fallo» es del
+    // sistema, en `lecturas`, y no de la pieza: aqui no se dibuja ningun aviso.
+    const sueltas = recogerLasExcepcionesSueltas();
+    const releer = vi.fn((): void => {
+      throw new Error('la operacion revento antes de devolver nada');
+    });
+    monta(definicion, {}, { alHacer: { releer } });
+    const boton = screen.getByRole('button', { name: 'Volver a leer' });
+
+    fireEvent.click(boton);
+    expect(sueltas, 'la excepcion de `hace` salio del manejador de clic sin que nadie la capturara').toEqual([]);
+    expect(boton.getAttribute('aria-busy'), 'el boton se quedo en curso').toBeNull();
+    expect(boton.getAttribute('aria-disabled'), 'el boton se quedo impedido').toBeNull();
+    fireEvent.click(boton);
+    expect(releer, 'el boton no quedo libre para otra pulsacion').toHaveBeenCalledTimes(2);
+    expect(sueltas).toEqual([]);
+  });
+
   it('TECLADO: Tab llega a la accion y Enter la hace', async () => {
     const teclado = userEvent.setup({ delay: null });
     const releer = vi.fn();
@@ -332,6 +389,28 @@ describe('`acto-con-observacion`', () => {
     expect(alQuedarGuardada).toHaveBeenCalledTimes(1);
   });
 
+  it('una doble pulsacion del primario que llega ANTES de pintar envia UNA vez: la corta la referencia (#117)', async () => {
+    // Lo mismo que en el pie: con `fireEvent.click` dos veces la segunda ya ve el primario impedido
+    // por el estado; dentro de un solo `act` solo la referencia de `useEnVuelo` la corta.
+    const pendiente = diferida();
+    const abrir = vi.fn(() => pendiente.promesa);
+    monta(HOJA_CON_ACTO(), {}, { actos: { abrir } });
+    abrirElActo();
+    escribir('Codigo', 'G-01');
+    escribir('Observacion', 'Lo pide la resolucion 12.');
+    const boton = primario();
+
+    act(() => {
+      boton.click();
+      boton.click();
+    });
+    expect(abrir, 'una doble pulsacion antes de pintar envio dos veces').toHaveBeenCalledTimes(1);
+    await act(async () => {
+      pendiente.resolver();
+      await pendiente.promesa;
+    });
+  });
+
   it('rechazado, lo escrito SE QUEDA y el fallo es el que el sistema puso en `lecturas` con la clave del acto', async () => {
     const fallo: EstadoDeUnaLectura = {
       estado: 'fallo',
@@ -364,6 +443,25 @@ describe('`acto-con-observacion`', () => {
     expect(container.querySelector('[data-rechazo-sin-fallo]')).toBeNull();
     expect((screen.getByLabelText('Codigo') as HTMLInputElement).value).toBe('G-01');
     expect(primario().getAttribute('aria-disabled'), 'tras el rechazo no se puede volver a enviar').toBeNull();
+  });
+
+  it('un manejador que LANZA en sincrono: el acto lo captura, dice «rechazado» y el primario queda libre (#117)', () => {
+    // La conducta que `GrupoDeAcciones` no tenia y ahora comparte por `useEnVuelo`.
+    const sueltas = recogerLasExcepcionesSueltas();
+    const abrir = vi.fn((): void => {
+      throw new Error('el manejador revento antes de devolver nada');
+    });
+    const { container } = monta(HOJA_CON_ACTO(), {}, { actos: { abrir } });
+    abrirElActo();
+    escribir('Codigo', 'G-01');
+    escribir('Observacion', 'Un grupo nuevo.');
+    fireEvent.click(primario());
+
+    expect(sueltas, 'la excepcion del manejador salio sin que nadie la capturara').toEqual([]);
+    expect(container.querySelector('[data-rechazo-sin-fallo="abrir"]')?.textContent).toBe(T.rechazoSinFallo('abrir'));
+    expect(primario().getAttribute('aria-busy'), 'el primario se quedo en curso').toBeNull();
+    fireEvent.click(primario());
+    expect(abrir, 'el primario no quedo libre para otro envio').toHaveBeenCalledTimes(2);
   });
 
   it('un acto que nadie atiende no se abre, y si llega abierto su primario lo dice', () => {

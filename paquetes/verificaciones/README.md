@@ -95,6 +95,12 @@ navegador, y por eso `sin-suponer-un-sistema` no lo barre.
   registro tiene que cazar. Además le pregunta a git por el árbol **entero** —con los
   `.gitattributes` anidados, que anulan el de la raíz sin tocarlo— que el registro siga en `union`,
   y exige que la CI se dispare con cualquier `.gitattributes`.
+- **Las listas escritas a mano se comparan con lo que mandan** (#113): `SISTEMAS` —de donde sale
+  `prefijo-de-un-sistema`— con `consumidores.json` en los dos sentidos —cada consumidor está, y lo
+  que está sin consumir, `identidad`, va en `SISTEMAS_QUE_NO_CONSUMEN` con su motivo—; y las clases
+  de `el-texto-visible-es-dato` —`DIBUJAN`, `HABLAN_SIN_DIBUJAR` y `NO_HABLAN_A_UNA_PERSONA`— y las
+  claves de `PEER_DECLARADAS`, con `readdir(paquetes)`: un paquete nuevo sale rojo pidiendo que se
+  le clasifique. `CLAUDE.md` cuenta los sistemas con un solo número, el del JSON.
 
 ## Los guiones
 
