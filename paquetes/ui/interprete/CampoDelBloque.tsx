@@ -2,7 +2,7 @@ import type { KeyboardEvent, ReactElement } from 'react';
 
 import { Calendario } from '../shadcn/calendario.tsx';
 import { Area, Campo, Dato } from '../shadcn/campo.tsx';
-import { anchoCompleto, tipoDe } from '../shadcn/campos.ts';
+import { anchoCompleto } from '../shadcn/campos.ts';
 import { Casilla } from '../shadcn/casilla.tsx';
 import { Desplegable, Opcion } from '../shadcn/desplegable.tsx';
 import { CONTROL } from '../shadcn/control.ts';
@@ -12,6 +12,7 @@ import { diaDeUnaFecha, fechaDeUnDia, fechaLeida } from '../shadcn/fecha.ts';
 import { Insignia } from '../Insignia.tsx';
 import type { TextosDelInterprete } from '../textos.tsx';
 import { cn } from '../utilidades.ts';
+import { estrecharElCampo } from './campo-estrechado.ts';
 import type { Nombrados } from './componer.ts';
 import type { Ausencia } from './datos.ts';
 import { resolverInsignia } from './reglas-de-las-tablas.ts';
@@ -26,6 +27,13 @@ import type { DefinicionDeCampo, OpcionDelCampo } from './tipos.ts';
  * octava en vez de caer en «campo de texto». Una definicion con el tipo mal escrito dibujada como
  * texto se ve perfecta, y lo que era un desplegable de lista cerrada pasa a ser un cuadro donde se
  * teclea cualquier cosa.
+ *
+ * <h2>Cada rama recibe SU campo, estrechado por el tipo (#124)</h2>
+ *
+ * El `switch` es sobre `estrecharElCampo(campo).letra`, que trae el campo ya estrechado a su rama:
+ * las opciones de la lista, la insignia del de solo lectura y la etiqueta de la casilla se leen sin
+ * preguntar si estan. Hasta #124 se preguntaba —`'opciones' in campo`, `'casilla' in campo ? … :
+ * ''`— y lo que no casaba se pintaba vacio y en silencio. Ver `campo-estrechado.ts`.
  *
  * <h2>Por que el `switch` es exhaustivo y no lleva `default` — y que lo hace cierto (#111)</h2>
  *
@@ -120,40 +128,53 @@ export function CampoDelBloque({
   nombrados,
   error,
 }: CampoDelBloqueProps): ReactElement {
-  const tipo = tipoDe(campo.tipo);
+  const estrechado = estrecharElCampo(campo);
   const ancho = anchoCompleto(campo.tipo);
-  const ayuda = 'ayuda' in campo ? campo.ayuda : undefined;
-  const marcador = 'marcador' in campo && campo.marcador !== undefined ? traducir(campo.marcador) : undefined;
-  // Un dato de la definicion, y no una palabra de la ayuda (#86): ver el javadoc.
-  const opcional = 'opcional' in campo && campo.opcional === true;
 
-  const comun = {
-    // El nombre del campo del contrato va JUNTO a la etiqueta y no dentro de ella (#61,
-    // `cabecera-con-campo-y-dominio`, N5 de normativa#52): «Registro `registroId`». No se traduce
-    // —es codigo, como las operaciones del pie de #44—, y por eso no puede ser parte de la cadena
-    // que se traduce.
-    rotulo:
-      campo.campo === undefined ? (
-        traducir(campo.etiqueta)
-      ) : (
-        <>
-          {traducir(campo.etiqueta)} <code data-slot="campo-del-contrato">{campo.campo}</code>
-        </>
-      ),
-    ancho,
-    ayuda: ayuda === undefined ? undefined : traducir(ayuda),
-    opcional,
-    // Se pasa SIEMPRE, y no solo cuando `opcional` es cierto: una propiedad que se pone a veces es
-    // una propiedad que un dia se olvida.
-    marcaDeOpcional: textos.opcional,
-    error,
-  } as const;
+  /**
+   * Lo que la `Etiqueta` necesita de cualquier campo. Recibe el campo YA estrechado: la ayuda y lo
+   * opcional se leen de la rama que los declara, y no preguntando si estan.
+   */
+  const etiquetaDe = (definido: {
+    readonly etiqueta: string;
+    readonly campo?: string;
+    readonly ayuda?: string;
+    readonly opcional?: boolean;
+  }) =>
+    ({
+      // El nombre del campo del contrato va JUNTO a la etiqueta y no dentro de ella (#61,
+      // `cabecera-con-campo-y-dominio`, N5 de normativa#52): «Registro `registroId`». No se traduce
+      // —es codigo, como las operaciones del pie de #44—, y por eso no puede ser parte de la cadena
+      // que se traduce.
+      rotulo:
+        definido.campo === undefined ? (
+          traducir(definido.etiqueta)
+        ) : (
+          <>
+            {traducir(definido.etiqueta)} <code data-slot="campo-del-contrato">{definido.campo}</code>
+          </>
+        ),
+      ancho,
+      ayuda: definido.ayuda === undefined ? undefined : traducir(definido.ayuda),
+      // Un dato de la definicion, y no una palabra de la ayuda (#86): ver el javadoc. El de solo
+      // lectura y la casilla no lo declaran en su rama, pero un `CampoDelActo` se lo pone a
+      // cualquiera, y se lee igual que antes de #124.
+      opcional: definido.opcional === true,
+      // Se pasa SIEMPRE, y no solo cuando `opcional` es cierto: una propiedad que se pone a veces es
+      // una propiedad que un dia se olvida.
+      marcaDeOpcional: textos.opcional,
+      error,
+    }) as const;
 
-  switch (tipo) {
+  /** El texto gris del campo vacio (#65): solo lo declaran los que se escriben a mano. */
+  const marcadorDe = ({ marcador }: { readonly marcador?: string }): string | undefined =>
+    marcador === undefined ? undefined : traducir(marcador);
+
+  switch (estrechado.letra) {
     case 's': {
-      const opciones = 'opciones' in campo ? campo.opciones : [];
+      const { opciones } = estrechado.campo;
       return (
-        <Etiqueta {...comun}>
+        <Etiqueta {...etiquetaDe(estrechado.campo)}>
           <Desplegable
             value={haciaRadix(typeof valor === 'string' ? valor : valorDe(opciones[0] ?? ''))}
             onValueChange={(elegido) => {
@@ -173,13 +194,12 @@ export function CampoDelBloque({
     }
     case 'r': {
       const hayDato = typeof valor === 'string' && valor !== '';
+      const regla = estrechado.campo.insignia;
       const insignia =
-        'insignia' in campo && campo.insignia !== undefined
-          ? resolverInsignia(campo.insignia, hayDato ? valor : undefined, nombrados, traducir)
-          : undefined;
+        regla === undefined ? undefined : resolverInsignia(regla, hayDato ? valor : undefined, nombrados, traducir);
       return (
         // Con su ayuda desde #86: de donde sale el dato, o por que aqui no se corrige.
-        <Etiqueta {...comun}>
+        <Etiqueta {...etiquetaDe(estrechado.campo)}>
           <Dato
             // `data-sin-dato` no es decoracion: es lo que permite a una guarda contar los huecos
             // de una pantalla sin leer el texto, que cambia con quien la monta.
@@ -200,9 +220,9 @@ export function CampoDelBloque({
     }
     case 'c':
       return (
-        <Etiqueta {...comun} ayuda={undefined}>
+        <Etiqueta {...etiquetaDe(estrechado.campo)} ayuda={undefined}>
           <Casilla
-            rotulo={'casilla' in campo ? traducir(campo.casilla) : ''}
+            rotulo={traducir(estrechado.campo.casilla)}
             checked={valor === true}
             onCheckedChange={(marcado) => {
               alCambiar(marcado === true);
@@ -215,7 +235,7 @@ export function CampoDelBloque({
       const fecha = typeof valor === 'string' ? valor : '';
       const elegido = fecha === '' ? undefined : diaDeUnaFecha(fecha);
       return (
-        <Etiqueta {...comun}>
+        <Etiqueta {...etiquetaDe(estrechado.campo)}>
           <Emergente>
             {/* El disparador ES el control: es lo que la etiqueta apunta y lo que se enfoca con el
                 tabulador. La capa solo lleva el calendario. */}
@@ -224,7 +244,7 @@ export function CampoDelBloque({
                 `shadcn/foco.test.ts` lo destapo al subir: un anillo escrito a mano es un foco que
                 ninguna guarda mide. */}
             <DisparadorEmergente className={cn(CONTROL, 'text-left')}>
-              {fecha === '' ? (marcador ?? textos.marcadorDeFecha) : fechaLeida(fecha)}
+              {fecha === '' ? (marcadorDe(estrechado.campo) ?? textos.marcadorDeFecha) : fechaLeida(fecha)}
             </DisparadorEmergente>
             <Capa>
               <Calendario
@@ -243,9 +263,9 @@ export function CampoDelBloque({
     }
     case 'a':
       return (
-        <Etiqueta {...comun}>
+        <Etiqueta {...etiquetaDe(estrechado.campo)}>
           <Area
-            placeholder={marcador}
+            placeholder={marcadorDe(estrechado.campo)}
             value={typeof valor === 'string' ? valor : ''}
             onChange={(e) => {
               alCambiar(e.target.value);
@@ -258,9 +278,9 @@ export function CampoDelBloque({
     case '':
     case 't':
       return (
-        <Etiqueta {...comun}>
+        <Etiqueta {...etiquetaDe(estrechado.campo)}>
           <Campo
-            placeholder={marcador}
+            placeholder={marcadorDe(estrechado.campo)}
             value={typeof valor === 'string' ? valor : ''}
             onChange={(e) => {
               alCambiar(e.target.value);

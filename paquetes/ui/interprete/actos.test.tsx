@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import { TEXTOS_DE_LAS_PIEZAS, TEXTOS_DEL_INTERPRETE } from '../textos.tsx';
-import { claseDe, motivoDelActo, peticionDe, valoresQueViajan } from './acciones.ts';
+import { camposQueFaltan, claseDe, motivoDelActo, peticionDe, valoresQueViajan } from './acciones.ts';
 import type { DatosDeLaPantalla, EstadoDeUnaLectura } from './datos.ts';
 import { MUESTRAS_DE_LOS_ACTOS } from './muestras.ts';
 import { Pantalla, type PantallaProps } from './Pantalla.tsx';
@@ -389,6 +389,28 @@ describe('`acto-con-observacion`', () => {
     expect(alQuedarGuardada).toHaveBeenCalledTimes(1);
   });
 
+  it('una casilla obligatoria que nadie marca NACE en `false`, no falta y viaja: el acto se envia (#124)', () => {
+    const conCasilla: DefinicionDeActo = {
+      ...ACTO,
+      campos: [...ACTO.campos, { nombre: 'avisar', etiqueta: 'Avisar', tipo: 'c', casilla: 'Avisar al grupo' }],
+    };
+    const envios: EnvioDeUnActo[] = [];
+    const abrir = vi.fn((envio: EnvioDeUnActo) => {
+      envios.push(envio);
+    });
+    monta(HOJA_CON_ACTO(conCasilla), {}, { actos: { abrir } });
+    abrirElActo();
+    escribir('Codigo', 'G-01');
+    escribir('Observacion', 'Lo pide la resolucion 12.');
+
+    expect(descripcionDe(primario()), 'la casilla sin marcar se cuenta como un campo que falta').not.toBe(
+      T.faltaRellenar(['Avisar']),
+    );
+    fireEvent.click(primario());
+    expect(abrir, 'el acto con la casilla sin marcar no se envio').toHaveBeenCalledTimes(1);
+    expect(envios[0]?.valores).toEqual({ codigo: 'G-01', avisar: false });
+  });
+
   it('una doble pulsacion del primario que llega ANTES de pintar envia UNA vez: la corta la referencia (#117)', async () => {
     // Lo mismo que en el pie: con `fireEvent.click` dos veces la segunda ya ve el primario impedido
     // por el estado; dentro de un solo `act` solo la referencia de `useEnVuelo` la corta.
@@ -684,6 +706,14 @@ describe('las reglas puras', () => {
         { a: 'uno', b: '  ', c: false, r: 'no viaja' },
       ),
     ).toEqual({ a: 'uno', c: false });
+  });
+
+  it('la casilla obligatoria SIN TOCAR no falta y viaja en `false`: lo decide la columna `siempreTieneValor` (#124)', () => {
+    // Sin valor ninguno —`undefined`, no un `false` escrito—, que es lo que la prueba de arriba no
+    // cubre: con `c: false` explicito, `vacio(false)` ya es falso sin mirar la tabla.
+    const campos = [{ nombre: 'c', etiqueta: 'C', tipo: 'c', casilla: 'si' }] as const;
+    expect(camposQueFaltan(campos, {}), 'una casilla sin marcar bloquea el acto como si faltara').toEqual([]);
+    expect(valoresQueViajan(campos, {}), 'una casilla sin marcar no viaja').toEqual({ c: false });
   });
 
   it('`claseDe` dice la clase de las cuatro, y revienta con una que no es ninguna (#111)', () => {

@@ -1,4 +1,4 @@
-import { seEscribe, tipoDe } from '../shadcn/campos.ts';
+import { COMPORTAMIENTO_POR_TIPO, seEscribe, tipoDe } from '../shadcn/campos.ts';
 import type { TextosDeLaPantalla } from '../textos.tsx';
 import { datosQueLee, faltaElDato, type Nombrados, resolverTexto, seCumple } from './componer.ts';
 import type {
@@ -217,14 +217,21 @@ export type ValoresDelActo = Readonly<Record<string, string | boolean>>;
 /** Si un campo del acto se escribe: los de solo lectura se ensenan y no viajan. */
 export const seEscribeElCampo = (campo: CampoDelActo): boolean => seEscribe(tipoDe(campo.tipo));
 
-/** Un valor vacio: sin nada, o solo blancos. Una casilla SIEMPRE tiene valor: desmarcada es `false`. */
+/**
+ * Si un campo SIEMPRE tiene valor, aunque nadie lo toque: la casilla, desmarcada es `false`. Es la
+ * columna `siempreTieneValor` de `COMPORTAMIENTO_POR_TIPO` (#124), y no un `tipo !== 'c'` suelto.
+ */
+export const siempreTieneValor = (campo: CampoDelActo): boolean =>
+  COMPORTAMIENTO_POR_TIPO[tipoDe(campo.tipo)].siempreTieneValor;
+
+/** Un valor vacio: sin nada, o solo blancos. Ver `siempreTieneValor`. */
 const vacio = (valor: string | boolean | undefined): boolean =>
   valor === undefined || (typeof valor === 'string' && valor.trim() === '');
 
 /** Los campos obligatorios que estan vacios, en su orden. */
 export function camposQueFaltan(campos: readonly CampoDelActo[], valores: ValoresDelActo): readonly CampoDelActo[] {
   return campos.filter(
-    (campo) => seEscribeElCampo(campo) && campo.opcional !== true && tipoDe(campo.tipo) !== 'c' && vacio(valores[campo.nombre]),
+    (campo) => seEscribeElCampo(campo) && campo.opcional !== true && !siempreTieneValor(campo) && vacio(valores[campo.nombre]),
   );
 }
 
@@ -280,7 +287,7 @@ export function valoresQueViajan(campos: readonly CampoDelActo[], valores: Valor
   for (const campo of campos) {
     if (!seEscribeElCampo(campo)) continue;
     const valor = valores[campo.nombre];
-    if (vacio(valor) && tipoDe(campo.tipo) !== 'c') continue;
+    if (vacio(valor) && !siempreTieneValor(campo)) continue;
     salida[campo.nombre] = valor ?? false;
   }
   return salida;
