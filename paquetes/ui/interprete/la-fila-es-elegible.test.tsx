@@ -165,6 +165,23 @@ describe('`fila-elegible-en-la-ruta`: la fila se elige, y lo elegido vive en la 
     expect(document.activeElement).toBe(fila('M-1'));
   });
 
+  it('EL TABULADOR SIGUE AL FOCO, no a la elegida: con `?movimiento=M-1`, bajar a la M-2 se lleva el `tabIndex=0`', async () => {
+    // Con una fila elegida, el tabulador entra por ella solo mientras nadie haya movido el foco: si
+    // no, salir de la tabla y volver devolveria a la elegida, y no a donde se estaba (#120).
+    const { cambios } = montaConRuta({ movimiento: 'M-1' });
+    const teclado = userEvent.setup({ delay: null });
+    act(() => {
+      fila('M-1').focus();
+    });
+    await teclado.keyboard('{ArrowDown}');
+    expect(document.activeElement).toBe(fila('M-2'));
+    expect(fila('M-2').tabIndex, 'la fila con el foco no lleva el tabulador').toBe(0);
+    expect(fila('M-1').tabIndex, 'el tabulador se quedo en la elegida').toBe(-1);
+    // Y la elegida sigue siendo la M-1: mover el foco no elige.
+    expect(fila('M-1').getAttribute('aria-selected')).toBe('true');
+    expect(cambios).toEqual([]);
+  });
+
   it('PULSAR UN BOTON DE LA FILA NO LA ELIGE: ni con el raton ni con Intro, atendido o impedido', async () => {
     const anular = vi.fn();
     const { cambios, unmount } = montaConRuta({}, { alHacer: { anular } });

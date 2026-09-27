@@ -28,8 +28,8 @@ navegador, y por eso `sin-suponer-un-sistema` no lo barre.
 - **La exhaustividad que viaja** (#111): `la-exhaustividad-viaja.test.ts` compila el intérprete con
   las opciones mínimas de un consumidor —`strict` y nada de `tsconfig.base.json`— y un miembro de más,
   en memoria, en cada unión que agota, y exige el rojo **exacto** en su sitio: TS2366 en
-  `CampoDelBloque`, `EstadoDeLaLectura` y la clave de `data-accion`, TS2322 en `PiezaDeLaPantalla` y
-  `claseDe`. Es lo que protege a los consumidores, que no corren el lint de aquí.
+  `CampoDelBloque`, `EstadoDeLaLectura`, la clave de `data-accion` y `SinFilasDeLaTabla` (#120),
+  TS2322 en `PiezaDeLaPantalla` y `claseDe`. Es lo que protege a los consumidores, que no corren el lint de aquí.
 
 ## Las guardas
 

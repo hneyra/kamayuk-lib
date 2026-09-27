@@ -33,6 +33,10 @@ import type {
  * (`conteoDelFiltro`).
  *
  * **Y desde #95, ocho**: que valor escribe en la ruta una fila elegible (`valorDeLaFila`).
+ *
+ * **Y desde #120, diez**: que dice una tabla que no dibuja filas (`queDiceSinFilas`), que hasta
+ * entonces eran cinco condicionales sueltos dentro de `TablaDelBloque`, y que filas se ven con el
+ * filtro y la pagina aplicados (`lasFilasQueSeVen`), que salio de la misma funcion.
  */
 
 /**
@@ -168,8 +172,62 @@ export function tablasSinVacio(definicion: DefinicionDePantalla<PiezaDeLaPantall
 
 /** Si una tabla dice por que estaria vacia. `''` no lo es —ni suelto ni como titulo—: es muda. */
 function diceElVacio<T extends Texto>(vacio: T | undefined, conSalida: VacioDeLaTabla<T> | undefined): boolean {
-  if (conSalida !== undefined && conSalida.titulo !== '') return true;
-  return vacio !== undefined && vacio !== '';
+  const dicho = elVacioQueDice({ vacio, vacioConSalida: conSalida });
+  return dicho.conSalida !== undefined || dicho.vacio !== undefined;
+}
+
+/**
+ * **El vacio que una tabla dice de verdad**: el que tiene palabras. `''` es mudo —suelto o como
+ * titulo del vacio con salida— y aqui sale `undefined`, que es lo que es.
+ *
+ * `vacioConSalida` gana a `vacio` si la definicion trae los dos, y por eso cuando hay uno el otro no
+ * se mira. Son dos campos y no una union porque la union rompe la compilacion de `caja`: ver el
+ * docblock de `DefinicionDeTabla`.
+ */
+export function elVacioQueDice<T extends Texto>(
+  tabla: Pick<DefinicionDeTabla<T>, 'vacio' | 'vacioConSalida'>,
+): { readonly conSalida: VacioDeLaTabla<T> | undefined; readonly vacio: T | undefined } {
+  const conSalida = tabla.vacioConSalida !== undefined && tabla.vacioConSalida.titulo !== '' ? tabla.vacioConSalida : undefined;
+  const vacio = tabla.vacio === undefined || tabla.vacio === '' ? undefined : tabla.vacio;
+  return { conSalida, vacio };
+}
+
+/**
+ * Lo que dice una tabla **en lugar de filas**, cuando no dibuja ninguna (#120). Cada una es una
+ * frase distinta, en su sitio y con su marca:
+ *
+ * <table>
+ *   <tr><td>`ausencia`</td><td>no hay dato: la lectura no se pudo hacer (#27)</td></tr>
+ *   <tr><td>`vacioConSalida`</td><td>la lista llego vacia, y el vacio lleva su boton (#61)</td></tr>
+ *   <tr><td>`vacio`</td><td>la lista llego vacia, y se dice con la frase de la definicion (#65)</td></tr>
+ *   <tr><td>`sinCoincidencias`</td><td>llego con filas, y es el filtro local el que no deja ninguna (#86)</td></tr>
+ *   <tr><td>`sinMotivo`</td><td>la lista llego vacia y la definicion no dice por que: un defecto, a la
+ *     vista (#65, AC-3)</td></tr>
+ * </table>
+ */
+export type LoQueDiceSinFilas = 'ausencia' | 'vacioConSalida' | 'vacio' | 'sinCoincidencias' | 'sinMotivo';
+
+/**
+ * **Que dice una tabla que no dibuja filas, o `null` si las dibuja** (#120).
+ *
+ * `recibidas` son las filas que llegaron —`undefined`: no hay dato— y `visibles`, las que deja el
+ * filtro local de entre ellas. Hasta #120 eran cinco condicionales sueltos en el dibujo, y lo unico
+ * que impedia que salieran dos a la vez era que nadie los habia escrito mal todavia: medido antes de
+ * cambiarlo, ninguna combinacion pintaba dos. Ahora contesta UNA, y el dibujo pinta la que contesta.
+ */
+export function queDiceSinFilas<T extends Texto>(
+  tabla: Pick<DefinicionDeTabla<T>, 'vacio' | 'vacioConSalida' | 'filtroLocal'>,
+  recibidas: number | undefined,
+  visibles: number | undefined,
+): LoQueDiceSinFilas | null {
+  if (recibidas === undefined) return 'ausencia';
+  if (recibidas === 0) {
+    const { conSalida, vacio } = elVacioQueDice(tabla);
+    if (conSalida !== undefined) return 'vacioConSalida';
+    return vacio === undefined ? 'sinMotivo' : 'vacio';
+  }
+  // Con filas, solo el filtro puede dejar la tabla sin ninguna: sin el, las visibles son las que llegaron.
+  return visibles === 0 && tabla.filtroLocal !== undefined ? 'sinCoincidencias' : null;
 }
 
 /**
@@ -344,4 +402,67 @@ export function conteoDelFiltro(visibles: number, recibidas: number, total: Dato
 export function valorDeLaFila(eleccion: EleccionDeLaFila, fila: FilaDeLaTabla): string | null {
   const valor = fila.datos?.get(eleccion.desde);
   return faltaElDato(valor) ? null : String(valor);
+}
+
+/** Lo que se ve de las filas de una tabla, con el filtro y la pagina ya aplicados. */
+export interface FilasQueSeVen {
+  /** Si el filtro local se ofrece: solo con filas delante. */
+  readonly hayFiltro: boolean;
+  /** Si, ofrecido, esta puesto. */
+  readonly filtrando: boolean;
+  /** Las que deja el filtro, antes de cortar la pagina. `undefined` sin dato. */
+  readonly filtradas: readonly FilaDeLaTabla[] | undefined;
+  /** La pagina que se ve, si la tabla pagina. */
+  readonly pagina: PaginaDeUnaTabla | undefined;
+  /** Las que se dibujan: la pagina de las filtradas. */
+  readonly dibujadas: readonly FilaDeLaTabla[] | undefined;
+  /** Con el filtro puesto, las que deja de las que llegaron. */
+  readonly conteoFiltrado: ConteoDelFiltro | undefined;
+}
+
+/**
+ * **Que filas se ven: el filtro local, y despues la pagina** (#86 y #61; aparte desde #120).
+ *
+ * Pura, y aparte de `TablaDelBloque` por lo mismo que las demas de aqui: el orden importa —se
+ * filtran las que llegaron ANTES de cortar la pagina en cliente; en servidor, las que llegaron YA son
+ * la pagina— y se prueba sin montar. `leer` es el sitio de la tabla: la ruta, o su estado.
+ */
+export function lasFilasQueSeVen(
+  tabla: Pick<DefinicionDeTabla<Texto>, 'filtroLocal' | 'paginacion'>,
+  todas: readonly FilaDeLaTabla[] | undefined,
+  elegido: FiltroElegido,
+  leer: (sitio: string) => string | null,
+  nombrados: Nombrados | undefined,
+): FilasQueSeVen {
+  const filtro = tabla.filtroLocal;
+  const hayFiltro = filtro !== undefined && todas !== undefined && todas.length > 0;
+  const filtrando = hayFiltro && filtroPuesto(elegido);
+  const filtradas = todas === undefined || !filtrando ? todas : filtrarLasFilas(filtro, todas, elegido);
+  const paginacion = tabla.paginacion;
+  const pagina =
+    paginacion === undefined
+      ? undefined
+      : paginaDeLaTabla(
+          paginacion,
+          {
+            pagina: leer(paginacion.enLaRuta),
+            tamano: paginacion.tamanoEnLaRuta === undefined ? null : leer(paginacion.tamanoEnLaRuta),
+          },
+          {
+            hayMas: paginacion.hayMas === undefined ? undefined : nombrados?.get(paginacion.hayMas),
+            paginas: paginacion.paginas === undefined ? undefined : nombrados?.get(paginacion.paginas),
+          },
+          filtradas?.length ?? 0,
+        );
+  const dibujadas =
+    filtradas === undefined || pagina?.recorte === undefined
+      ? filtradas
+      : filtradas.slice(pagina.recorte.desde, pagina.recorte.hasta);
+  // Con el filtro puesto, lo que dice la barra es la diferencia: las que deja de las que llegaron, y
+  // el total solo si el sistema lo dio.
+  const conteoFiltrado =
+    !filtrando || filtradas === undefined || todas === undefined || filtro === undefined
+      ? undefined
+      : conteoDelFiltro(filtradas.length, todas.length, filtro.total === undefined ? undefined : nombrados?.get(filtro.total));
+  return { hayFiltro, filtrando, filtradas, pagina, dibujadas, conteoFiltrado };
 }

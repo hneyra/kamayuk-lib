@@ -64,6 +64,28 @@ pueden decir en voz alta sin decir de qué fila es cada uno— y, cuando la fila
 «La tabla del bloque y sus `tablas`» se dice **en un solo sitio**, `tablasDe(bloque)`, interno y
 fuera del índice; «qué es un bloque», sólo en `esBloque` (#110).
 
+**Qué dice una tabla sin filas lo contesta UNA función** (#120): `queDiceSinFilas` →
+`'ausencia' | 'vacioConSalida' | 'vacio' | 'sinCoincidencias' | 'sinMotivo' | null`, pura, y
+`SinFilasDeLaTabla` dibuja esa respuesta y sólo esa —eran cinco condicionales sueltos y nada
+impedía que salieran dos; medido antes de cambiarlo, ninguna combinación pintaba dos—, con el retorno
+anotado `ReactElement | null`: una sexta respuesta sin su `case` no compila en el consumidor
+(`ReactNode` admite `undefined`, y con él compilaba). Qué filas se
+ven con el filtro y la página, `lasFilasQueSeVen`, también pura.
+
+**La tabla, el acto y la pantalla, en piezas** (#120). `TablaDelBloque` lee y compone; las filas y
+sus celdas son `FilaDelBloque`, la elección y su teclado `useEleccionDeLaFila`, la barra
+`BarraDeLaTabla` y el filtro `FiltroDeLaTabla`. `Pantalla` compone; lo tecleado, la marca de sucia,
+los campos que escriben en la ruta y el orden en que gana cada valor viven en `lo-tecleado.ts`.
+`ActoDeLaPantalla` decide y `PartesDelActo.tsx` dibuja. Ninguna de estas piezas se exporta.
+
+**Lo que se copiaba, en un solo sitio** (#120):
+
+- `destinoDeLaTecla` (`teclado.ts`): el tabulador itinerante de la tabla, el maestro y las
+  pestañas; cambian el eje y si se da la vuelta.
+- `useEnElMarcoOAqui` (`en-el-marco-o-aqui.ts`): el valor lo guarda el marco —la ruta, lo tecleado
+  de `useHoja()`, el acto que pasa el sistema— o la pieza. Encima, `useSitioDeLaHoja` (`hoja.ts`):
+  la ruta de la hoja o el estado de la pieza, para la tabla, el maestro y las pestañas.
+
 ## Cuatro cosas que no se tocan
 
 - Lo impedido sale con **`BotonConMotivo`**: `aria-disabled` y `aria-describedby` hacia el motivo

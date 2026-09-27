@@ -16,8 +16,8 @@ import { RAIZ } from './texto.ts';
  * esta fuente: el `link:` la deja en `node_modules`, que su config ignora. Lo que **si** corre cada
  * consumidor es su `tsc`, que compila esta fuente con SU `tsconfig`. Asi que lo que protege a los
  * cinco es lo que el compilador ve por si solo: los tipos de retorno anotados de `CampoDelBloque`,
- * `EstadoDeLaLectura` y `claveDeLaAccion`, y las asignaciones a `never` de `PiezaDeLaPantalla` y
- * `claseDe`.
+ * `EstadoDeLaLectura`, `claveDeLaAccion` y `SinFilasDeLaTabla` (#120), y las asignaciones a `never`
+ * de `PiezaDeLaPantalla` y `claseDe`.
  *
  * Y eso es justo lo que no vigilaba nada. Medido en la revision de #111: quitada la anotacion
  * `: ReactElement` de `CampoDelBloque` y de `EstadoDeLaLectura`, `yarn typecheck`, `yarn lint` y
@@ -46,14 +46,20 @@ const TIPOS = join(INTERPRETE, 'tipos.ts');
 const DATOS = join(INTERPRETE, 'datos.ts');
 const TIPOS_DE_LOS_ACTOS = join(INTERPRETE, 'tipos-de-los-actos.ts');
 const ACCIONES = join(INTERPRETE, 'acciones.ts');
+const REGLAS_DE_LAS_TABLAS = join(INTERPRETE, 'reglas-de-las-tablas.ts');
 
 /** La ultima fila de `COMPORTAMIENTO_POR_TIPO` (#124): detras se inyecta la del tipo nuevo. */
 const FILA_DEL_AREA = "  a: { pieza: 'Area', seEscribe: true, momento: 'alSalir', siempreTieneValor: false },";
 
 /** Las piezas que agotan una union. Lo demas entra por sus imports. */
-const RAICES = ['CampoDelBloque.tsx', 'EstadoDeLaLectura.tsx', 'PiezaDeLaPantalla.tsx', 'GrupoDeAcciones.tsx', 'acciones.ts'].map(
-  (archivo) => join(INTERPRETE, archivo),
-);
+const RAICES = [
+  'CampoDelBloque.tsx',
+  'EstadoDeLaLectura.tsx',
+  'PiezaDeLaPantalla.tsx',
+  'GrupoDeAcciones.tsx',
+  'SinFilasDeLaTabla.tsx',
+  'acciones.ts',
+].map((archivo) => join(INTERPRETE, archivo));
 
 /**
  * Las de un consumidor que no se parece en nada a este repositorio: `--strict` y lo imprescindible
@@ -179,14 +185,27 @@ const CASOS: readonly { readonly que: string; readonly inyeccion: Inyeccion; rea
     // que falta no la ve el compilador —la ve `switch-exhaustiveness-check`, en el lint de aqui—.
     rojo: ['paquetes/ui/interprete/GrupoDeAcciones.tsx TS2366'],
   },
+  {
+    // #120: con el retorno anotado `ReactNode`, que admite `undefined`, esto compilaba limpio.
+    que: 'una sexta respuesta de queDiceSinFilas, sin su case en SinFilasDeLaTabla',
+    inyeccion: {
+      [REGLAS_DE_LAS_TABLAS]: [
+        [
+          "export type LoQueDiceSinFilas = 'ausencia' | 'vacioConSalida' | 'vacio' | 'sinCoincidencias' | 'sinMotivo';",
+          "export type LoQueDiceSinFilas = 'ausencia' | 'vacioConSalida' | 'vacio' | 'sinCoincidencias' | 'sinMotivo' | 'sexta';",
+        ],
+      ],
+    },
+    rojo: ['paquetes/ui/interprete/SinFilasDeLaTabla.tsx TS2366'],
+  },
 ];
 
 describe('la exhaustividad del interprete sale con el tsconfig de un consumidor (#111)', () => {
   const medido = new Map<string, string[]>();
 
-  // Cinco compilaciones del interprete, fuera del presupuesto de un caso por lo mismo que el
-  // `beforeAll` de `reglas-de-eslint.test.ts` (#36): medido, la primera cuesta 2,8 s en frio —leer
-  // React y Radix— y las siguientes 1,4 s. Dentro de cada caso, una maquina cargada lo pondria en
+  // Siete compilaciones del interprete —la limpia y una por caso—, fuera del presupuesto de un caso
+  // por lo mismo que el `beforeAll` de `reglas-de-eslint.test.ts` (#36): medido, la primera cuesta
+  // 2,8 s en frio —leer React y Radix— y las siguientes 1,4 s. Dentro de cada caso, una maquina cargada lo pondria en
   // rojo por la maquina y no por lo que se mide.
   beforeAll(() => {
     medido.set('sin inyectar nada', compilar({}));

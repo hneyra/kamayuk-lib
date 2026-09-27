@@ -1,42 +1,25 @@
 import { useId, useRef, useState, type FormEvent } from 'react';
 
-import { Alerta } from '../shadcn/alerta.tsx';
 import { avisar } from '../shadcn/avisos.tsx';
 import { BotonConMotivo } from '../shadcn/boton-con-motivo.tsx';
-import { Area } from '../shadcn/campo.tsx';
-import {
-  Cancelar,
-  Confirmacion,
-  Confirmar,
-  HuecoDeConfirmacion,
-  NotaDeConfirmacion,
-  PanelDeConfirmacion,
-  SalidasDeConfirmacion,
-  TituloDeConfirmacion,
-} from '../shadcn/confirmacion.tsx';
-import { Etiqueta } from '../shadcn/etiqueta.tsx';
-import { Tarjeta, TarjetaCabecera, TarjetaCampos, TarjetaNota } from '../shadcn/tarjeta.tsx';
+import { Tarjeta, TarjetaCabecera } from '../shadcn/tarjeta.tsx';
 import type { TextosDeLaPantalla } from '../textos.tsx';
-import {
-  atiende,
-  camposQueFaltan,
-  motivoDelActo,
-  motivoDeLaObservacion,
-  seEscribeElCampo,
-  siempreTieneValor,
-  valoresQueViajan,
-  type ValoresDelActo,
-} from './acciones.ts';
+import { atiende, motivoDelActo, siempreTieneValor, valoresQueViajan, type ValoresDelActo } from './acciones.ts';
 import { estrecharElCampo } from './campo-estrechado.ts';
-import { CampoDelBloque } from './CampoDelBloque.tsx';
 import { type Nombrados, resolverTexto } from './componer.ts';
+import { useEnElMarcoOAqui } from './en-el-marco-o-aqui.ts';
 import { useEnVuelo } from './en-vuelo.ts';
 import type { DatosDeLaPantalla } from './datos.ts';
-import { FalloDeUnaLectura } from './EstadoDeLaLectura.tsx';
-import { GrupoDeAcciones } from './GrupoDeAcciones.tsx';
 import type { TecleadoDeUnActo } from './hoja.ts';
 import type { InteraccionDeLaPantalla } from './interaccion.ts';
-import { ProsaConMarcas } from './ProsaConMarcas.tsx';
+import {
+  ActoHecho,
+  CamposDelActo,
+  ConfirmacionDelActo,
+  FalloDelActo,
+  NotaDelActo,
+  SalidasDelActo,
+} from './PartesDelActo.tsx';
 import type { CampoDelActo, DefinicionDeActo } from './tipos-de-los-actos.ts';
 
 /**
@@ -86,6 +69,13 @@ import type { CampoDelActo, DefinicionDeActo } from './tipos-de-los-actos.ts';
  *     Descartar NO avisa por ahi: ya lo dice su propia region viva, y dos regiones diciendo lo mismo
  *     es un anuncio repetido para quien no ve.
  *   · **`notaConMarcas`**: la nota con `code` y `strong` dentro de la frase. Gana a `nota`.
+ *
+ * <h2>Desde #120, el estado aqui y el dibujo en sus partes</h2>
+ *
+ * Lo que queda en esta funcion es lo que decide: la fase, el vuelo, el rechazo, lo descartado y lo
+ * tecleado —en el marco o aqui, con `useLoTecleadoDelActo` sobre `useEnElMarcoOAqui`, el mismo de la
+ * pantalla y la ruta—. Lo hecho, los campos, las salidas y la confirmacion se dibujan en
+ * `PartesDelActo.tsx` con lo ya decidido.
  */
 
 export interface ActoDeLaPantallaProps {
@@ -126,26 +116,56 @@ const inicialDe = (campos: readonly CampoDelActo[]): TecleadoDeUnActo => ({
   intentado: false,
 });
 
-export function ActoDeLaPantalla({ acto, datos, traducir, textos, interaccion }: ActoDeLaPantallaProps) {
-  const raiz = useId();
+/** Lo que `useLoTecleadoDelActo` da al acto. */
+interface LoTecleadoDelActo {
+  /** Lo que se lleva lo tecleado: la clave del acto y los parametros con que se abrio. */
+  readonly apertura: string;
+  readonly tecleado: TecleadoDeUnActo;
+  /** `undefined` es «nada escrito»: fuera, quita la apertura; aqui, vuelve al inicial. */
+  readonly cambiarLoTecleado: (cambio: (antes: TecleadoDeUnActo) => TecleadoDeUnActo | undefined) => void;
+  readonly marcarIntentado: () => void;
+}
+
+/**
+ * **Donde guarda un acto lo tecleado** (#86; con `useEnElMarcoOAqui` desde #120): en el marco, por
+ * apertura, si `interaccion.tecleadoDeLosActos` lo da; si no, en su estado, como en #66.
+ */
+function useLoTecleadoDelActo(acto: DefinicionDeActo, interaccion: InteraccionDeLaPantalla): LoTecleadoDelActo {
   // Lo que se lleva lo tecleado es la APERTURA: el mismo acto abierto sobre otra fila es otro
   // formulario, por lo mismo que `PiezaDeLaPantalla` lo remonta con esa `key`.
   const apertura = `${acto.clave}|${JSON.stringify(interaccion.abierto?.parametros ?? {})}`;
-  const [aqui, setAqui] = useState<TecleadoDeUnActo>(() => inicialDe(acto.campos));
   const fuera = interaccion.tecleadoDeLosActos;
-  const tecleado: TecleadoDeUnActo = fuera === undefined ? aqui : (fuera.leer(apertura) ?? inicialDe(acto.campos));
-  const { valores, observacion, intentado } = tecleado;
-  /** `undefined` es «nada escrito»: fuera, quita la apertura; aqui, vuelve al inicial. */
-  const cambiarLoTecleado = (cambio: (antes: TecleadoDeUnActo) => TecleadoDeUnActo | undefined): void => {
-    if (fuera === undefined) {
-      setAqui((antes) => cambio(antes) ?? inicialDe(acto.campos));
-      return;
-    }
-    fuera.cambiar(apertura, (antes) => cambio(antes ?? inicialDe(acto.campos)));
+  type Cambio = (antes: TecleadoDeUnActo | undefined) => TecleadoDeUnActo | undefined;
+  // `undefined` es lo inicial, fuera y aqui: lo que no se ha escrito no se guarda.
+  const { valor, cambiar } = useEnElMarcoOAqui<TecleadoDeUnActo | undefined, Cambio>(
+    fuera === undefined
+      ? undefined
+      : {
+          valor: fuera.leer(apertura),
+          cambiar: (cambio) => {
+            fuera.cambiar(apertura, cambio);
+          },
+        },
+    undefined,
+    (antes, cambio) => cambio(antes),
+  );
+  const cambiarLoTecleado: LoTecleadoDelActo['cambiarLoTecleado'] = (cambio) => {
+    cambiar((antes) => cambio(antes ?? inicialDe(acto.campos)));
   };
-  const marcarIntentado = (): void => {
-    cambiarLoTecleado((antes) => (antes.intentado ? antes : { ...antes, intentado: true }));
+  return {
+    apertura,
+    tecleado: valor ?? inicialDe(acto.campos),
+    cambiarLoTecleado,
+    marcarIntentado: () => {
+      cambiarLoTecleado((antes) => (antes.intentado ? antes : { ...antes, intentado: true }));
+    },
   };
+}
+
+export function ActoDeLaPantalla({ acto, datos, traducir, textos, interaccion }: ActoDeLaPantallaProps) {
+  const raiz = useId();
+  const { apertura, tecleado, cambiarLoTecleado, marcarIntentado } = useLoTecleadoDelActo(acto, interaccion);
+  const { valores, observacion } = tecleado;
   const [rechazado, setRechazado] = useState(false);
   const [fase, setFase] = useState<Fase>('escribiendo');
   const [confirmando, setConfirmando] = useState(false);
@@ -164,16 +184,6 @@ export function ActoDeLaPantalla({ acto, datos, traducir, textos, interaccion }:
 
   const atendido = atiende(interaccion.actos, acto.clave);
   const motivo = motivoDelActo(acto, { valores, observacion, enCurso, nombrados, traducir, textos, atendido });
-  const errorDeLaObservacion = intentado ? motivoDeLaObservacion(acto, observacion, textos) : undefined;
-  // Los de los campos, solo si la definicion los pide y tras el primer intento (#86, H07). Son los
-  // MISMOS que el motivo del primario enumera: la regla es `camposQueFaltan`, y no una segunda.
-  const faltan =
-    acto.errores === 'trasElPrimerIntento' && intentado ? camposQueFaltan(acto.campos, valores) : [];
-  const errorDelCampo = (campo: CampoDelActo): string | undefined => {
-    if (!faltan.includes(campo)) return undefined;
-    const propio = 'mensajes' in campo ? campo.mensajes?.obligatorio : undefined;
-    return propio === undefined ? textos.campoObligatorio : texto(propio);
-  };
 
   const ensuciar = () => {
     // CADA cambio marca, si la definicion lo pide (#86); el aviso de siempre, una vez por apertura.
@@ -230,9 +240,6 @@ export function ActoDeLaPantalla({ acto, datos, traducir, textos, interaccion }:
     else setConfirmando(true);
   };
 
-  const fallo = datos.lecturas?.get(acto.clave);
-  const idDelMotivo = `${raiz}-motivo`;
-
   return (
     <Tarjeta data-acto={acto.clave}>
       <TarjetaCabecera>{texto(acto.titulo)}</TarjetaCabecera>
@@ -247,167 +254,56 @@ export function ActoDeLaPantalla({ acto, datos, traducir, textos, interaccion }:
           {textos.cerrarElActo}
         </BotonConMotivo>
       </div>
-      {acto.notaConMarcas !== undefined && acto.notaConMarcas.length > 0 ? (
-        // Gana a `nota` (#86, `texto-con-marcas`), con los datos de la pantalla y los de la fila.
-        <TarjetaNota>
-          <ProsaConMarcas marcas={acto.notaConMarcas} nombrados={nombrados} traducir={traducir} ausente={textos.datoAusente} />
-        </TarjetaNota>
-      ) : acto.nota === undefined || acto.nota === '' ? null : (
-        <TarjetaNota>{texto(acto.nota)}</TarjetaNota>
-      )}
+      <NotaDelActo acto={acto} nombrados={nombrados} traducir={traducir} texto={texto} textos={textos} />
 
       {fase === 'hecho' ? (
-        <div data-fase-del-acto="hecho" className="flex flex-col gap-[10px] px-[15px] py-[14px]">
-          <Alerta tono="ok" titulo={acto.hecho === undefined ? textos.actoHecho : texto(acto.hecho.titulo)}>
-            {acto.hecho?.texto === undefined ? undefined : texto(acto.hecho.texto)}
-          </Alerta>
-          {acto.hecho?.acciones === undefined ? null : (
-            <GrupoDeAcciones
-              acciones={acto.hecho.acciones}
-              nombrados={nombrados}
-              traducir={traducir}
-              textos={textos}
-              interaccion={interaccion}
-            />
-          )}
-        </div>
+        <ActoHecho acto={acto} nombrados={nombrados} traducir={traducir} texto={texto} textos={textos} interaccion={interaccion} />
       ) : (
         <form data-fase-del-acto="escribiendo" noValidate onSubmit={alEnviar}>
-          {/* El fallo encima, y el formulario sigue con lo escrito: se corrige y se vuelve a enviar.
-              Mientras viaja otra vez, el fallo viejo no se ensena: ya no dice nada de lo que se mira. */}
-          {!enCurso && fallo?.estado === 'fallo' ? (
-            <div data-fallo-de={acto.clave}>
-              <FalloDeUnaLectura fallo={fallo} textos={textos} />
-            </div>
-          ) : null}
-          {!enCurso && rechazado && fallo?.estado !== 'fallo' ? (
-            <div className="px-[15px] pt-[14px]">
-              <Alerta tono="atencion" data-rechazo-sin-fallo={acto.clave}>
-                {textos.rechazoSinFallo(acto.clave)}
-              </Alerta>
-            </div>
-          ) : null}
-          <TarjetaCampos>
-            {acto.campos.map((campo) => (
-              <CampoDelBloque
-                key={campo.nombre}
-                campo={campo}
-                valor={
-                  seEscribeElCampo(campo)
-                    ? valores[campo.nombre]
-                    : // Un campo de solo lectura ensena el dato con su nombre: lo que se esta tocando.
-                      (() => {
-                        const dato = nombrados.get(campo.nombre);
-                        return typeof dato === 'string' ? dato : undefined;
-                      })()
-                }
-                ausencia={datos.ausencia}
-                error={errorDelCampo(campo)}
-                alCambiar={(valor) => {
-                  ensuciar();
-                  cambiarLoTecleado((antes) => ({ ...antes, valores: { ...antes.valores, [campo.nombre]: valor } }));
-                }}
-                traducir={traducir}
-                textos={textos}
-              />
-            ))}
-            <Etiqueta
-              data-observacion=""
-              ancho
-              rotulo={texto(acto.observacion.etiqueta)}
-              ayuda={acto.observacion.ayuda === undefined ? undefined : texto(acto.observacion.ayuda)}
-              error={errorDeLaObservacion}
-            >
-              <Area
-                value={observacion}
-                onChange={(evento) => {
-                  ensuciar();
-                  const escrita = evento.target.value;
-                  cambiarLoTecleado((antes) => ({ ...antes, observacion: escrita }));
-                }}
-              />
-            </Etiqueta>
-          </TarjetaCampos>
-          <div className="flex flex-wrap items-center gap-3 border-t border-linea-2 px-[15px] py-3">
-            <BotonConMotivo
-              type="submit"
-              variante="primario"
-              motivo={motivo}
-              idDelMotivo={idDelMotivo}
-              enCurso={enCurso}
-              alPulsarImpedido={() => {
-                marcarIntentado();
-              }}
-            >
-              {texto(acto.titulo)}
-            </BotonConMotivo>
-            {acto.descartar === undefined ? null : (
-              <BotonConMotivo
-                type="button"
-                variante="secundario"
-                data-descartar={acto.clave}
-                // Solo mientras viaja, y con el MISMO parrafo que el primario: los dos dicen lo mismo.
-                motivo={enCurso ? textos.escribiendo : undefined}
-                idDelMotivo={idDelMotivo}
-                onClick={descartar}
-              >
-                {texto(acto.descartar.rotulo)}
-              </BotonConMotivo>
-            )}
-            {motivo === undefined ? null : (
-              <p id={idDelMotivo} data-slot="motivo" className="m-0 min-w-[180px] flex-1 text-[12.5px] leading-[1.5] text-tinta-3 text-pretty">
-                {motivo}
-              </p>
-            )}
-          </div>
-          {/* La region viva existe desde que el acto se abre, vacia: un `role="status"` que aparece
-              ya con el texto dentro no lo anuncian todos los lectores de pantalla. */}
-          {acto.descartar === undefined ? null : (
-            <p
-              role="status"
-              data-slot="lo-descartado"
-              className={descartado ? 'm-0 px-[15px] pb-3 text-[12.5px] leading-[1.5] text-tinta-2 text-pretty' : 'm-0'}
-            >
-              {descartado
-                ? acto.descartar.dicho === undefined
-                  ? textos.loEscritoSeDescarto
-                  : texto(acto.descartar.dicho)
-                : null}
-            </p>
+          {/* Mientras viaja otra vez, el fallo viejo no se ensena: ya no dice nada de lo que se mira. */}
+          {enCurso ? null : (
+            <FalloDelActo clave={acto.clave} fallo={datos.lecturas?.get(acto.clave)} rechazado={rechazado} textos={textos} />
           )}
+          <CamposDelActo
+            acto={acto}
+            tecleado={tecleado}
+            nombrados={nombrados}
+            ausencia={datos.ausencia}
+            alCambiar={(cambio) => {
+              ensuciar();
+              cambiarLoTecleado(cambio);
+            }}
+            traducir={traducir}
+            texto={texto}
+            textos={textos}
+          />
+          <SalidasDelActo
+            acto={acto}
+            motivo={motivo}
+            idDelMotivo={`${raiz}-motivo`}
+            enCurso={enCurso}
+            descartado={descartado}
+            alPulsarImpedido={marcarIntentado}
+            descartar={descartar}
+            texto={texto}
+            textos={textos}
+          />
         </form>
       )}
 
       {acto.advertencia === undefined ? null : (
-        <Confirmacion
-          open={confirmando}
-          onOpenChange={(abierta) => {
-            if (!abierta) setConfirmando(false);
+        <ConfirmacionDelActo
+          advertencia={texto(acto.advertencia)}
+          abierta={confirmando}
+          cerrar={() => {
+            setConfirmando(false);
           }}
-        >
-          <PanelDeConfirmacion>
-            <TituloDeConfirmacion>{textos.estoNoSeDeshace}</TituloDeConfirmacion>
-            <NotaDeConfirmacion>{texto(acto.advertencia)}</NotaDeConfirmacion>
-            <SalidasDeConfirmacion>
-              <HuecoDeConfirmacion />
-              <Cancelar
-                onClick={() => {
-                  setConfirmando(false);
-                }}
-              >
-                {textos.cancelar}
-              </Cancelar>
-              <Confirmar
-                onClick={() => {
-                  setConfirmando(false);
-                  enviar();
-                }}
-              >
-                {textos.siConfirmar}
-              </Confirmar>
-            </SalidasDeConfirmacion>
-          </PanelDeConfirmacion>
-        </Confirmacion>
+          confirmar={() => {
+            setConfirmando(false);
+            enviar();
+          }}
+          textos={textos}
+        />
       )}
     </Tarjeta>
   );

@@ -260,6 +260,23 @@ describe('cuando se escribe (AC-1)', () => {
     expect(screen.getByRole('textbox', { name: /Buscar/ })).toHaveValue('bodega');
   });
 
+  it('lo que se esta escribiendo GANA a la ruta: con `?descripcion=bodega`, la tecla se ve antes de salir', async () => {
+    // El orden de `valoresDelBloque` (#120): la API, la ruta, y por ultimo lo tecleado y lo que esta
+    // en curso. Si la ruta fuera despues, la caja volveria a «bodega» con cada tecla hasta salir.
+    const cambios: CambioDeLaRuta[] = [];
+    render(
+      <ConHoja
+        inicial={{ sujeto: null, parametros: { descripcion: 'bodega' } }}
+        cambios={cambios}
+        definicion={CON_BUSCADOR}
+      />,
+    );
+    const caja = screen.getByRole('textbox', { name: /Buscar/ });
+    await userEvent.type(caja, 's');
+    expect(caja, 'la ruta piso lo que se esta escribiendo').toHaveValue('bodegas');
+    expect(cambios).toEqual([]);
+  });
+
   it('Intro tambien lo escribe, sin salir del campo', async () => {
     const cambios: CambioDeLaRuta[] = [];
     render(<ConHoja cambios={cambios} definicion={CON_BUSCADOR} />);
