@@ -72,7 +72,8 @@ paquetes/
   api/       errores.ts (ErrorDeLaApi + NoEsUnDocumento + ArchivoRechazado, y cuerpoDeProblema y
              operacionDe, la unica lectura del problem+json y la unica forma de «VERBO /ruta»),
              cliente.ts (crearCliente, y pedir(), por donde pasan tres de las cuatro operaciones),
-             subir.ts (el multipart, y el UNICO XMLHttpRequest), entregar.ts (entregarAlNavegador)
+             subir.ts (el multipart, y el UNICO XMLHttpRequest), entregar.ts (entregarAlNavegador),
+             respuestas-de-prueba.ts (fetchQueContesta y problema: el arnes de sus pruebas, #127)
   sesion/    identidad.ts (crearIdentidad, y los DOS fetch de la puerta), pkce.ts (aleatorios, reto
              S256 y base64url), rebote.ts (las cinco claves de sessionStorage), quien-entro.ts
              (leerQuienEntro), escalera.ts (peldanoDe y su tabla REGLAS), escalera.instantanea.json
@@ -87,16 +88,19 @@ paquetes/
              pestanas, la pantalla y el acto se copiaban (#120); entorno.tsx (el contexto
              INTERNO de traducir, textos, tonoDeLaInsignia y hoja, que da Pantalla, y useTexto),
              textoCon en componer.ts (el unico cierre `texto`) e interaccion.ts
-             (AccionesDeLaHoja y CicloDelActo) (#125)
+             (AccionesDeLaHoja y CicloDelActo) (#125); arnes-del-interprete.tsx (SIN_FRASE,
+             monta, ConHoja, hojaEspiada y descripcionDe: el arnes de sus pruebas, #127)
   shell/     el armazon: catalogo.ts, ruta.ts, busqueda.ts, acciones.ts, navegacion.tsx, contexto.tsx,
              textos.ts, las siete piezas y los hooks internos de `Cascara` (#119):
              registro-de-hojas.ts (el reductor), navegacion-guardada.ts, hoja-abierta.ts y
-             paleta-y-carril.ts
+             paleta-y-carril.ts; y arnes-del-armazon.tsx (catalogoInventado y montarElArmazon: el
+             arnes de sus pruebas, #127)
   verificaciones/  texto.ts, comentarios.mjs, archivos.mjs (el recorredor, el escaner de lineas y el
                    unico Hallazgo de las guardas), suposiciones.ts, marcas.ts, rama-del-consumidor.mjs,
                    las-acciones-corren-en-node-24.test.ts, arnes-del-request.ts (el arnes que se
                    publica) y el-arnes-del-request-no-se-copia.mjs (el guion que el consumidor corre
-                   contra su arbol), cifras.mjs (yarn cifras), tabla-de-estado.ts (lo que mide
+                   contra su arbol), arnes-del-dom.ts (remendarElDom, que se LLAMA y no se publica,
+                   #127), cifras.mjs (yarn cifras), tabla-de-estado.ts (lo que mide
                    la guarda de la tabla), rutas-de-la-ci.ts, workflow.ts (la unica lectura de
                    los workflows: el YAML analizado, no el texto), sus pruebas y sus muestras/,
                    imports.mjs (lo que importa un archivo, por el arbol sintactico de TypeScript),

@@ -65,6 +65,9 @@ vacía—, `incidencia` —el identificador con el que soporte encuentra la caus
 separa dos 404 que traen el mismo `codigo`—. Son las mismas cinco en los cinco sistemas, medidas
 sobre sus `ManejadorDeErrores.java`.
 
+Sus pruebas fingen el backend con `respuestas-de-prueba.ts` —`fetchQueContesta` y `problema`, que
+estaban copiadas en `cliente.test.ts` y `descargar.test.ts` (#127)—; no sale por `index.ts`.
+
 ## Dos cosas que no se tocan
 
 - El `Content-Type` del multipart **no se fija a mano**: lo pone el navegador con su `boundary`, y
