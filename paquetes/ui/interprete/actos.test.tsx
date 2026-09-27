@@ -2,6 +2,8 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest';
 
+import { remendarElDom } from '../../verificaciones/arnes-del-dom.ts';
+
 import { TEXTOS_DE_LAS_PIEZAS, TEXTOS_DEL_INTERPRETE } from '../textos.tsx';
 import { camposQueFaltan, claseDe, motivoDelActo, peticionDe, valoresQueViajan } from './acciones.ts';
 import type { DatosDeLaPantalla, EstadoDeUnaLectura } from './datos.ts';
@@ -26,14 +28,8 @@ import type { DefinicionDePantalla, PiezaDeLaPantalla } from './tipos.ts';
  *     del lado del marco, `shell/navegacion.test.tsx`.
  */
 
-beforeAll(() => {
-  // Los remiendos que Radix pide a jsdom para abrir la `Confirmacion`: los de `armazon.test.tsx`.
-  globalThis.ResizeObserver = class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  } as unknown as typeof ResizeObserver;
-});
+// Los remiendos que Radix, `cmdk` y `sonner` le piden a jsdom: escritos una vez, en el arnes (#127).
+beforeAll(remendarElDom);
 
 type Definicion = DefinicionDePantalla<PiezaDeLaPantalla>;
 

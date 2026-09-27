@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { Pantalla, type DefinicionDePantalla, type PiezaDeLaPantalla } from '../ui/index.ts';
+import { remendarElDom } from '../verificaciones/arnes-del-dom.ts';
 
 import { Armazon } from './Armazon.tsx';
 import type { Catalogo } from './catalogo.ts';
@@ -23,29 +24,8 @@ import { TEXTOS_DEL_ARMAZON } from './textos.ts';
  * es la demostracion de que la forma que el marco da cabe tal cual en la que la pantalla pide.
  */
 
-beforeAll(() => {
-  globalThis.requestAnimationFrame = ((cb: FrameRequestCallback) => {
-    cb(0);
-    return 0;
-  }) as typeof requestAnimationFrame;
-  globalThis.cancelAnimationFrame = (() => {}) as typeof cancelAnimationFrame;
-  Element.prototype.scrollIntoView = () => {};
-  globalThis.ResizeObserver = class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  } as unknown as typeof ResizeObserver;
-  window.matchMedia = ((consulta: string) => ({
-    matches: false,
-    media: consulta,
-    onchange: null,
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    addListener: () => {},
-    removeListener: () => {},
-    dispatchEvent: () => false,
-  })) as unknown as typeof window.matchMedia;
-});
+// Los remiendos que Radix, `cmdk` y `sonner` le piden a jsdom: escritos una vez, en el arnes (#127).
+beforeAll(remendarElDom);
 
 beforeEach(() => {
   window.location.hash = '';

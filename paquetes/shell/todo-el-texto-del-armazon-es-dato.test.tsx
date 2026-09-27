@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
+import { remendarElDom } from '../verificaciones/arnes-del-dom.ts';
 import {
   ABRE,
   CIERRA,
@@ -59,31 +60,8 @@ import { TEXTOS_DEL_ARMAZON } from './textos.ts';
  * es una palabra, y está declarado abajo con su motivo.
  */
 
-beforeAll(() => {
-  // Los mismos cuatro remiendos de `armazon.test.tsx`. jsdom no trae ninguno, y Radix, `cmdk` y
-  // `sonner` se apoyan en los cuatro.
-  globalThis.requestAnimationFrame = ((cb: FrameRequestCallback) => {
-    cb(0);
-    return 0;
-  }) as typeof requestAnimationFrame;
-  globalThis.cancelAnimationFrame = (() => {}) as typeof cancelAnimationFrame;
-  Element.prototype.scrollIntoView = () => {};
-  globalThis.ResizeObserver = class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  } as unknown as typeof ResizeObserver;
-  window.matchMedia = ((consulta: string) => ({
-    matches: false,
-    media: consulta,
-    onchange: null,
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    addListener: () => {},
-    removeListener: () => {},
-    dispatchEvent: () => false,
-  })) as unknown as typeof window.matchMedia;
-});
+// Los remiendos que Radix, `cmdk` y `sonner` le piden a jsdom: escritos una vez, en el arnes (#127).
+beforeAll(remendarElDom);
 
 /** El saco entero, marcado clave a clave. Ver `marcarElSaco`. */
 const MARCADOS = marcarElSaco(TEXTOS_DEL_ARMAZON);

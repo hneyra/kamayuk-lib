@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { remendarElDom } from '../../verificaciones/arnes-del-dom.ts';
+
 import { Avisos, avisar } from '../shadcn/avisos.tsx';
 import { TEXTOS_DE_LAS_PIEZAS, TEXTOS_DEL_INTERPRETE } from '../textos.tsx';
 import { datosQueLee } from './componer.ts';
@@ -27,25 +29,8 @@ import type { DefinicionDePantalla, PiezaDeLaPantalla } from './tipos.ts';
  * escrita a mano, que es lo que `HojaDelMarco` permite.
  */
 
-beforeAll(() => {
-  // Los remiendos que Radix pide a jsdom: los de `actos.test.tsx`.
-  globalThis.ResizeObserver = class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  } as unknown as typeof ResizeObserver;
-  // Y el de `sonner`, que la llama al resolver el modo `system`: medido en #13, ver `el-texto-propio-es-dato`.
-  window.matchMedia = ((consulta: string) => ({
-    matches: false,
-    media: consulta,
-    onchange: null,
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    addListener: () => {},
-    removeListener: () => {},
-    dispatchEvent: () => false,
-  })) as unknown as typeof window.matchMedia;
-});
+// Los remiendos que Radix, `cmdk` y `sonner` le piden a jsdom: escritos una vez, en el arnes (#127).
+beforeAll(remendarElDom);
 
 type Definicion = DefinicionDePantalla<PiezaDeLaPantalla>;
 

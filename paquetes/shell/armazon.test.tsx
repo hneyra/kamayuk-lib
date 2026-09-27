@@ -1,6 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { remendarElDom } from '../verificaciones/arnes-del-dom.ts';
+
 import { Armazon } from './Armazon.tsx';
 import { CarrilDeModulos } from './CarrilDeModulos.tsx';
 import type { Catalogo } from './catalogo.ts';
@@ -26,31 +28,8 @@ import { useHoja, type ConfiguracionDelArmazon } from './contexto.tsx';
  * CERRADO, que es lo barato.
  */
 
-beforeAll(() => {
-  // Los mismos cuatro remiendos de `piezas-del-armazon.test.tsx`. jsdom no trae ninguno de ellos y
-  // Radix, `cmdk` y `sonner` se apoyan en los cuatro.
-  globalThis.requestAnimationFrame = ((cb: FrameRequestCallback) => {
-    cb(0);
-    return 0;
-  }) as typeof requestAnimationFrame;
-  globalThis.cancelAnimationFrame = (() => {}) as typeof cancelAnimationFrame;
-  Element.prototype.scrollIntoView = () => {};
-  globalThis.ResizeObserver = class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  } as unknown as typeof ResizeObserver;
-  window.matchMedia = ((consulta: string) => ({
-    matches: false,
-    media: consulta,
-    onchange: null,
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    addListener: () => {},
-    removeListener: () => {},
-    dispatchEvent: () => false,
-  })) as unknown as typeof window.matchMedia;
-});
+// Los remiendos que Radix, `cmdk` y `sonner` le piden a jsdom: escritos una vez, en el arnes (#127).
+beforeAll(remendarElDom);
 
 /**
  * Dos modulos inventados. `alm-entradas` se escribe y se enlaza con un slug propio; los otros dos
