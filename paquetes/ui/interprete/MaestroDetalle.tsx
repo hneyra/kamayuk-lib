@@ -25,8 +25,8 @@ import type { DefinicionDeMaestroDetalle, Texto, TonoDeInsignia } from './tipos.
  *
  * La lista es un `listbox` de `option` con `aria-selected` y tabulador itinerante: el tabulador
  * entra por la elegida (o por la primera), ↑/↓ mueven el foco sin dar la vuelta, Inicio/Fin van a
- * los extremos —`destinoDeLaTecla`, el de la tabla (#120)—, e **Intro o Espacio eligen**. WAI-ARIA admite las dos formas, y aqui se toma la que no pide: elegir
- * cambia la ruta, y la ruta hace que el sistema pida el detalle. Si la eleccion siguiera al foco,
+ * los extremos —`destinoDeLaTecla`, el de la tabla (#120)—, e **Intro o Espacio eligen**. WAI-ARIA
+ * admite las dos formas, y aqui se toma la que no pide: elegir cambia la ruta, y la ruta hace que el sistema pida el detalle. Si la eleccion siguiera al foco,
  * bajar diez filas con la flecha serian diez lecturas del detalle y nueve respuestas tiradas.
  *
  * <h2>Las cuatro cosas que dice el detalle</h2>
@@ -183,42 +183,6 @@ export function MaestroDetalle({
     );
   }
 
-  let cuerpoDelDetalle: ReactNode;
-  if (elegido === null && detalle.sinEleccionSeDibuja !== true) {
-    cuerpoDelDetalle = (
-      <div data-slot="sin-eleccion" className="grid flex-1 place-items-center p-[30px]">
-        <p className="m-0 max-w-[44ch] text-center text-[14px] leading-[1.6] text-tinta-3 text-pretty">
-          {deLaPantalla(detalle.sinEleccion)}
-        </p>
-      </div>
-    );
-  } else {
-    const subtitulo = detalle.cabecera?.subtitulo === undefined ? '' : deLaPantalla(detalle.cabecera.subtitulo);
-    cuerpoDelDetalle = (
-      <div className="flex flex-col gap-[14px] px-[18px] pb-6 pt-4">
-        {elegido === null ? (
-          // Sin eleccion, y el detalle se dibuja igual: lo dice encima, con la frase de la hoja.
-          <Alerta tono="info" data-sin-eleccion="">
-            {deLaPantalla(detalle.sinEleccion)}
-          </Alerta>
-        ) : listaContesto && indiceElegido < 0 ? (
-          <Alerta tono="info" data-no-esta-en-la-lista={elegido}>
-            {deLaPantalla(detalle.noEstaEnLaLista)}
-          </Alerta>
-        ) : null}
-        {detalle.cabecera === undefined ? null : (
-          <div data-slot="cabecera-del-detalle">
-            <h2 className="m-0 text-[17px] font-bold tracking-[-.015em] text-pretty">{deLaPantalla(detalle.cabecera.titulo)}</h2>
-            {subtitulo === '' ? null : (
-              <p className="mt-1 mb-0 text-[13.5px] leading-[1.5] text-tinta-3 text-pretty">{subtitulo}</p>
-            )}
-          </div>
-        )}
-        {detalle.bloques.map((_, j) => dibujarHija(j))}
-      </div>
-    );
-  }
-
   return (
     <div
       data-pieza="maestro-detalle"
@@ -232,8 +196,68 @@ export function MaestroDetalle({
         {lista}
       </div>
       <div data-slot="detalle" className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto">
-        {cuerpoDelDetalle}
+        <DetalleDelMaestro
+          detalle={detalle}
+          elegido={elegido}
+          noEstaEnLaLista={elegido !== null && listaContesto && indiceElegido < 0}
+          deLaPantalla={deLaPantalla}
+          dibujarHija={dibujarHija}
+        />
       </div>
+    </div>
+  );
+}
+
+/**
+ * **El detalle: lo que dice encima y sus piezas** (#67 y #95; aparte desde #120). Sin eleccion,
+ * `sinEleccion` en su lugar —o encima, con `sinEleccionSeDibuja`—; con una eleccion que no vino en la
+ * lista, `noEstaEnLaLista` encima. Ver el docblock de `MaestroDetalle`.
+ */
+function DetalleDelMaestro({
+  detalle,
+  elegido,
+  noEstaEnLaLista,
+  deLaPantalla,
+  dibujarHija,
+}: {
+  readonly detalle: DefinicionDeMaestroDetalle['detalle'];
+  readonly elegido: string | null;
+  /** Hay eleccion, la lista contesto y no la trae. */
+  readonly noEstaEnLaLista: boolean;
+  readonly deLaPantalla: (t: Texto) => string;
+  readonly dibujarHija: (j: number) => ReactNode;
+}) {
+  if (elegido === null && detalle.sinEleccionSeDibuja !== true) {
+    return (
+      <div data-slot="sin-eleccion" className="grid flex-1 place-items-center p-[30px]">
+        <p className="m-0 max-w-[44ch] text-center text-[14px] leading-[1.6] text-tinta-3 text-pretty">
+          {deLaPantalla(detalle.sinEleccion)}
+        </p>
+      </div>
+    );
+  }
+  const subtitulo = detalle.cabecera?.subtitulo === undefined ? '' : deLaPantalla(detalle.cabecera.subtitulo);
+  return (
+    <div className="flex flex-col gap-[14px] px-[18px] pb-6 pt-4">
+      {elegido === null ? (
+        // Sin eleccion, y el detalle se dibuja igual: lo dice encima, con la frase de la hoja.
+        <Alerta tono="info" data-sin-eleccion="">
+          {deLaPantalla(detalle.sinEleccion)}
+        </Alerta>
+      ) : noEstaEnLaLista ? (
+        <Alerta tono="info" data-no-esta-en-la-lista={elegido}>
+          {deLaPantalla(detalle.noEstaEnLaLista)}
+        </Alerta>
+      ) : null}
+      {detalle.cabecera === undefined ? null : (
+        <div data-slot="cabecera-del-detalle">
+          <h2 className="m-0 text-[17px] font-bold tracking-[-.015em] text-pretty">{deLaPantalla(detalle.cabecera.titulo)}</h2>
+          {subtitulo === '' ? null : (
+            <p className="mt-1 mb-0 text-[13.5px] leading-[1.5] text-tinta-3 text-pretty">{subtitulo}</p>
+          )}
+        </div>
+      )}
+      {detalle.bloques.map((_, j) => dibujarHija(j))}
     </div>
   );
 }
