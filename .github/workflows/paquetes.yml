@@ -129,7 +129,8 @@ jobs:
   #
   # LA LOGICA NO ESTA EN ESTE ARCHIVO A PROPOSITO. Un `run:` de quince lineas no se puede probar, y
   # asi es como se llego al hueco que #26 cierra. El parser del cuerpo y la resolucion por consumidor
-  # son un guion con sus muestras (`la-rama-del-consumidor.test.ts`), y aqui solo se le llama.
+  # son un guion con sus muestras (`la-rama-del-consumidor.test.ts`), y aqui solo se le llama. Y
+  # desde #115 el veredicto tambien: `veredicto.mjs`, con su tabla de ocho casos.
   #
   # ## QUE SIGNIFICA LA LINEA BASE CUANDO SI HAY RAMA NOMBRADA
   #
@@ -254,65 +255,19 @@ jobs:
 
       # El veredicto va en un paso aparte porque los dos de arriba llevan `continue-on-error`: sin
       # esto, el trabajo saldria VERDE con los dos en rojo.
+      #
+      # Y LA DECISION TAMPOCO ESTA EN ESTE ARCHIVO (#115). Los cuatro caminos —con rama nombrada del
+      # consumidor o sin ella, y la linea base y esta rama en verde o en rojo— son una funcion pura,
+      # `veredicto.mjs`, con su tabla de ocho casos en `el-veredicto-tiene-su-tabla.test.ts`, y aqui
+      # solo se la llama. Hasta #115 eran 62 lineas de bash que ninguna prueba ejecutaba: cambiar un
+      # `exit 0` por un `exit 1` seguia en verde. Las frases son las mismas, letra por letra.
+      #
+      # El guion que corre es el de ESTA rama: el paso «Con esta rama» deja ahi la libreria.
       - name: El veredicto
+        working-directory: kamayuk-lib
         env:
           BASE: ${{ steps.base.outcome }}
           RAMA: ${{ steps.rama.outcome }}
           QUIEN: ${{ matrix.repositorio }}
           RAMA_DEL_CONSUMIDOR: ${{ steps.contra.outputs.rama }}
-        run: |
-          echo "el consumidor se midio en:     ${RAMA_DEL_CONSUMIDOR:-su rama por omision}"
-          echo "linea base (libreria en main): $BASE"
-          echo "con esta rama:                 $RAMA"
-
-          # CAMINO CON RAMA NOMBRADA (#26). La linea base ya no separa «estaba roto» de «esta rama
-          # lo rompio»: la rama nombrada trae el ajuste que ESPERA este cambio, asi que contra la
-          # libreria en «main» puede estar legitimamente roja. El contrato es el PAR, y el par se
-          # mide una sola vez — con esta rama—, asi que aqui el rojo bloquea siempre.
-          if [ -n "$RAMA_DEL_CONSUMIDOR" ]; then
-            if [ "$RAMA" = "success" ]; then
-              echo "«$QUIEN@$RAMA_DEL_CONSUMIDOR» sale en verde con esta rama: el par cierra."
-              if [ "$BASE" != "success" ]; then
-                echo "::notice::La linea base salio ROJA, y aqui eso se ESPERA: «$RAMA_DEL_CONSUMIDOR» trae el ajuste que este cambio necesita, asi que contra la libreria en «main» tenia que fallar. No es un aviso de nada."
-              fi
-              echo ""
-              echo "Las dos mitades se mezclan JUNTAS, y esta CI no lo hace por nadie: lo unico que"
-              echo "dice es que el par cierra. Mezclar primero la del consumidor deja su «main» roto"
-              echo "hasta que se mezcle esta."
-              exit 0
-            fi
-            echo "::error::ESTA RAMA NO CIERRA CON «$QUIEN@$RAMA_DEL_CONSUMIDOR»."
-            echo "El PR nombra esa rama del consumidor como la que trae el ajuste que su cambio"
-            echo "necesita, y con las dos puestas la suite sale en ROJO: el par no cierra."
-            echo ""
-            echo "Y este trabajo bloquea aunque la linea base tambien este roja. Cuando un PR nombra"
-            echo "una rama, LA RAMA NOMBRADA ES EL CONTRATO: «las dos rojas, no es de aqui» valia"
-            echo "cuando las dos median lo mismo, y aqui la rama nombrada esta puesta justo para que"
-            echo "no lo hagan."
-            exit 1
-          fi
-
-          # CAMINO DE SIEMPRE (#10), que no cambia: sin rama nombrada se mide la de por omision.
-          if [ "$RAMA" = "success" ]; then
-            echo "«$QUIEN» sigue en verde con esta rama."
-            exit 0
-          fi
-          if [ "$BASE" != "success" ]; then
-            echo "::warning::«$QUIEN» ya estaba rojo con la libreria en «main». Esta rama NO es la causa,"
-            echo "::warning::asi que este trabajo no la bloquea. Pero alguien tiene que mirarlo alli."
-            echo ""
-            echo "Y si ese rojo ES el ajuste que esta rama necesita, el PR lo puede decir con una"
-            echo "linea en su cuerpo —«consumidor: <duenno>/<sistema>@<rama>»— y entonces se mide"
-            echo "contra esa rama en vez de contra la de por omision (#26)."
-            exit 0
-          fi
-          echo "::error::ESTA RAMA ROMPE A «$QUIEN»."
-          echo "Con la libreria en «main» su suite sale en VERDE; con esta rama, en ROJO."
-          echo "El registro del paso «Con esta rama» dice que fallo."
-          echo ""
-          echo "Es lo que kamayuk-lib#10 existe para cazar: con «link:» no hay version que de"
-          echo "margen — lo que se mezcle aqui es lo que ese sistema tiene en el siguiente «git pull»."
-          echo ""
-          echo "Si el arreglo esta en una rama del consumidor, nombrala en el cuerpo del PR"
-          echo "—«consumidor: <duenno>/<sistema>@<rama>»— y esta CI medira contra ella (#26)."
-          exit 1
+        run: node paquetes/verificaciones/veredicto.mjs

@@ -203,21 +203,47 @@ function loQueFaltaALaMedida(workflow: Mapa): string[] {
 /** El `name` del paso que decide. Lo leen las personas que miran la CI, y por eso se exige tal cual. */
 const NOMBRE_DEL_VEREDICTO = 'El veredicto';
 
+/** La orden que decide (#115): la decision vive en el guion, con su tabla de ocho casos. */
+const LLAMADA_AL_VEREDICTO = 'node paquetes/verificaciones/veredicto.mjs';
+
+/** Lo mas largo que puede ser el `run:` del veredicto: llamar al guion y poco mas (#115). */
+const LINEAS_DEL_VEREDICTO = 5;
+
 /**
  * Lo que le falta al VEREDICTO: un paso con ese nombre, DESPUES de los dos que miden —antes no
- * tendria sus resultados—, y con el rojo que para el trabajo.
+ * tendria sus resultados—, que llame a `veredicto.mjs` en un `run:` de no mas de cinco lineas —la
+ * decision es del guion y de su tabla, no de un bash que ninguna prueba corre (#115)— y que le pase
+ * en `BASE` y `RAMA` el `outcome` de ESOS dos pasos y no de otros: cruzados, la tabla decide bien
+ * sobre las entradas equivocadas.
  */
 function loQueFaltaAlVeredicto(workflow: Mapa): string[] {
   const pasos = pasosDelConsumidor(workflow);
   const indice = pasos.findIndex((p) => p['name'] === NOMBRE_DEL_VEREDICTO);
   if (indice === -1) return [`no hay un paso llamado «${NOMBRE_DEL_VEREDICTO}» en el trabajo \`consumidores\``];
+  const paso = pasos[indice] ?? {};
   const faltas: string[] = [];
-  const ultimaMedida = Math.max(
-    pasos.findIndex((p) => LINEA_BASE.test(ordenDe(p))),
-    pasos.findIndex((p) => ESTA_RAMA.test(ordenDe(p))),
-  );
+  const base = pasos.find((p) => LINEA_BASE.test(ordenDe(p)));
+  const rama = pasos.find((p) => ESTA_RAMA.test(ordenDe(p)));
+  const ultimaMedida = Math.max(base === undefined ? -1 : pasos.indexOf(base), rama === undefined ? -1 : pasos.indexOf(rama));
   if (indice < ultimaMedida) faltas.push('el veredicto va antes de las medidas que tiene que leer');
-  if (!/ESTA RAMA ROMPE A/.test(ordenDe(pasos[indice] ?? {}))) faltas.push('el veredicto no tiene el rojo que para el trabajo');
+  const orden = ordenDe(paso)
+    .split('\n')
+    .map((linea) => linea.trim());
+  if (!orden.includes(LLAMADA_AL_VEREDICTO)) faltas.push(`el veredicto no llama a \`${LLAMADA_AL_VEREDICTO}\``);
+  const lineas = String(paso['run'] ?? '').trimEnd().split('\n').length;
+  if (lineas > LINEAS_DEL_VEREDICTO) {
+    faltas.push(`el \`run:\` del veredicto tiene ${String(lineas)} lineas, y no puede pasar de ${String(LINEAS_DEL_VEREDICTO)}`);
+  }
+  for (const [variable, medida] of [
+    ['BASE', base],
+    ['RAMA', rama],
+  ] as const) {
+    const id = medida?.['id'];
+    const esperado = typeof id === 'string' ? `\${{ steps.${id}.outcome }}` : null;
+    if (esperado === null || valorEn(paso, 'env', variable) !== esperado) {
+      faltas.push(`\`${variable}\` no es el \`outcome\` del paso que mide ${variable === 'BASE' ? 'la linea base' : 'esta rama'}`);
+    }
+  }
   return faltas;
 }
 
@@ -509,6 +535,45 @@ describe('la CI mira a sus consumidores', () => {
     expect(loQueFaltaAlVeredicto(adelantado), 'un veredicto antes de las medidas paso en verde').toEqual([
       'el veredicto va antes de las medidas que tiene que leer',
     ]);
+  });
+
+  it('LA MUESTRA (#115): un veredicto que no llama al guion, que crece o que lee las medidas cruzadas sale rojo', () => {
+    // Cada rotura sobre el workflow de ESTE arbol, en memoria, y comprobada antes de juzgarla. La
+    // primera es la de #114 otra vez: el comentario del paso sigue nombrando `veredicto.mjs`. La
+    // segunda, la que la lectura por lineas no veia: un comentario de YAML detras de un escalar.
+    const LLAMADA = `        run: ${LLAMADA_AL_VEREDICTO}\n`;
+    const ROTURAS: readonly [string, (texto: string) => string, string][] = [
+      [
+        'con la decision en bash otra vez',
+        (texto) => texto.replace(LLAMADA, '        run: exit 0\n'),
+        `el veredicto no llama a \`${LLAMADA_AL_VEREDICTO}\``,
+      ],
+      [
+        'con la llamada en un comentario de YAML',
+        (texto) => texto.replace(LLAMADA, `        run: exit 0 # ${LLAMADA_AL_VEREDICTO}\n`),
+        `el veredicto no llama a \`${LLAMADA_AL_VEREDICTO}\``,
+      ],
+      [
+        'con un `run:` de seis lineas',
+        (texto) =>
+          texto.replace(LLAMADA, `        run: |\n${'          echo\n'.repeat(5)}          ${LLAMADA_AL_VEREDICTO}\n`),
+        'el `run:` del veredicto tiene 6 lineas, y no puede pasar de 5',
+      ],
+      [
+        'con la linea base y esta rama cruzadas',
+        (texto) =>
+          texto
+            .replace('BASE: ${{ steps.base.outcome }}', 'BASE: ${{ steps.rama.outcome }}')
+            .replace('RAMA: ${{ steps.rama.outcome }}', 'RAMA: ${{ steps.base.outcome }}'),
+        '`BASE` no es el `outcome` del paso que mide la linea base',
+      ],
+    ];
+    for (const [nombre, romper, falta] of ROTURAS) {
+      const roto = romper(textoDelWorkflow);
+      expect(roto, `la rotura «${nombre}» no se aplico`).not.toBe(textoDelWorkflow);
+      expect(roto, `«${nombre}»: el comentario ya no nombra el guion`).toContain('`veredicto.mjs`');
+      expect(loQueFaltaAlVeredicto(analizarWorkflow(roto, WORKFLOW)), `«${nombre}» paso en verde`).toContain(falta);
+    }
   });
 
   it('el Node del consumidor es la ULTIMA 24, no la que el corredor tenga en cache', () => {

@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest';
 
 import { CLAVE, leerLasMenciones, resolverLaRama } from './rama-del-consumidor.mjs';
 import { RAIZ } from './texto.ts';
+import { veredicto } from './veredicto.mjs';
 import { analizarWorkflow, type Mapa, ordenDe, pasosDe, trabajoDe, valorEn } from './workflow.ts';
 
 /**
@@ -265,21 +266,23 @@ describe('y el workflow lo usa de verdad', () => {
     );
   });
 
-  it('el veredicto tiene los DOS caminos, y el de la rama nombrada bloquea', () => {
+  it('el veredicto recibe la rama resuelta, y con ella nombrada el rojo bloquea aunque la base este roja', () => {
     // Con rama nombrada, la linea base puede estar legitimamente roja —la rama del consumidor trae
     // el ajuste que espera el cambio de aqui—, asi que «los dos rojos» deja de significar «no es
-    // de esta rama». Lo que manda es la rama nombrada: si sale roja, bloquea.
-    const veredicto = pasosDelConsumidor(workflow).find((paso) => paso['name'] === 'El veredicto');
-    expect(veredicto, 'no hay paso de veredicto').toBeDefined();
-    const orden = ordenDe(veredicto ?? {});
-    expect(
-      String(valorEn(veredicto, 'env', 'RAMA_DEL_CONSUMIDOR')),
-      'el veredicto no sabe si hay rama nombrada',
-    ).toMatch(/steps\.\w+\.outputs\.rama/);
-    expect(orden, 'el veredicto no distingue si hay rama nombrada').toContain('RAMA_DEL_CONSUMIDOR');
-    expect(orden, 'no hay rojo propio del camino con rama nombrada').toMatch(/NO CIERRA CON/);
+    // de esta rama». Lo que manda es la rama nombrada: si sale roja, bloquea. Los dos caminos, con
+    // sus ocho casos, son `veredicto.mjs` y su tabla desde #115 —hasta entonces esto buscaba dos
+    // frases en el bash, y un `exit` cambiado seguia en verde—; aqui se mira que el paso le pase LA
+    // RAMA QUE RESOLVIO EL GUION, y no otra salida ni la de otro paso.
+    const paso = pasosDelConsumidor(workflow).find((p) => p['name'] === 'El veredicto');
+    expect(paso, 'no hay paso de veredicto').toBeDefined();
+    const id = String(resolvedorDe(workflow)?.['id']);
+    expect(String(valorEn(paso, 'env', 'RAMA_DEL_CONSUMIDOR')), 'el veredicto no recibe la rama que resolvio el guion').toMatch(
+      new RegExp(`^\\$\\{\\{\\s*steps\\.${id}\\.outputs\\.rama\\s*\\}\\}$`),
+    );
+    const dosRojas = { base: 'failure', rama: 'failure', quien: 'hneyra/rentas' };
+    expect(veredicto({ ...dosRojas, ramaDelConsumidor: 'el-ajuste' }).codigo, 'con rama nombrada, las dos rojas no bloquean').toBe(1);
     // Y el camino de siempre sigue entero, que es el AC2 visto desde el veredicto.
-    expect(orden, 'se perdio el rojo del camino de siempre').toMatch(/ESTA RAMA ROMPE A/);
+    expect(veredicto({ ...dosRojas, ramaDelConsumidor: '' }).codigo, 'sin rama nombrada, las dos rojas bloquean').toBe(0);
   });
 
   it('y el ensayo contra un remoto de verdad corre en CI', () => {
