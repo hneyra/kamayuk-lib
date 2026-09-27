@@ -69,7 +69,9 @@ borrarla estaría pidiendo falsificar el registro.
 paquetes/
   formato/   valores.ts, formato.ts, aritmetica.ts, documento.ts, partir.ts (el UNICO analisis de lo
              servido, interno)
-  api/       errores.ts (ErrorDeLaApi + NoEsUnDocumento + ArchivoRechazado), cliente.ts (crearCliente),
+  api/       errores.ts (ErrorDeLaApi + NoEsUnDocumento + ArchivoRechazado, y cuerpoDeProblema y
+             operacionDe, la unica lectura del problem+json y la unica forma de «VERBO /ruta»),
+             cliente.ts (crearCliente, y pedir(), por donde pasan tres de las cuatro operaciones),
              subir.ts (el multipart, y el UNICO XMLHttpRequest), entregar.ts (entregarAlNavegador)
   sesion/    identidad.ts (crearIdentidad), quien-entro.ts (leerQuienEntro),
              escalera.ts (peldanoDe y su tabla REGLAS), escalera.instantanea.json (su salida, #123),
@@ -77,7 +79,9 @@ paquetes/
   ui/        los tokens, las cuatro identidades y sus dos origenes, los componentes de shadcn (once + siete),
              el interprete (hoja.ts, composicion.ts y sus piezas) y textos.tsx
   shell/     el armazon: catalogo.ts, ruta.ts, busqueda.ts, acciones.ts, navegacion.tsx, contexto.tsx,
-             textos.ts y las siete piezas
+             textos.ts, las siete piezas y los hooks internos de `Cascara` (#119):
+             registro-de-hojas.ts (el reductor), navegacion-guardada.ts, hoja-abierta.ts y
+             paleta-y-carril.ts
   verificaciones/  texto.ts, comentarios.mjs, archivos.mjs (el recorredor, el escaner de lineas y el
                    unico Hallazgo de las guardas), suposiciones.ts, marcas.ts, rama-del-consumidor.mjs,
                    las-acciones-corren-en-node-24.test.ts, arnes-del-request.ts (el arnes que se
