@@ -46,6 +46,19 @@ navegador, y por eso `sin-suponer-un-sistema` no lo barre.
   `ui/temas/base.ts`.
 - `sin-suponer-un-sistema`, `sin-nombre-publico-entre-paquetes`, `las-capas-corren` y
   `los-consumidores-se-miran`.
+- **Un workflow se lee como YAML, no como texto** (#114): `workflow.ts` —`leerWorkflow`,
+  `analizarWorkflow` y los accesores `trabajoDe`, `pasosDe`, `valorEn` y `ordenDe`, sobre el
+  analizador `yaml`— es la única lectura de `.github/workflows/` de las guardas. Lo que es
+  comentario lo decide el analizador; dentro de un `run: |`, `ordenDe` quita además las líneas que
+  el shell no corre. Un YAML ilegible o con una clave repetida **revienta nombrando el archivo**.
+  Hasta #114 cada guarda se hacía su remedio —cuatro distintos para el mismo archivo— y
+  `los-consumidores-se-miran` se daba por satisfecha con los comentarios: quitado el paso de `jq`,
+  la línea `include: ${{ fromJSON(…) }}` y renombrado el veredicto, seguía en verde. Hoy pregunta
+  por la **forma** del objeto, y esas tres roturas son muestras permanentes sobre el workflow del
+  árbol, en memoria. Lo usan también `la-rama-del-consumidor` —que mira el resolvedor **en su paso**:
+  el token lo lleva también el del ensayo—, `las-acciones-corren-en-node-24`,
+  `las-cifras-las-escribe-un-guion` y `listasDeRutas` (`rutas-de-la-ci.ts`), con sus muestras en
+  `el-workflow-se-lee-como-yaml`.
 - `el-texto-visible-es-dato`: el barrido con el analizador de TypeScript, que desde #52 tiene una
   **cuarta forma**: **la frase** —dos rachas de letras separadas por un espacio— sobre los paquetes
   que escriben palabras **sin dibujar nada**, hoy `sesion`, cuyo `textos.ts` guarda **dos sacos**
@@ -73,7 +86,8 @@ navegador, y por eso `sin-suponer-un-sistema` no lo barre.
   mano, comprueba que cada promesa apunta a un archivo que existe y que es un archivo, y ante una
   forma de `exports` que no sepa leer sale **en rojo diciéndolo** en vez de pasar en verde.
 - `las-acciones-corren-en-node-24` (#93): lee el **directorio** `.github/workflows/`, no una lista
-  escrita, y fija por acción la mayor **cuyo `runs.using` se midió**, con el literal anotado al
+  escrita, recorre los `uses:` que GitHub ejecuta —`jobs.<id>.steps[]` y `jobs.<id>`— del YAML
+  analizado (#114), y fija por acción la mayor **cuyo `runs.using` se midió**, con el literal anotado al
   lado. No baja el `action.yml` porque eso exige red, y una guarda que necesita red es una que se
   salta el día que la red falla; lo que la tabla no conoce y lo que no es `@vN` salen **en rojo
   diciéndolo**.

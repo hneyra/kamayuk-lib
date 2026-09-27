@@ -2,6 +2,9 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { RAIZ } from './texto.ts';
+import { analizarWorkflow, esMapa, valorEn } from './workflow.ts';
+
+const WORKFLOW = '.github/workflows/paquetes.yml';
 
 /**
  * **Qué archivos disparan la CI de los paquetes** (#128).
@@ -14,25 +17,22 @@ import { RAIZ } from './texto.ts';
  */
 
 export function leerElWorkflow(): string {
-  return readFileSync(join(RAIZ, '.github/workflows/paquetes.yml'), 'utf8');
+  return readFileSync(join(RAIZ, WORKFLOW), 'utf8');
 }
 
-/** Cada lista `paths:` del workflow, con las comillas quitadas. */
+/**
+ * Cada lista `paths:` de los eventos del workflow (`on.<evento>.paths`), en el orden en que estan
+ * escritas.
+ *
+ * Del YAML analizado desde #114, y no linea a linea: la lectura por lineas cortaba la lista en el
+ * primer comentario que se metiera entre dos rutas, y no veia una lista escrita en una sola linea
+ * (`paths: ["a", "b"]`), que para GitHub es la misma.
+ */
 export function listasDeRutas(workflow: string): string[][] {
-  const listas: string[][] = [];
-  let actual: string[] | null = null;
-  for (const linea of workflow.split('\n')) {
-    const recortada = linea.trim();
-    if (recortada === 'paths:') {
-      actual = [];
-      listas.push(actual);
-      continue;
-    }
-    if (actual !== null && recortada.startsWith('- ')) {
-      actual.push(recortada.slice(2).replace(/^"|"$/g, ''));
-      continue;
-    }
-    actual = null;
-  }
-  return listas;
+  const eventos = valorEn(analizarWorkflow(workflow, WORKFLOW), 'on');
+  if (!esMapa(eventos)) return [];
+  return Object.values(eventos)
+    .map((evento) => valorEn(evento, 'paths'))
+    .filter((rutas): rutas is unknown[] => Array.isArray(rutas))
+    .map((rutas) => rutas.map(String));
 }
