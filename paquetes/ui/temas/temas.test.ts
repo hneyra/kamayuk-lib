@@ -17,6 +17,7 @@ import {
 } from '../color.ts';
 import { leerLosOrigenes, RUTA_DE_LOS_TEMAS, RUTAS_DE_LOS_ORIGENES } from './base.ts';
 import { COMBINACIONES, derivar, ORIGEN_DE, type IdentidadDeOrigen } from './derivar.ts';
+import { IDENTIDADES, MODOS } from './ejes.ts';
 import {
   capasDe,
   DISTANCIA_SEMANTICA_MINIMA,
@@ -56,7 +57,8 @@ describe('las ocho paletas estan completas', () => {
     // Sin esto, un cambio de formato en el `@theme` dejaria la base VACIA y todo lo de abajo
     // pasaria sobre el conjunto vacio — que es como una guarda se queda sin sujeto.
     expect(base.size, 'el @theme no declaro ni un color').toBe(38);
-    expect(COMBINACIONES).toHaveLength(8);
+    // Derivado y no a mano (#124): una por identidad y modo. Las ocho de hoy, sin escribir el ocho.
+    expect(COMBINACIONES).toHaveLength(IDENTIDADES.length * MODOS.length);
   });
 
   it.each(Object.keys(RUTAS_DE_LOS_ORIGENES))(

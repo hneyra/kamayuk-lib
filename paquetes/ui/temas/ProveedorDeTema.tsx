@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
-import type { Identidad } from './derivar.ts';
+import { IDENTIDADES, MODOS, type Identidad, type Modo } from './ejes.ts';
 
 /**
  * El mando de los temas: dos ejes, tres fuentes y un orden.
@@ -36,7 +36,9 @@ import type { Identidad } from './derivar.ts';
  * una credencial.
  */
 
-export type Modo = 'claro' | 'oscuro';
+// `Modo` se declara UNA vez, en `ejes.ts` (#124): hasta #124 se declaraba aqui y otra vez en
+// `derivar.ts`. Se reexporta desde aqui porque es de donde lo publica `index.ts`.
+export type { Modo };
 
 export interface ConfiguracionDeTema {
   /** La identidad que el servicio trae de fabrica. */
@@ -61,11 +63,10 @@ interface Estado {
 
 const Contexto = createContext<Estado | null>(null);
 
-// `clasico` entra en #56, y entra AQUI y no solo en el tipo: esta lista es la que decide si un
-// valor recordado se respeta, asi que una identidad que estuviera en `Identidad` y no aqui se
-// estamparia al elegirla y se olvidaria al recargar, cayendo en silencio a la del servicio.
-const IDENTIDADES: readonly Identidad[] = ['institucional', 'alto-contraste', 'sepia', 'clasico'];
-const MODOS: readonly Modo[] = ['claro', 'oscuro'];
+// `IDENTIDADES` es la lista que decide si un valor recordado se respeta, asi que una identidad que
+// estuviera en `Identidad` y no en ella se estamparia al elegirla y se olvidaria al recargar,
+// cayendo en silencio a la del servicio (#56). Desde #124 no puede pasar: `Identidad` SALE de la
+// lista, en `ejes.ts`, y ya no se repite aqui a mano.
 
 /** Lee una clave sin dejar que el almacenamiento tumbe la aplicacion. Ver el javadoc. */
 function recordar(clave: string): string | null {
@@ -100,12 +101,12 @@ export function ProveedorDeTema({
     const guardada = recordar(claveDelTema);
     // Un valor guardado que ya no existe —porque el tema se retiro— NO se aplica: se cae al del
     // servicio. Estamparlo dejaria `data-tema="algo"` sin reglas y la pantalla sin colores.
-    return IDENTIDADES.includes(guardada as Identidad) ? (guardada as Identidad) : identidadPorOmision;
+    return IDENTIDADES.find((conocida) => conocida === guardada) ?? identidadPorOmision;
   });
 
   const [modo, setModo] = useState<Modo | null>(() => {
     const guardado = recordar(claveDelModo);
-    return MODOS.includes(guardado as Modo) ? (guardado as Modo) : null;
+    return MODOS.find((conocido) => conocido === guardado) ?? null;
   });
 
   useEffect(() => {
