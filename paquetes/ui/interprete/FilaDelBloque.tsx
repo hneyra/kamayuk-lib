@@ -2,15 +2,15 @@ import { Insignia } from '../Insignia.tsx';
 import { CAPA_CABECERA_FIJA } from '../shadcn/capas.ts';
 import { FOCO } from '../shadcn/foco.ts';
 import { TablaCabecera, TablaCelda, TablaFila, TablaRotulo } from '../shadcn/tabla.tsx';
-import type { TextosDeLaPantalla } from '../textos.tsx';
 import { cn } from '../utilidades.ts';
 import { AccionesDeLaFila } from './AccionesDeLaFila.tsx';
-import { type Nombrados, resolverTexto, seCumple } from './componer.ts';
+import { type Nombrados, seCumple, textoCon } from './componer.ts';
 import type { CeldaDeLaTabla, FilaDeLaTabla } from './datos.ts';
 import type { EleccionDeLasFilas } from './eleccion-de-la-fila.ts';
-import type { InteraccionDeLaPantalla } from './interaccion.ts';
+import { type EntornoDelInterprete, useEntorno } from './entorno.tsx';
+import type { AccionesDeLaHoja } from './interaccion.ts';
 import { notaDeLaCelda, resolverInsignia, textoDeLaCelda } from './reglas-de-las-tablas.ts';
-import type { DefinicionDeTabla, TonoDeInsignia, Texto } from './tipos.ts';
+import type { DefinicionDeTabla, Texto } from './tipos.ts';
 
 /**
  * **Las filas de la tabla de un bloque: la de la cabecera, y cada una del cuerpo con sus celdas**
@@ -31,8 +31,6 @@ import type { DefinicionDeTabla, TonoDeInsignia, Texto } from './tipos.ts';
 /** Lo que las filas de una tabla necesitan de ella para dibujarse. */
 interface DeLaTabla {
   readonly tabla: DefinicionDeTabla<Texto>;
-  readonly traducir: (texto: string) => string;
-  readonly textos: TextosDeLaPantalla;
   /** Un texto de la definicion, resuelto con los datos de la pantalla. */
   readonly texto: (t: Texto) => string;
 }
@@ -40,10 +38,10 @@ interface DeLaTabla {
 /** La cabecera: un rotulo por columna, con su campo y su dominio, y el de las acciones. */
 export function CabeceraDelBloque({
   tabla,
-  traducir,
   ordenado,
   descendente,
-}: Pick<DeLaTabla, 'tabla' | 'traducir'> & { readonly ordenado: string | undefined; readonly descendente: boolean }) {
+}: Pick<DeLaTabla, 'tabla'> & { readonly ordenado: string | undefined; readonly descendente: boolean }) {
+  const { traducir } = useEntorno();
   const acciones = tabla.accionesPorFila;
   const fija = tabla.cabeceraFija === true ? `sticky top-0 ${CAPA_CABECERA_FIJA}` : undefined;
   return (
@@ -87,9 +85,8 @@ export interface FilaDelBloqueProps extends DeLaTabla {
   readonly raiz: string;
   readonly columnasDibujadas: number;
   readonly eleccion: EleccionDeLasFilas;
-  readonly tonoDeLaInsignia: (texto: string) => TonoDeInsignia;
   readonly nombrados: Nombrados | undefined;
-  readonly interaccion: InteraccionDeLaPantalla;
+  readonly accionesDeLaHoja: AccionesDeLaHoja;
 }
 
 /**
@@ -103,15 +100,13 @@ export function FilaDelBloque({
   raiz,
   columnasDibujadas,
   eleccion,
-  traducir,
-  textos,
   texto,
-  tonoDeLaInsignia,
   nombrados,
-  interaccion,
+  accionesDeLaHoja,
 }: FilaDelBloqueProps) {
+  const entorno = useEntorno();
   const acciones = tabla.accionesPorFila;
-  const detalle = detalleDe(tabla, fila, traducir, textos);
+  const detalle = detalleDe(tabla, fila, entorno);
   const idDelDetalle = detalle === '' ? undefined : `${raiz}-detalle-${String(indice)}`;
   const bordes = idDelDetalle === undefined ? undefined : 'border-b-0';
   const valor = eleccion.valorDe(fila);
@@ -160,10 +155,7 @@ export function FilaDelBloque({
             fila={fila}
             columna={j}
             bordes={bordes}
-            traducir={traducir}
-            textos={textos}
             texto={texto}
-            tonoDeLaInsignia={tonoDeLaInsignia}
           />
         ))}
         {acciones === undefined ? null : (
@@ -172,9 +164,7 @@ export function FilaDelBloque({
               definicion={acciones}
               fila={fila}
               nombrados={nombrados}
-              traducir={traducir}
-              textos={textos}
-              interaccion={interaccion}
+              accionesDeLaHoja={accionesDeLaHoja}
               idDelDetalle={idDelDetalle}
             />
           </TablaCelda>
@@ -201,11 +191,11 @@ interface CeldaDelBloqueProps extends DeLaTabla {
   /** El indice de su columna. */
   readonly columna: number;
   readonly bordes: string | undefined;
-  readonly tonoDeLaInsignia: (texto: string) => TonoDeInsignia;
 }
 
 /** Una celda: la insignia por regla, la de la columna de insignia, o el texto; y sin dato, su palabra. */
-function CeldaDelBloque({ tabla, celda, fila, columna: j, bordes, traducir, textos, texto, tonoDeLaInsignia }: CeldaDelBloqueProps) {
+function CeldaDelBloque({ tabla, celda, fila, columna: j, bordes, texto }: CeldaDelBloqueProps) {
+  const { traducir, tonoDeLaInsignia } = useEntorno();
   const columna = tabla.columnas[j];
   const leido = textoDeLaCelda(celda);
   const nota = notaDeLaCelda(celda);
@@ -224,7 +214,7 @@ function CeldaDelBloque({ tabla, celda, fila, columna: j, bordes, traducir, text
         <Insignia tono={porRegla.tono}>{porRegla.texto}</Insignia>
       ) : leido === null ? (
         // Nunca una celda en blanco, y nunca un cero: un cero es una afirmacion (#61).
-        <SinDato tabla={tabla} texto={texto} textos={textos} nota={nota} />
+        <SinDato tabla={tabla} texto={texto} nota={nota} />
       ) : deLaColumnaDeInsignia ? (
         <Insignia tono={tonoDeLaInsignia(leido)}>{leido}</Insignia>
       ) : (
@@ -244,9 +234,9 @@ function CeldaDelBloque({ tabla, celda, fila, columna: j, bordes, traducir, text
 function SinDato({
   tabla,
   texto,
-  textos,
   nota,
-}: Pick<DeLaTabla, 'tabla' | 'texto' | 'textos'> & { readonly nota: string | undefined }) {
+}: Pick<DeLaTabla, 'tabla' | 'texto'> & { readonly nota: string | undefined }) {
+  const { textos } = useEntorno();
   const deLaTabla = tabla.sinDato;
   const palabra = deLaTabla === undefined ? textos.celdaSinDato : texto(deLaTabla.texto);
   const porQue = nota ?? (deLaTabla?.nota === undefined ? textos.porQueLaCeldaNoTieneDato : texto(deLaTabla.nota));
@@ -270,10 +260,9 @@ export function claveDeLaFila(fila: FilaDeLaTabla): string {
 function detalleDe(
   tabla: DefinicionDeTabla<Texto>,
   fila: FilaDeLaTabla,
-  traducir: (texto: string) => string,
-  textos: TextosDeLaPantalla,
+  { traducir, textos }: Pick<EntornoDelInterprete, 'traducir' | 'textos'>,
 ): string {
   const detalle = tabla.detalleDeFila;
   if (detalle === undefined || !seCumple(detalle.cuando, fila.datos)) return '';
-  return resolverTexto(detalle.texto, fila.datos, traducir, textos.datoAusente);
+  return textoCon(fila.datos, traducir, textos)(detalle.texto);
 }

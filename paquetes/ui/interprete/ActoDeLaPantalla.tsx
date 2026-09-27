@@ -3,15 +3,15 @@ import { useId, useRef, useState, type FormEvent } from 'react';
 import { avisar } from '../shadcn/avisos.tsx';
 import { BotonConMotivo } from '../shadcn/boton-con-motivo.tsx';
 import { Tarjeta, TarjetaCabecera } from '../shadcn/tarjeta.tsx';
-import type { TextosDeLaPantalla } from '../textos.tsx';
 import { atiende, motivoDelActo, siempreTieneValor, valoresQueViajan, type ValoresDelActo } from './acciones.ts';
 import { estrecharElCampo } from './campo-estrechado.ts';
-import { type Nombrados, resolverTexto } from './componer.ts';
+import type { Nombrados } from './componer.ts';
 import { useEnElMarcoOAqui } from './en-el-marco-o-aqui.ts';
 import { useEnVuelo } from './en-vuelo.ts';
+import { useEntorno, useTexto } from './entorno.tsx';
 import type { DatosDeLaPantalla } from './datos.ts';
 import type { TecleadoDeUnActo } from './hoja.ts';
-import type { InteraccionDeLaPantalla } from './interaccion.ts';
+import type { AccionesDeLaHoja, CicloDelActo } from './interaccion.ts';
 import {
   ActoHecho,
   CamposDelActo,
@@ -56,7 +56,7 @@ import type { CampoDelActo, DefinicionDeActo } from './tipos-de-los-actos.ts';
  * <h2>Desde #86, mas cosas, y cada una solo si la definicion la pide</h2>
  *
  *   · **Lo tecleado puede vivir fuera** (`lo-tecleado-y-la-negativa-sobreviven`): con
- *     `interaccion.tecleadoDeLosActos`, los valores, la observacion y el intento se guardan en el
+ *     `ciclo.tecleadoDeLosActos`, los valores, la observacion y el intento se guardan en el
  *     marco por apertura, y volver a la hoja sucia los encuentra. Sin el, en el estado, como en #66.
  *     Lo que NO sube es la fase, el vuelo ni el rechazo: son de este envio, y la negativa del
  *     servidor ya vive en `datos.lecturas`, que es del sistema.
@@ -81,9 +81,10 @@ import type { CampoDelActo, DefinicionDeActo } from './tipos-de-los-actos.ts';
 export interface ActoDeLaPantallaProps {
   readonly acto: DefinicionDeActo;
   readonly datos: DatosDeLaPantalla;
-  readonly traducir: (texto: string) => string;
-  readonly textos: TextosDeLaPantalla;
-  readonly interaccion: InteraccionDeLaPantalla;
+  /** Quien envia el acto (`actos`) y como se cierra (`abrirActo(null)`); y las acciones del acto hecho. */
+  readonly accionesDeLaHoja: AccionesDeLaHoja;
+  /** El acto abierto y su vida: lo tecleado, la marca de sucia, lo descartado y lo guardado (#125). */
+  readonly ciclo: CicloDelActo;
 }
 
 /** Donde esta el acto: escribiendose, o ya aceptado por el sistema. */
@@ -128,13 +129,13 @@ interface LoTecleadoDelActo {
 
 /**
  * **Donde guarda un acto lo tecleado** (#86; con `useEnElMarcoOAqui` desde #120): en el marco, por
- * apertura, si `interaccion.tecleadoDeLosActos` lo da; si no, en su estado, como en #66.
+ * apertura, si `ciclo.tecleadoDeLosActos` lo da; si no, en su estado, como en #66.
  */
-function useLoTecleadoDelActo(acto: DefinicionDeActo, interaccion: InteraccionDeLaPantalla): LoTecleadoDelActo {
+function useLoTecleadoDelActo(acto: DefinicionDeActo, ciclo: CicloDelActo): LoTecleadoDelActo {
   // Lo que se lleva lo tecleado es la APERTURA: el mismo acto abierto sobre otra fila es otro
   // formulario, por lo mismo que `PiezaDeLaPantalla` lo remonta con esa `key`.
-  const apertura = `${acto.clave}|${JSON.stringify(interaccion.abierto?.parametros ?? {})}`;
-  const fuera = interaccion.tecleadoDeLosActos;
+  const apertura = `${acto.clave}|${JSON.stringify(ciclo.abierto?.parametros ?? {})}`;
+  const fuera = ciclo.tecleadoDeLosActos;
   type Cambio = (antes: TecleadoDeUnActo | undefined) => TecleadoDeUnActo | undefined;
   // `undefined` es lo inicial, fuera y aqui: lo que no se ha escrito no se guarda.
   const { valor, cambiar } = useEnElMarcoOAqui<TecleadoDeUnActo | undefined, Cambio>(
@@ -162,9 +163,10 @@ function useLoTecleadoDelActo(acto: DefinicionDeActo, interaccion: InteraccionDe
   };
 }
 
-export function ActoDeLaPantalla({ acto, datos, traducir, textos, interaccion }: ActoDeLaPantallaProps) {
+export function ActoDeLaPantalla({ acto, datos, accionesDeLaHoja, ciclo }: ActoDeLaPantallaProps) {
+  const { traducir, textos } = useEntorno();
   const raiz = useId();
-  const { apertura, tecleado, cambiarLoTecleado, marcarIntentado } = useLoTecleadoDelActo(acto, interaccion);
+  const { apertura, tecleado, cambiarLoTecleado, marcarIntentado } = useLoTecleadoDelActo(acto, ciclo);
   const { valores, observacion } = tecleado;
   const [rechazado, setRechazado] = useState(false);
   const [fase, setFase] = useState<Fase>('escribiendo');
@@ -178,20 +180,20 @@ export function ActoDeLaPantalla({ acto, datos, traducir, textos, interaccion }:
   const ensuciada = useRef(false);
 
   // Lo que la accion que lo abrio le dio, por encima de los datos de la pantalla: una fila manda.
-  const parametros = interaccion.abierto?.parametros ?? {};
+  const parametros = ciclo.abierto?.parametros ?? {};
   const nombrados: Nombrados = new Map([...(datos.nombrados ?? []), ...Object.entries(parametros)]);
-  const texto = (t: Parameters<typeof resolverTexto>[0]) => resolverTexto(t, nombrados, traducir, textos.datoAusente);
+  const texto = useTexto(nombrados);
 
-  const atendido = atiende(interaccion.actos, acto.clave);
+  const atendido = atiende(accionesDeLaHoja.actos, acto.clave);
   const motivo = motivoDelActo(acto, { valores, observacion, enCurso, nombrados, traducir, textos, atendido });
 
   const ensuciar = () => {
     // CADA cambio marca, si la definicion lo pide (#86); el aviso de siempre, una vez por apertura.
-    interaccion.marcarSucia();
+    ciclo.marcarSucia();
     if (descartado) setDescartado(false);
     if (ensuciada.current) return;
     ensuciada.current = true;
-    interaccion.alEnsuciar();
+    ciclo.alEnsuciar();
   };
 
   /** Vacia lo escrito, el intento y el rechazo, y lo dice (#86, `descartar-lo-escrito`). */
@@ -201,17 +203,17 @@ export function ActoDeLaPantalla({ acto, datos, traducir, textos, interaccion }:
     // Vacio, el acto esta como recien abierto: la siguiente tecla vuelve a ensuciar.
     ensuciada.current = false;
     setDescartado(true);
-    interaccion.alDescartar(apertura);
+    ciclo.alDescartar(apertura);
   };
 
   const enviar = () => {
-    const manejador = interaccion.actos?.[acto.clave];
+    const manejador = accionesDeLaHoja.actos?.[acto.clave];
     if (manejador === undefined) return;
     // Lanzar en sincrono es acabar mal, como una promesa rechazada: `useEnVuelo` lo captura (#117).
     const acabar = (bien: boolean) => {
       if (bien) {
         setFase('hecho');
-        interaccion.alQuedarGuardada();
+        ciclo.alQuedarGuardada();
         if (acto.alTerminar !== undefined) avisar(texto(acto.alTerminar.aviso));
       } else {
         setRechazado(true);
@@ -248,21 +250,21 @@ export function ActoDeLaPantalla({ acto, datos, traducir, textos, interaccion }:
           type="button"
           tamano="menudo"
           onClick={() => {
-            interaccion.abrirActo(null);
+            accionesDeLaHoja.abrirActo(null);
           }}
         >
           {textos.cerrarElActo}
         </BotonConMotivo>
       </div>
-      <NotaDelActo acto={acto} nombrados={nombrados} traducir={traducir} texto={texto} textos={textos} />
+      <NotaDelActo acto={acto} nombrados={nombrados} texto={texto} />
 
       {fase === 'hecho' ? (
-        <ActoHecho acto={acto} nombrados={nombrados} traducir={traducir} texto={texto} textos={textos} interaccion={interaccion} />
+        <ActoHecho acto={acto} nombrados={nombrados} texto={texto} accionesDeLaHoja={accionesDeLaHoja} />
       ) : (
         <form data-fase-del-acto="escribiendo" noValidate onSubmit={alEnviar}>
           {/* Mientras viaja otra vez, el fallo viejo no se ensena: ya no dice nada de lo que se mira. */}
           {enCurso ? null : (
-            <FalloDelActo clave={acto.clave} fallo={datos.lecturas?.get(acto.clave)} rechazado={rechazado} textos={textos} />
+            <FalloDelActo clave={acto.clave} fallo={datos.lecturas?.get(acto.clave)} rechazado={rechazado} />
           )}
           <CamposDelActo
             acto={acto}
@@ -273,9 +275,7 @@ export function ActoDeLaPantalla({ acto, datos, traducir, textos, interaccion }:
               ensuciar();
               cambiarLoTecleado(cambio);
             }}
-            traducir={traducir}
             texto={texto}
-            textos={textos}
           />
           <SalidasDelActo
             acto={acto}
@@ -286,7 +286,6 @@ export function ActoDeLaPantalla({ acto, datos, traducir, textos, interaccion }:
             alPulsarImpedido={marcarIntentado}
             descartar={descartar}
             texto={texto}
-            textos={textos}
           />
         </form>
       )}
@@ -302,7 +301,6 @@ export function ActoDeLaPantalla({ acto, datos, traducir, textos, interaccion }:
             setConfirmando(false);
             enviar();
           }}
-          textos={textos}
         />
       )}
     </Tarjeta>

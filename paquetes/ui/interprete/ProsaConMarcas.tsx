@@ -1,6 +1,7 @@
 import { Fragment } from 'react';
 
 import { type Nombrados, resolverMarcas } from './componer.ts';
+import { useEntorno } from './entorno.tsx';
 import type { TextoConMarcas } from './tipos.ts';
 
 /**
@@ -16,17 +17,14 @@ import type { TextoConMarcas } from './tipos.ts';
 export function ProsaConMarcas({
   marcas,
   nombrados,
-  traducir,
-  ausente,
 }: {
   readonly marcas: TextoConMarcas;
   readonly nombrados: Nombrados;
-  readonly traducir: (texto: string) => string;
-  readonly ausente: string;
 }) {
+  const { traducir, textos } = useEntorno();
   return (
     <>
-      {resolverMarcas(marcas, nombrados, traducir, ausente).map((tramo, i) =>
+      {resolverMarcas(marcas, nombrados, traducir, textos.datoAusente).map((tramo, i) =>
         tramo.marca === 'codigo' ? (
           <code key={i} data-slot="marca-codigo" className="text-[12.5px] text-tinta">
             {tramo.dice}

@@ -1,11 +1,11 @@
 import type { ReactElement } from 'react';
 
 import { Alerta } from '../shadcn/alerta.tsx';
-import type { TextosDeLaPantalla } from '../textos.tsx';
 import type { Nombrados } from './componer.ts';
 import type { Ausencia } from './datos.ts';
+import { useEntorno } from './entorno.tsx';
 import { GrupoDeAcciones } from './GrupoDeAcciones.tsx';
-import type { InteraccionDeLaPantalla } from './interaccion.ts';
+import type { AccionesDeLaHoja } from './interaccion.ts';
 import { elVacioQueDice, type LoQueDiceSinFilas } from './reglas-de-las-tablas.ts';
 import type { DefinicionDeTabla, Texto } from './tipos.ts';
 
@@ -43,21 +43,18 @@ export function SinFilasDeLaTabla({
   dice,
   tabla,
   ausencia,
-  traducir,
   texto,
-  textos,
   nombrados,
-  interaccion,
+  accionesDeLaHoja,
 }: {
   readonly dice: LoQueDiceSinFilas;
   readonly tabla: DefinicionDeTabla<Texto>;
   readonly ausencia: Ausencia;
-  readonly traducir: (texto: string) => string;
   readonly texto: (t: Texto) => string;
-  readonly textos: TextosDeLaPantalla;
   readonly nombrados: Nombrados | undefined;
-  readonly interaccion: InteraccionDeLaPantalla;
+  readonly accionesDeLaHoja: AccionesDeLaHoja;
 }): ReactElement | null {
+  const { traducir, textos } = useEntorno();
   const { conSalida, vacio } = elVacioQueDice(tabla);
   switch (dice) {
     case 'ausencia':
@@ -79,9 +76,7 @@ export function SinFilasDeLaTabla({
             <GrupoDeAcciones
               acciones={conSalida.acciones}
               nombrados={nombrados}
-              traducir={traducir}
-              textos={textos}
-              interaccion={interaccion}
+              accionesDeLaHoja={accionesDeLaHoja}
             />
           )}
         </div>

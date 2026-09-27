@@ -1,4 +1,4 @@
-import type { TextosDeLaPantalla } from '../textos.tsx';
+import { useEntorno } from './entorno.tsx';
 
 /**
  * **Que operaciones sirven la hoja, y que le falta al backend** (#44, `pie-de-operaciones`).
@@ -21,7 +21,6 @@ export interface PieDeOperacionesProps {
   readonly escribe?: readonly string[];
   /** Lo que falta, ya resuelto y traducido. */
   readonly falta?: string;
-  readonly textos: TextosDeLaPantalla;
 }
 
 function Operaciones({ cuales }: { readonly cuales: readonly string[] }) {
@@ -33,7 +32,8 @@ function Operaciones({ cuales }: { readonly cuales: readonly string[] }) {
   ));
 }
 
-export function PieDeOperaciones({ lee, escribe, falta, textos }: PieDeOperacionesProps) {
+export function PieDeOperaciones({ lee, escribe, falta }: PieDeOperacionesProps) {
+  const { textos } = useEntorno();
   return (
     <footer
       data-slot="pie-de-operaciones"

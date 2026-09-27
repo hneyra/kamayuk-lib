@@ -1,19 +1,19 @@
 import { useId, useState } from 'react';
 
 import { Tabla, TablaCuerpo, TablaNota } from '../shadcn/tabla.tsx';
-import type { TextosDeLaPantalla } from '../textos.tsx';
 import { BarraDeLaTabla } from './BarraDeLaTabla.tsx';
-import { type Nombrados, resolverTexto } from './componer.ts';
+import type { Nombrados } from './componer.ts';
 import type { Ausencia, FilaDeLaTabla } from './datos.ts';
 import { useEleccionDeLaFila } from './eleccion-de-la-fila.ts';
 import { CabeceraDelBloque, claveDeLaFila, FilaDelBloque } from './FilaDelBloque.tsx';
+import { useEntorno, useTexto } from './entorno.tsx';
 import { FiltroDeLaTabla } from './FiltroDeLaTabla.tsx';
-import { type HojaDelMarco, useSitioDeLaHoja } from './hoja.ts';
-import type { InteraccionDeLaPantalla } from './interaccion.ts';
+import { useSitioDeLaHoja } from './hoja.ts';
+import type { AccionesDeLaHoja } from './interaccion.ts';
 import { campoOrdenado, MandoDePaginas } from './MandosDeLaTabla.tsx';
 import { type FiltroElegido, lasFilasQueSeVen, queDiceSinFilas, SIN_FILTRO } from './reglas-de-las-tablas.ts';
 import { SinFilasDeLaTabla } from './SinFilasDeLaTabla.tsx';
-import type { DefinicionDeTabla, TonoDeInsignia, Texto } from './tipos.ts';
+import type { DefinicionDeTabla, Texto } from './tipos.ts';
 
 /**
  * La tabla de un bloque: su barra, la rejilla y la nota de debajo (#27).
@@ -50,6 +50,9 @@ import type { DefinicionDeTabla, TonoDeInsignia, Texto } from './tipos.ts';
  * que filas hay, cuales deja el filtro, que pagina se ve y que conteo se dice. La barra es
  * `BarraDeLaTabla`; las filas y sus celdas, `FilaDelBloque`; la eleccion y su teclado,
  * `useEleccionDeLaFila`; el filtro, `FiltroDeLaTabla`; lo que se dice sin filas, `SinFilasDeLaTabla`.
+ *
+ * Desde #125, `traducir`, `textos`, `tonoDeLaInsignia` y `hoja` —la ruta de la pagina y el orden— los
+ * toma cada pieza del entorno de la pantalla (`entorno.tsx`), y ya no bajan por aqui.
  */
 
 export interface TablaDelBloqueProps {
@@ -59,15 +62,10 @@ export interface TablaDelBloqueProps {
   /** El conteo del encabezado, si quien pide los datos lo sabe. */
   readonly conteo?: string;
   readonly ausencia: Ausencia;
-  readonly traducir: (texto: string) => string;
-  readonly textos: TextosDeLaPantalla;
-  readonly tonoDeLaInsignia: (texto: string) => TonoDeInsignia;
   /** Los datos con nombre de la pantalla, para el `vacio` que lleve uno (#65) y la paginacion (#61). */
   readonly nombrados?: Nombrados;
-  /** Quien atiende las acciones de las filas: la misma interaccion que las del bloque (#66). */
-  readonly interaccion: InteraccionDeLaPantalla;
-  /** La ruta de la hoja, donde viven la pagina y el orden (#61). Sin ella, los guarda la tabla. */
-  readonly hoja?: HojaDelMarco;
+  /** Quien atiende las acciones de las filas: las mismas que las del bloque (#66, #125). */
+  readonly accionesDeLaHoja: AccionesDeLaHoja;
 }
 
 export function TablaDelBloque({
@@ -75,16 +73,13 @@ export function TablaDelBloque({
   filas,
   conteo,
   ausencia,
-  traducir,
-  textos,
-  tonoDeLaInsignia,
   nombrados,
-  interaccion,
-  hoja,
+  accionesDeLaHoja,
 }: TablaDelBloqueProps) {
+  const { traducir, textos, hoja } = useEntorno();
   const raiz = useId();
   const idDelTitulo = `${raiz}-titulo`;
-  const texto = (t: Texto) => resolverTexto(t, nombrados, traducir, textos.datoAusente);
+  const texto = useTexto(nombrados);
   // La pagina, el orden y la fila elegida: en la ruta, o aqui sin `hoja`.
   const sitio = useSitioDeLaHoja(hoja);
   // El filtro local vive SIEMPRE aqui, con hoja o sin ella: no viaja (#86).
@@ -130,8 +125,6 @@ export function TablaDelBloque({
         conteoFiltrado={conteoFiltrado}
         sitio={sitio}
         nombrados={nombrados}
-        traducir={traducir}
-        textos={textos}
       />
 
       {!hayFiltro || tabla.filtroLocal === undefined ? null : (
@@ -141,7 +134,6 @@ export function TablaDelBloque({
           elegir={elegir}
           nombreDeLaTabla={traducir(tabla.titulo)}
           texto={texto}
-          textos={textos}
         />
       )}
 
@@ -165,7 +157,7 @@ export function TablaDelBloque({
             : undefined
         }
       >
-        <CabeceraDelBloque tabla={tabla} traducir={traducir} ordenado={ordenado} descendente={descendente} />
+        <CabeceraDelBloque tabla={tabla} ordenado={ordenado} descendente={descendente} />
         <TablaCuerpo>
           {(dibujadas ?? []).map((fila, i) => (
             <FilaDelBloque
@@ -176,12 +168,9 @@ export function TablaDelBloque({
               raiz={raiz}
               columnasDibujadas={columnasDibujadas}
               eleccion={eleccion}
-              traducir={traducir}
-              textos={textos}
               texto={texto}
-              tonoDeLaInsignia={tonoDeLaInsignia}
               nombrados={nombrados}
-              interaccion={interaccion}
+              accionesDeLaHoja={accionesDeLaHoja}
             />
           ))}
         </TablaCuerpo>
@@ -192,11 +181,9 @@ export function TablaDelBloque({
           dice={dice}
           tabla={tabla}
           ausencia={ausencia}
-          traducir={traducir}
           texto={texto}
-          textos={textos}
           nombrados={nombrados}
-          interaccion={interaccion}
+          accionesDeLaHoja={accionesDeLaHoja}
         />
       )}
 
@@ -207,7 +194,6 @@ export function TablaDelBloque({
           paginacion={paginacion}
           pagina={pagina}
           sitio={sitio}
-          textos={textos}
           nombreDeLaTabla={traducir(tabla.titulo)}
         />
       )}

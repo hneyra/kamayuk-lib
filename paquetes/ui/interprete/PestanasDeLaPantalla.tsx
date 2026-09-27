@@ -1,11 +1,11 @@
 import { useId, useRef, type KeyboardEvent, type ReactNode } from 'react';
 
 import { FOCO } from '../shadcn/foco.ts';
-import type { TextosDeLaPantalla } from '../textos.tsx';
 import { cn } from '../utilidades.ts';
-import { resolverTexto, type Nombrados } from './componer.ts';
+import type { Nombrados } from './componer.ts';
 import { pestanaAbierta } from './composicion.ts';
-import { type HojaDelMarco, useSitioDeLaHoja } from './hoja.ts';
+import { useEntorno, useTexto } from './entorno.tsx';
+import { useSitioDeLaHoja } from './hoja.ts';
 import { destinoDeLaTecla, EN_UNAS_PESTANAS } from './teclado.ts';
 import type { DefinicionDePestanas } from './tipos.ts';
 
@@ -37,18 +37,16 @@ import type { DefinicionDePestanas } from './tipos.ts';
 export interface PestanasDeLaPantallaProps {
   readonly pieza: DefinicionDePestanas;
   readonly nombrados: Nombrados;
-  readonly traducir: (texto: string) => string;
-  readonly textos: TextosDeLaPantalla;
-  readonly hoja: HojaDelMarco | undefined;
   /** Dibuja la hija `j` de `hijasDe(pieza)`: las de todas las pestanas, en orden. */
   readonly dibujarHija: (j: number) => ReactNode;
 }
 
-export function PestanasDeLaPantalla({ pieza, nombrados, traducir, textos, hoja, dibujarHija }: PestanasDeLaPantallaProps) {
+export function PestanasDeLaPantalla({ pieza, nombrados, dibujarHija }: PestanasDeLaPantallaProps) {
+  const { hoja } = useEntorno();
   const sitio = useSitioDeLaHoja(hoja);
   const base = useId();
   const botones = useRef<(HTMLButtonElement | null)[]>([]);
-  const texto = (t: DefinicionDePestanas['rotulo']) => resolverTexto(t, nombrados, traducir, textos.datoAusente);
+  const texto = useTexto(nombrados);
 
   const enLaRuta = sitio.leer(pieza.enLaRuta);
   const abierta = pestanaAbierta(pieza, enLaRuta);

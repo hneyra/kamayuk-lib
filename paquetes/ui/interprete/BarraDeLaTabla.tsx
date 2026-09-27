@@ -1,7 +1,7 @@
 import { Boton } from '../shadcn/boton.tsx';
 import { TarjetaBarraDeTabla } from '../shadcn/tarjeta.tsx';
-import type { TextosDeLaPantalla } from '../textos.tsx';
 import type { Nombrados } from './componer.ts';
+import { useEntorno } from './entorno.tsx';
 import type { SitioDeLaHoja } from './hoja.ts';
 import { MandoDeOrden } from './MandosDeLaTabla.tsx';
 import type { ConteoDelFiltro } from './reglas-de-las-tablas.ts';
@@ -23,8 +23,6 @@ export function BarraDeLaTabla({
   conteoFiltrado,
   sitio,
   nombrados,
-  traducir,
-  textos,
 }: {
   readonly tabla: DefinicionDeTabla<Texto>;
   readonly idDelTitulo: string;
@@ -36,9 +34,8 @@ export function BarraDeLaTabla({
   readonly conteoFiltrado: ConteoDelFiltro | undefined;
   readonly sitio: SitioDeLaHoja;
   readonly nombrados: Nombrados | undefined;
-  readonly traducir: (texto: string) => string;
-  readonly textos: TextosDeLaPantalla;
 }) {
+  const { traducir, textos } = useEntorno();
   return (
     <TarjetaBarraDeTabla>
       <p id={idDelTitulo} className="m-0 flex-1 min-w-[140px] text-[13px] font-bold">
@@ -60,8 +57,6 @@ export function BarraDeLaTabla({
           paginacion={tabla.paginacion}
           sitio={sitio}
           nombrados={nombrados}
-          traducir={traducir}
-          textos={textos}
         />
       )}
       {tabla.accion === undefined ? null : (

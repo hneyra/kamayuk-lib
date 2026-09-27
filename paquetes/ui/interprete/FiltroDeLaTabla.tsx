@@ -1,6 +1,6 @@
 import { Boton } from '../shadcn/boton.tsx';
 import { Campo } from '../shadcn/campo.tsx';
-import type { TextosDeLaPantalla } from '../textos.tsx';
+import { useEntorno } from './entorno.tsx';
 import type { FiltroElegido } from './reglas-de-las-tablas.ts';
 import type { DefinicionDeTabla, Texto } from './tipos.ts';
 
@@ -26,15 +26,14 @@ export function FiltroDeLaTabla({
   elegir,
   nombreDeLaTabla,
   texto,
-  textos,
 }: {
   readonly filtro: NonNullable<DefinicionDeTabla<Texto>['filtroLocal']>;
   readonly elegido: FiltroElegido;
   readonly elegir: (cambio: (antes: FiltroElegido) => FiltroElegido) => void;
   readonly nombreDeLaTabla: string;
   readonly texto: (t: Texto) => string;
-  readonly textos: TextosDeLaPantalla;
 }) {
+  const { textos } = useEntorno();
   const { buscador, chips = [] } = filtro;
   return (
     <div

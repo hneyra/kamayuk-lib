@@ -69,6 +69,21 @@ export function resolverTexto(
   return texto.otro === undefined ? ausente : traducir(texto.otro);
 }
 
+/**
+ * **El cierre `texto`, en un solo sitio** (#125): un `Texto` resuelto con esos datos, ese `traducir`
+ * y la palabra del saco para el dato que no llego.
+ *
+ * Hasta #125 se reescribia en cada pieza —`(t) => resolverTexto(t, nombrados, traducir,
+ * textos.datoAusente)`—: en trece sitios el dia que se midio. Ahora las piezas lo piden a
+ * `useTexto` (`entorno.tsx`), que lo arma con el entorno de la pantalla, y las reglas puras de
+ * `acciones.ts` lo llaman aqui con lo que reciben. Una fila, un acto o la lista del maestro que
+ * ponen sus datos encima lo llaman con los suyos: por eso `nombrados` sigue siendo parametro.
+ */
+export const textoCon =
+  (nombrados: Nombrados, traducir: (texto: string) => string, textos: { readonly datoAusente: string }) =>
+  (texto: Texto): string =>
+    resolverTexto(texto, nombrados, traducir, textos.datoAusente);
+
 /** Un tramo de una frase con marcas, ya resuelto: que elemento lleva y que dice (#86). */
 export interface TramoResuelto {
   readonly marca: 'texto' | 'codigo' | 'fuerte';
