@@ -47,6 +47,9 @@ const DATOS = join(INTERPRETE, 'datos.ts');
 const TIPOS_DE_LOS_ACTOS = join(INTERPRETE, 'tipos-de-los-actos.ts');
 const ACCIONES = join(INTERPRETE, 'acciones.ts');
 
+/** La ultima fila de `COMPORTAMIENTO_POR_TIPO` (#124): detras se inyecta la del tipo nuevo. */
+const FILA_DEL_AREA = "  a: { pieza: 'Area', seEscribe: true, momento: 'alSalir', siempreTieneValor: false },";
+
 /** Las piezas que agotan una union. Lo demas entra por sus imports. */
 const RAICES = ['CampoDelBloque.tsx', 'EstadoDeLaLectura.tsx', 'PiezaDeLaPantalla.tsx', 'GrupoDeAcciones.tsx', 'acciones.ts'].map(
   (archivo) => join(INTERPRETE, archivo),
@@ -114,7 +117,7 @@ const CASOS: readonly { readonly que: string; readonly inyeccion: Inyeccion; rea
     inyeccion: {
       [CAMPOS]: [
         ["  | 'a';", "  | 'a'\n  | 'x';"],
-        ["  a: 'Area',", "  a: 'Area',\n  x: 'Equis',"],
+        [FILA_DEL_AREA, `${FILA_DEL_AREA}\n  x: { pieza: 'Equis', seEscribe: true, momento: 'alSalir', siempreTieneValor: false },`],
       ],
     },
     rojo: ['paquetes/ui/interprete/CampoDelBloque.tsx TS2366'],

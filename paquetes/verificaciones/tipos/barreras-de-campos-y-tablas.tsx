@@ -10,6 +10,8 @@ import type {
   Texto,
   TextoConMarcas,
 } from '../../ui/index.ts';
+import type { PIEZA_POR_TIPO, TipoDeCampo } from '../../ui/index.ts';
+import { COMPORTAMIENTO_POR_TIPO, type ComportamientoDeUnTipo } from '../../ui/shadcn/campos.ts';
 
 /**
  * LAS BARRERAS DE TIPO de los campos y las tablas de #65. Son pruebas DEL COMPILADOR, como las de
@@ -139,3 +141,54 @@ export const barrerasDelFiltroLocal: readonly DefinicionDeTabla<Texto>[] = [
   // @ts-expect-error un chip lee los DATOS de la fila con una `Condicion`: sin ella no filtra nada
   { titulo: 'T', columnas: [], filtroLocal: { chips: [{ rotulo: 'Vigentes' }] } },
 ];
+
+/**
+ * **LAS BARRERAS DE #124: cada tipo de campo decide sus cuatro cosas, y la pieza sigue siendo literal.**
+ *
+ * `COMPORTAMIENTO_POR_TIPO` es la unica tabla por tipo: de ella salen la pieza, si se escribe,
+ * cuando escribe en la ruta y si siempre tiene valor. Estas barreras dicen lo que tiene que seguir
+ * siendo cierto de ella —que cubre cada tipo, que la tabla sin un tipo no pasa y que una fila sin
+ * una columna no entra— y que `PIEZA_POR_TIPO`, que se publica y los sistemas leen, no se ensancho
+ * al sacarla de ahi.
+ */
+type Comportamientos = Readonly<Record<TipoDeCampo, ComportamientoDeUnTipo>>;
+
+/** Sin `@ts-expect-error`: la tabla de verdad TIENE que cubrir cada tipo. Un tipo nuevo sin fila sale aqui. */
+export const laTablaCubreCadaTipo: Comportamientos = COMPORTAMIENTO_POR_TIPO;
+
+/** La tabla sin la fila de solo lectura: lo que quedaria al borrarla. */
+declare const sinLaFilaDeSoloLectura: Omit<typeof COMPORTAMIENTO_POR_TIPO, 'r'>;
+
+// @ts-expect-error sin la fila de `'r'` nadie diria que el de solo lectura no se escribe, y se guardaria
+export const unaTablaSinUnTipo: Comportamientos = sinLaFilaDeSoloLectura;
+
+export const barrerasDeUnaFila: readonly ComportamientoDeUnTipo[] = [
+  // @ts-expect-error una fila sin `siempreTieneValor` dejaria que la casilla faltara al enviar
+  { pieza: 'Casilla', seEscribe: true, momento: 'alSalir' },
+  // @ts-expect-error los momentos son DOS, tambien por omision
+  { pieza: 'Campo', seEscribe: true, momento: 'conRetardo', siempreTieneValor: false },
+];
+
+/** Igualdad EXACTA de dos tipos: ni mas ancho ni mas estrecho. */
+type Igual<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
+
+/**
+ * `PIEZA_POR_TIPO` conserva su tipo LITERAL (#124, AC3): las siete claves, cada una con el nombre
+ * exacto de su pieza. Sin `@ts-expect-error`: si al derivarla de la tabla se ensanchara a `string`, o
+ * perdiera el `readonly`, deja de compilar aqui.
+ */
+export const laPiezaPorTipoSigueLiteral: Igual<
+  typeof PIEZA_POR_TIPO,
+  {
+    readonly '': 'Campo';
+    readonly t: 'Campo';
+    readonly s: 'Desplegable';
+    readonly d: 'Calendario';
+    readonly r: 'Dato';
+    readonly c: 'Casilla';
+    readonly a: 'Area';
+  }
+> = true;
+
+// @ts-expect-error la pieza de una lista es `'Desplegable'`, no una cadena cualquiera
+export const laPiezaNoEsUnaCadena: Igual<(typeof PIEZA_POR_TIPO)['s'], string> = true;
