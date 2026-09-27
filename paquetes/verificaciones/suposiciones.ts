@@ -17,10 +17,38 @@ export interface Suposicion {
 }
 
 /**
- * Los cinco sistemas del producto. De aqui salen los patrones, para que anadir un sexto sistema
- * no exija acordarse de esta lista.
+ * **Los sistemas cuyo prefijo no puede escribir la libreria.** De aqui sale el patron de
+ * `prefijo-de-un-sistema`.
+ *
+ * **La lista se escribe a mano y NO manda: manda `consumidores.json`** (#113). Hasta #113 decia
+ * «los cinco sistemas del producto» y prometia que «anadir un sexto sistema no exija acordarse de
+ * esta lista»; `consumidores.json` tenia ya seis consumidores y dos —`ciudadano` y `pcf`— no
+ * estaban, asi que `'/pcf/api/v1'` escrito en `ui` pasaba la guarda en verde. Hoy
+ * `sin-suponer-un-sistema.test.ts` exige que el ultimo trozo de cada `repositorio` del JSON este
+ * aqui, y que lo que esta aqui y no consume se declare en `SISTEMAS_QUE_NO_CONSUMEN` con su motivo:
+ * la lista se comprueba entera en los dos sentidos, no se cuenta.
+ *
+ * **`pcf` entra como los demas, y es una decision**: es un port —el del Catastro Fiscal del MEF—
+ * y no un sistema de Kamayuk, pero tiene su backend y consume estos paquetes igual que `rentas`.
+ * Una libreria que escribiera `/pcf/api` lo supondria exactamente igual que una que escribiera
+ * `/rentas/api`, y el sintoma en los otros cinco seria el mismo 404. No hay motivo para dejarlo
+ * pasar, y por eso no hace falta una lista aparte de «consumidores que no son sistemas».
  */
-export const SISTEMAS = ['rentas', 'catastro', 'caja', 'normativa', 'identidad'] as const;
+export const SISTEMAS = ['rentas', 'ciudadano', 'catastro', 'caja', 'pcf', 'normativa', 'identidad'] as const;
+
+/**
+ * **Los de `SISTEMAS` que NO estan en `consumidores.json`, cada uno con su motivo** (#113).
+ *
+ * Es la otra mitad de la comprobacion: sin ella, un sistema que dejara de consumir —o uno escrito
+ * con una errata— se quedaria en la lista sin que nada lo dijera. La guarda exige que esta
+ * declaracion sea **exactamente** la diferencia entre `SISTEMAS` y el JSON.
+ */
+export const SISTEMAS_QUE_NO_CONSUMEN: Readonly<Partial<Record<(typeof SISTEMAS)[number], string>>> = {
+  identidad:
+    'Es un sistema del producto —repositorio hermano de este, ADR-0038— que no esta en ' +
+    '`consumidores.json`: esta CI no le corre la suite. Su prefijo sigue prohibido, porque la ' +
+    'libreria que lo escribiera lo supondria igual.',
+};
 
 export const SUPOSICIONES: readonly Suposicion[] = [
   {

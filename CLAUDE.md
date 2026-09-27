@@ -1,7 +1,8 @@
 # `kamayuk-lib` — Contexto para agentes
 
-Las **librerías comunes del producto Kamayuk**: lo que vale igual en los cuatro sistemas y por eso
-no puede vivir en ninguno. Seis paquetes npm, **sólo fuente**, consumidos por `link:` desde un clon
+Las **librerías comunes del producto Kamayuk**: lo que vale igual en los seis sistemas que la consumen
+—los de [`consumidores.json`](consumidores.json), que es quien los cuenta (#113)— y por eso no puede
+vivir en ninguno. Seis paquetes npm, **sólo fuente**, consumidos por `link:` desde un clon
 hermano.
 
 Es el **sexto repositorio**. Los otros son [`rentas`](https://github.com/hneyra/rentas),
@@ -27,14 +28,14 @@ se repite. **Y las cifras de pruebas no se escriben a mano**: las escribe `yarn 
 |---|---|
 | [`paquetes/formato`](paquetes/formato/README.md) — `@kamayuk/formato` | **Existe.** Fechas, importes y documento de identidad: la hoja limpia del grafo. <!-- cifras:formato -->**68 pruebas** en 3 archivos<!-- /cifras -->. Le faltan `codigo predial` y `placa` |
 | [`paquetes/api`](paquetes/api/README.md) — `@kamayuk/api` | **Existe.** `crearCliente` y sus cuatro operaciones —`solicitar`, `solicitarRespuesta`, `descargar` y `subir`—, `entregarAlNavegador` y `ErrorDeLaApi` con las cinco extensiones del contrato. <!-- cifras:api -->**146 pruebas** en 6 archivos<!-- /cifras --> |
-| [`paquetes/sesion`](paquetes/sesion/README.md) — `@kamayuk/sesion` | **Existe.** `crearIdentidad` con PKCE S256, la sonda del emisor y `quienEntro()`; `peldanoDe()` con sus nueve peldaños y sus palabras como dato. <!-- cifras:sesion -->**145 pruebas** en 3 archivos<!-- /cifras --> |
-| [`paquetes/ui`](paquetes/ui/README.md) — `@kamayuk/ui` | **Existe.** Los 42 tokens, cuatro identidades × dos modos, las piezas de shadcn y el `ProveedorDeTema`; no escribe ni una palabra. <!-- cifras:ui -->**545 pruebas** en 25 archivos, más las **3** de capa<!-- /cifras --> y las barreras de tipo. Le faltan los tokens contra el artboard y el contraste |
+| [`paquetes/sesion`](paquetes/sesion/README.md) — `@kamayuk/sesion` | **Existe.** `crearIdentidad` con PKCE S256, la sonda del emisor y `quienEntro()`; `peldanoDe()` con sus nueve peldaños y sus palabras como dato. <!-- cifras:sesion -->**150 pruebas** en 3 archivos<!-- /cifras --> |
+| [`paquetes/ui`](paquetes/ui/README.md) — `@kamayuk/ui` | **Existe.** Los 42 tokens, cuatro identidades × dos modos, las piezas de shadcn y el `ProveedorDeTema`; no escribe ni una palabra. <!-- cifras:ui -->**605 pruebas** en 26 archivos, más las **3** de capa<!-- /cifras --> y las barreras de tipo. Le faltan los tokens contra el artboard y el contraste |
 | [`paquetes/ui/interprete`](paquetes/ui/interprete/README.md) — el intérprete de pantallas | **Existe**, y dibuja una hoja entera como **dato**: bloques, avisos, pie, actos, maestro-detalle, pestañas y piezas del consumidor, con lo elegido en la ruta. Sus pruebas cuentan en `paquetes/ui` |
-| [`paquetes/shell`](paquetes/shell/README.md) — `@kamayuk/shell` | **Existe.** El armazón de V8, con el catálogo por parámetro y el estado de la hoja en la ruta; no decide permisos ni escribe una palabra. <!-- cifras:shell -->**151 pruebas** en 14 archivos<!-- /cifras --> |
-| [`paquetes/verificaciones`](paquetes/verificaciones/README.md) — `@kamayuk/verificaciones` | **Existe.** Las prohibiciones de ESLint con sus muestras, las guardas del árbol, los guiones de la CI y el arnés del `Request`. <!-- cifras:verificaciones -->**290 pruebas** en 20 archivos<!-- /cifras -->. Le faltan los tokens contra el artboard y el contraste |
+| [`paquetes/shell`](paquetes/shell/README.md) — `@kamayuk/shell` | **Existe.** El armazón de V8, con el catálogo por parámetro y el estado de la hoja en la ruta; no decide permisos ni escribe una palabra. <!-- cifras:shell -->**152 pruebas** en 14 archivos<!-- /cifras --> |
+| [`paquetes/verificaciones`](paquetes/verificaciones/README.md) — `@kamayuk/verificaciones` | **Existe.** Las prohibiciones de ESLint con sus muestras, las guardas del árbol, los guiones de la CI y el arnés del `Request`. <!-- cifras:verificaciones -->**317 pruebas** en 20 archivos<!-- /cifras -->. Le faltan los tokens contra el artboard y el contraste |
 | La guarda de la fila del registro | **Existe**, con su autoprueba de **catorce muestras**, adaptada a la forma de este repositorio; desde #128 exige además una fila por issue |
 
-<!-- cifras:total -->**En total: 1345 pruebas en 71 archivos, más las 3 de capa.**<!-- /cifras -->
+<!-- cifras:total -->**En total: 1438 pruebas en 72 archivos, más las 3 de capa.**<!-- /cifras -->
 
 ## La regla que gobierna este repositorio
 
@@ -48,7 +49,7 @@ comentarios— y prohíbe cinco cosas:
 
 | Clave | Qué prohíbe |
 |---|---|
-| `prefijo-de-un-sistema` | `/rentas/api`, `/caja/api`… ADR-0030 §2: **la ruta dice quién responde**, y el prefijo es parámetro de `crearCliente` |
+| `prefijo-de-un-sistema` | `/rentas/api`, `/caja/api`, `/pcf/api`… ADR-0030 §2: **la ruta dice quién responde**, y el prefijo es parámetro de `crearCliente`. La lista de sistemas la manda `consumidores.json`, comprobada en los dos sentidos (#113) |
 | `global-de-configuracion-de-un-sistema` | `__KAMAYUK_RENTAS__` y hermanos: el nombre lleva el sistema dentro |
 | `catalogo-de-modulos-de-un-sistema` | `RENTAS_REGISTRO` y demás códigos de módulo |
 | `vocabulario-tributario` | `arbitrio`, `alicuota`, `autovaluo`, `predial`, `contribuyente` |
@@ -68,21 +69,27 @@ borrarla estaría pidiendo falsificar el registro.
 paquetes/
   formato/   valores.ts, formato.ts, aritmetica.ts, documento.ts, partir.ts (el UNICO analisis de lo
              servido, interno)
-  api/       errores.ts (ErrorDeLaApi + NoEsUnDocumento + ArchivoRechazado), cliente.ts (crearCliente),
+  api/       errores.ts (ErrorDeLaApi + NoEsUnDocumento + ArchivoRechazado, y cuerpoDeProblema y
+             operacionDe, la unica lectura del problem+json y la unica forma de «VERBO /ruta»),
+             cliente.ts (crearCliente, y pedir(), por donde pasan tres de las cuatro operaciones),
              subir.ts (el multipart, y el UNICO XMLHttpRequest), entregar.ts (entregarAlNavegador)
   sesion/    identidad.ts (crearIdentidad), quien-entro.ts (leerQuienEntro),
-             escalera.ts (peldanoDe), textos.ts (los sacos de la escalera y de la puerta)
+             escalera.ts (peldanoDe y su tabla REGLAS), escalera.instantanea.json (su salida, #123),
+             textos.ts (los sacos de la escalera y de la puerta)
   ui/        los tokens, las cuatro identidades y sus dos origenes, los componentes de shadcn (once + siete),
              el interprete (hoja.ts, composicion.ts y sus piezas) y textos.tsx
   shell/     el armazon: catalogo.ts, ruta.ts, busqueda.ts, acciones.ts, navegacion.tsx, contexto.tsx,
-             textos.ts y las siete piezas
+             textos.ts, las siete piezas y los hooks internos de `Cascara` (#119):
+             registro-de-hojas.ts (el reductor), navegacion-guardada.ts, hoja-abierta.ts y
+             paleta-y-carril.ts
   verificaciones/  texto.ts, comentarios.mjs, archivos.mjs (el recorredor, el escaner de lineas y el
                    unico Hallazgo de las guardas), suposiciones.ts, marcas.ts, rama-del-consumidor.mjs,
                    las-acciones-corren-en-node-24.test.ts, arnes-del-request.ts (el arnes que se
                    publica) y el-arnes-del-request-no-se-copia.mjs (el guion que el consumidor corre
                    contra su arbol), cifras.mjs (yarn cifras), tabla-de-estado.ts (lo que mide
                    la guarda de la tabla), rutas-de-la-ci.ts, workflow.ts (la unica lectura de
-                   los workflows: el YAML analizado, no el texto), sus pruebas y sus muestras/
+                   los workflows: el YAML analizado, no el texto), sus pruebas y sus muestras/,
+                   imports.mjs (lo que importa un archivo, por el arbol sintactico de TypeScript)
   */README.md      lo que hace cada paquete, contado entero (y ui/interprete/README.md, el interprete)
 docs/
   agent/HISTORY.md            el registro «Verificar antes de afirmar», que se mezcla con merge=union
@@ -106,12 +113,12 @@ demostrado al revés: apartado `node_modules/@kamayuk` entero, `tsc` da RC=0 y l
 
 ## Reglas que no se negocian
 
-Son las del producto, y valen aquí igual que en los cinco sistemas. Las que este repositorio puede
+Son las del producto, y valen aquí igual que en los seis sistemas. Las que este repositorio puede
 romper, y por eso vigila:
 
 **Las prohibiciones de ESLint viven aquí**, en `paquetes/verificaciones/prohibiciones.mjs`: **nueve
-obligatorias** en `PROHIBICIONES`, que este repositorio se aplica a sí mismo y los cinco sistemas
-derivan, y **las opcionales** en `PROHIBICIONES_OPCIONALES`, que enciende quien las quiera y aquí no
+obligatorias** en `PROHIBICIONES`, que este repositorio se aplica a sí mismo y de las que derivan
+los sistemas que las enlazan, y **las opcionales** en `PROHIBICIONES_OPCIONALES`, que enciende quien las quiera y aquí no
 se encienden. Que estén aquí y no en cada sistema tapa un hueco
 medido: el código enlazado **no lo linta nadie** —el config de cada sistema ignora `node_modules`,
 que es donde el `link:` lo deja—, así que entraba al bundle código que formatea dinero y compone
@@ -123,16 +130,16 @@ peticiones sin ninguna de las cuatro prohibiciones de importes.
 | 2 | **Ningún método recibe `municipalidadId`** | prohibición `municipalidad-en-el-cliente`, más una prueba que espía lo que sale por el cable |
 | 8 | **`alicuota`, nunca `tasa`** | prohibición `tasa-en-vez-de-alicuota` |
 | — | **`fetch` sólo donde debe** | `fetch-fuera-del-cliente`, con **dos** excepciones declaradas |
-| — | **`XMLHttpRequest` sólo donde debe** | `el-xhr-vive-en-un-solo-sitio.test.ts`, sobre el árbol de la librería. **No es una décima prohibición de ESLint, y está medido por qué**: cada sistema le exige a cada clave **su muestra en SU árbol**, y una prohibición con `salvo` que el consumidor no sitúe en su `SALVO_EN_ESTE_ARBOL` **lanza al cargar el config** — o sea que añadirla es, por construcción, un cambio coordinado en cinco repositorios. El `src/` de los cuatro sistemas queda fuera; hoy no hay ni una llamada que vigilar |
+| — | **`XMLHttpRequest` sólo donde debe** | `el-xhr-vive-en-un-solo-sitio.test.ts`, sobre el árbol de la librería. **No es una décima prohibición de ESLint, y está medido por qué**: cada sistema le exige a cada clave **su muestra en SU árbol**, y una prohibición con `salvo` que el consumidor no sitúe en su `SALVO_EN_ESTE_ARBOL` **lanza al cargar el config** — o sea que añadirla es, por construcción, un cambio coordinado con cada consumidor que las derive. El `src/` de los sistemas queda fuera; el día que se midió, en los cuatro que entonces había, no había ni una llamada que vigilar |
 | — | **Sin tildes ni enie en identificadores** | `identificador-con-tilde` |
 | — | **Una clase nueva no compila hasta que cada `switch` tenga la suya** | los retornos anotados y los `never` del intérprete —TS2366/TS2322 con el `tsconfig` de cada consumidor, y lo vigila `la-exhaustividad-viaja.test.ts` compilando con las opciones mínimas de uno— y, para lo que el compilador no ve, `switch-exhaustiveness-check` en el lint de aquí, con su muestra. **No es una prohibición**, por lo mismo que el XHR (#111) |
 | — | **Nada supone un sistema** | `sin-suponer-un-sistema`, con su muestra |
-| — | **Ningún paquete se importa por su nombre público** | `sin-nombre-publico-entre-paquetes`, con su muestra |
+| — | **Ningún paquete se importa por su nombre público** | `sin-nombre-publico-entre-paquetes`, con su muestra. Mira el **especificador** que saca el árbol sintáctico de TypeScript (`imports.mjs`), no la línea: ve el import de efecto, el dinámico, `export * as x from` y el subcamino (#112) |
 | — | **Ninguna palabra visible escrita dentro de un componente** | `el-texto-visible-es-dato` (el barrido, con el analizador de TypeScript) más las dos guardas que **montan** el armazón y las piezas con el saco marcado (#19). En `sesion`, la cuarta forma —la frase devuelta— **sin excepciones** desde #118 |
 | — | **El arnés del `Request` se importa, no se copia** | `el-arnes-del-request-se-publica.test.ts`, con su muestra: en este árbol el `Request` global se instala en **un solo archivo** —el que lo publica— y `vitest.setup.ts` lo **importa** por ruta relativa. Lo que no puede vigilar es el árbol de un consumidor que no está clonado, y por eso se publica además `el-arnes-del-request-no-se-copia.mjs`, que él corre contra el suyo (#92) |
 | — | **Ninguna entrada de `exports` promete un archivo que no está** | `lo-que-exports-promete-existe`, que lee los seis manifiestos tal cual y sale en rojo también ante una forma de `exports` que no sepa leer (#24) |
 | 5 | **Ninguna cifra tributaria literal en el código** | `cifra-tributaria-literal`, con su muestra de **cinco formas**. **OPCIONAL**: vive en `PROHIBICIONES_OPCIONALES` y la enciende el sistema que publica las cifras. Está medido por qué no puede ser obligatoria — `export const alicuotaPredial = '0.006';` es, a la vez, el ejemplo de código CORRECTO de `rentas` y lo que esta regla prohíbe (#58) |
-| — | **El marco no decide permisos** | `el-marco-no-decide-permisos.test.ts`: `paquetes/shell` no importa `../sesion/`, no importa `../api/` y no llama a `fetch`. El catálogo lleva `acceso`/`tambien` y `accesosDe` los da; **filtrar es del sistema**, antes de pasarle el catálogo al `Armazon` (#67) |
+| — | **El marco no decide permisos** | `el-marco-no-decide-permisos.test.ts`, con su muestra: `paquetes/shell` no importa la sesión ni la api —de ninguna forma: `../sesion` a secas, de efecto, dinámico o `export * as`, por el árbol sintáctico de TypeScript (#112)— y no llama a `fetch`. El catálogo lleva `acceso`/`tambien` y `accesosDe` los da; **filtrar es del sistema**, antes de pasarle el catálogo al `Armazon` (#67) |
 | — | **Las cifras de pruebas las escribe un guion** | `yarn cifras --comprobar`, en `yarn verificar`, con las muestras de `las-cifras-las-escribe-un-guion.test.ts`: una cifra a mano, un marcador que falta, sobra o no cierra, y un `.md` con marcador fuera de la lista; y el guion corrido **como proceso** en `el-guion-de-las-cifras-obedece.test.ts`, que exige su código de salida (#128) |
 | — | **El registro se mezcla solo** | `el-registro-se-mezcla-solo.test.ts`: dos ramas que añaden fila, mezcladas con el `.gitattributes` del árbol, sin conflicto; su muestra sin el atributo, que choca; y el árbol entero, con los `.gitattributes` anidados, en `union` (#128) |
 | — | **El registro, una fila por issue** | la guarda del registro, con sus muestras en la autoprueba: `merge=union` no avisa cuando dos ramas editan la misma fila (#128) |

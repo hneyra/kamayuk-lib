@@ -1,4 +1,4 @@
-import { esBloque, type Nombrados, seCumple } from './componer.ts';
+import { esBloque, faltaElDato, type Nombrados, seCumple } from './componer.ts';
 import { recorrerLasPiezas } from './composicion.ts';
 import type { CeldaDeLaTabla, DatoConNombre, FilaDeLaTabla } from './datos.ts';
 import type {
@@ -48,10 +48,6 @@ const LOS_TONOS = { ok: true, atencion: true, mal: true, info: true } as const s
 const esTono = (valor: DatoConNombre | undefined): valor is TonoDeInsignia =>
   typeof valor === 'string' && Object.hasOwn(LOS_TONOS, valor);
 
-/** Un dato que no esta: ausente, `null` o `''`. Un `false` SI es un dato, como en `seCumple`. */
-const falta = (valor: DatoConNombre | undefined): valor is undefined | null | '' =>
-  valor === undefined || valor === null || valor === '';
-
 /** Lo que se pinta en una insignia: su tono y su texto, ya en el idioma de la sesion. */
 export interface InsigniaResuelta {
   readonly tono: TonoDeInsignia;
@@ -82,19 +78,19 @@ export function resolverInsignia(
   traducir: (texto: string) => string,
 ): InsigniaResuelta | undefined {
   if ('tonoDesde' in regla) {
-    if (falta(valor)) return undefined;
+    if (faltaElDato(valor)) return undefined;
     const traido = nombrados?.get(regla.tonoDesde);
     return { tono: esTono(traido) ? traido : regla.siNoTrae, texto: String(valor) };
   }
   const decide = regla.segun === undefined ? valor : nombrados?.get(regla.segun);
-  if (falta(decide)) return undefined;
+  if (faltaElDato(decide)) return undefined;
   const clave = String(decide);
   const caso = Object.hasOwn(regla.casos, clave) ? regla.casos[clave] : undefined;
   const elegido = caso ?? regla.otro;
   if (elegido.texto !== undefined) return { tono: elegido.tono, texto: traducir(elegido.texto) };
   // Sin frase se pinta el valor. Si la regla decide por OTRO dato y el valor no esta, el que se
   // escribe es el que decidio: nunca una insignia vacia.
-  return { tono: elegido.tono, texto: falta(valor) ? clave : String(valor) };
+  return { tono: elegido.tono, texto: faltaElDato(valor) ? clave : String(valor) };
 }
 
 /**
@@ -347,5 +343,5 @@ export function conteoDelFiltro(visibles: number, recibidas: number, total: Dato
  */
 export function valorDeLaFila(eleccion: EleccionDeLaFila, fila: FilaDeLaTabla): string | null {
   const valor = fila.datos?.get(eleccion.desde);
-  return falta(valor) ? null : String(valor);
+  return faltaElDato(valor) ? null : String(valor);
 }
