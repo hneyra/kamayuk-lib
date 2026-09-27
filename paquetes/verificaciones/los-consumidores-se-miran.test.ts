@@ -215,6 +215,28 @@ const LINEAS_DEL_VEREDICTO = 5;
  * decision es del guion y de su tabla, no de un bash que ninguna prueba corre (#115)— y que le pase
  * en `BASE` y `RAMA` el `outcome` de ESOS dos pasos y no de otros: cruzados, la tabla decide bien
  * sobre las entradas equivocadas.
+ *
+ * <h2>Y que su rojo PARE el trabajo (vuelta 1 de #115)</h2>
+ *
+ * Todo lo anterior mira QUE se decide; esto mira que la decision cuente. Hay tres maneras de
+ * tenerla bien escrita y que el trabajo salga verde igual, y las tres pasaban esta guarda —56 de 56
+ * en verde con el workflow roto, medido por los verificadores—:
+ *
+ *   · `continue-on-error` en el propio paso: el guion sale con 1 y GitHub pinta el paso en naranja
+ *     y el trabajo en verde. Es el verde falso que el paso existe para impedir, puesto en el paso.
+ *   · `if:` en el paso: con `if: false`, o con cualquier condicion que no se cumpla, el paso se salta
+ *     y el trabajo sale verde sin haber decidido nada. No hay `if:` legitimo aqui —si falla algo de
+ *     antes, el trabajo ya esta rojo—, asi que se prohibe entero, no solo el `false`.
+ *   · Lo mismo un nivel mas arriba, en el trabajo `consumidores`: `continue-on-error` en el trabajo
+ *     deja que ningun rojo suyo bloquee el PR, y un `if:` que lo salte lo deja «skipped», que la
+ *     proteccion de rama cuenta como aprobado.
+ *
+ * `continue-on-error: false` escrito se admite: es el valor por omision y no apaga nada.
+ *
+ * Y `QUIEN` tiene que ser el consumidor QUE SE CLONO —el `repository` del `actions/checkout` que lo
+ * baja—, no una clave cualquiera de la matriz. Con `${{ matrix.nombre }}`, que no existe, vale la
+ * cadena vacia y el guion sale con 2, que es rojo; pero con `${{ matrix.directorio }}`, que si existe,
+ * las frases del veredicto nombrarian a otro sin que nada lo cazara.
  */
 function loQueFaltaAlVeredicto(workflow: Mapa): string[] {
   const pasos = pasosDelConsumidor(workflow);
@@ -243,6 +265,23 @@ function loQueFaltaAlVeredicto(workflow: Mapa): string[] {
     if (esperado === null || valorEn(paso, 'env', variable) !== esperado) {
       faltas.push(`\`${variable}\` no es el \`outcome\` del paso que mide ${variable === 'BASE' ? 'la linea base' : 'esta rama'}`);
     }
+  }
+  const trabajo = trabajoDe(workflow, 'consumidores');
+  for (const [donde, cual] of [
+    [paso, 'el paso del veredicto'],
+    [trabajo ?? {}, 'el trabajo `consumidores`'],
+  ] as const) {
+    if ('continue-on-error' in donde && donde['continue-on-error'] !== false) {
+      faltas.push(`${cual} lleva \`continue-on-error\`, y con el su rojo no para nada`);
+    }
+    if ('if' in donde) faltas.push(`${cual} lleva \`if:\`, y lo que se salta no decide`);
+  }
+  const clonado = pasos.find(
+    (p) => typeof p['uses'] === 'string' && p['uses'].startsWith('actions/checkout@') && valorEn(p, 'with', 'repository') !== undefined,
+  );
+  const repositorio = valorEn(clonado, 'with', 'repository');
+  if (typeof repositorio !== 'string' || valorEn(paso, 'env', 'QUIEN') !== repositorio) {
+    faltas.push('`QUIEN` no es el `repository` del consumidor que se clono');
   }
   return faltas;
 }
@@ -537,11 +576,14 @@ describe('la CI mira a sus consumidores', () => {
     ]);
   });
 
-  it('LA MUESTRA (#115): un veredicto que no llama al guion, que crece o que lee las medidas cruzadas sale rojo', () => {
+  it('LA MUESTRA (#115): un veredicto que no llama al guion, que crece, que lee las medidas cruzadas, que no para o que nombra a otro sale rojo', () => {
     // Cada rotura sobre el workflow de ESTE arbol, en memoria, y comprobada antes de juzgarla. La
     // primera es la de #114 otra vez: el comentario del paso sigue nombrando `veredicto.mjs`. La
     // segunda, la que la lectura por lineas no veia: un comentario de YAML detras de un escalar.
     const LLAMADA = `        run: ${LLAMADA_AL_VEREDICTO}\n`;
+    const VEREDICTO = `      - name: ${NOMBRE_DEL_VEREDICTO}\n`;
+    const TRABAJO = '    needs: verificar\n    timeout-minutes: 25\n';
+    const QUIEN_DEL_VEREDICTO = '          QUIEN: ${{ matrix.repositorio }}\n          RAMA_DEL_CONSUMIDOR:';
     const ROTURAS: readonly [string, (texto: string) => string, string][] = [
       [
         'con la decision en bash otra vez',
@@ -566,6 +608,32 @@ describe('la CI mira a sus consumidores', () => {
             .replace('BASE: ${{ steps.base.outcome }}', 'BASE: ${{ steps.rama.outcome }}')
             .replace('RAMA: ${{ steps.rama.outcome }}', 'RAMA: ${{ steps.base.outcome }}'),
         '`BASE` no es el `outcome` del paso que mide la linea base',
+      ],
+      // Las cinco de la vuelta 1 de #115: el veredicto bien escrito y su rojo sin parar nada.
+      [
+        'con `continue-on-error` en el paso del veredicto',
+        (texto) => texto.replace(VEREDICTO, `${VEREDICTO}        continue-on-error: true\n`),
+        'el paso del veredicto lleva `continue-on-error`, y con el su rojo no para nada',
+      ],
+      [
+        'con `if: false` en el paso del veredicto',
+        (texto) => texto.replace(VEREDICTO, `${VEREDICTO}        if: false\n`),
+        'el paso del veredicto lleva `if:`, y lo que se salta no decide',
+      ],
+      [
+        'con `continue-on-error` en el trabajo `consumidores`',
+        (texto) => texto.replace(TRABAJO, `${TRABAJO}    continue-on-error: true\n`),
+        'el trabajo `consumidores` lleva `continue-on-error`, y con el su rojo no para nada',
+      ],
+      [
+        'con un `if:` que salta el trabajo `consumidores`',
+        (texto) => texto.replace(TRABAJO, `${TRABAJO}    if: false\n`),
+        'el trabajo `consumidores` lleva `if:`, y lo que se salta no decide',
+      ],
+      [
+        'con `QUIEN` cableado a otra clave de la matriz que si existe',
+        (texto) => texto.replace(QUIEN_DEL_VEREDICTO, QUIEN_DEL_VEREDICTO.replace('matrix.repositorio', 'matrix.directorio')),
+        '`QUIEN` no es el `repository` del consumidor que se clono',
       ],
     ];
     for (const [nombre, romper, falta] of ROTURAS) {

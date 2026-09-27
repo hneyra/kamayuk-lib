@@ -139,8 +139,9 @@ navegador, y por eso `sin-suponer-un-sistema` no lo barre.
   sólo llama, con `BASE`, `RAMA`, `QUIEN` y `RAMA_DEL_CONSUMIDOR` en el entorno. Las frases son las
   del bash que sustituyó, byte a byte; una entrada que no es un `outcome` de GitHub sale con 2 en vez
   de decidir. Su tabla de ocho casos y el guion como proceso, en `el-veredicto-tiene-su-tabla`; que
-  el workflow lo llame —en un `run:` de no más de cinco líneas y con las entradas cableadas a los
-  pasos que miden—, en `los-consumidores-se-miran`.
+  el workflow lo llame —en un `run:` de no más de cinco líneas, con las entradas cableadas a los
+  pasos que miden y al consumidor que se clonó— y que su rojo pare el trabajo —ni el paso ni el
+  trabajo `consumidores` llevan `continue-on-error` ni `if:`—, en `los-consumidores-se-miran`.
 
 ## El arnés del `Request` (#92)
 
