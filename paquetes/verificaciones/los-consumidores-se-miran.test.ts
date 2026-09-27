@@ -203,21 +203,102 @@ function loQueFaltaALaMedida(workflow: Mapa): string[] {
 /** El `name` del paso que decide. Lo leen las personas que miran la CI, y por eso se exige tal cual. */
 const NOMBRE_DEL_VEREDICTO = 'El veredicto';
 
+/** La orden que decide (#115): la decision vive en el guion, con su tabla de ocho casos. */
+const LLAMADA_AL_VEREDICTO = 'node paquetes/verificaciones/veredicto.mjs';
+
+/** Lo mas largo que puede ser el `run:` del veredicto: llamar al guion y poco mas (#115). */
+const LINEAS_DEL_VEREDICTO = 5;
+
 /**
  * Lo que le falta al VEREDICTO: un paso con ese nombre, DESPUES de los dos que miden —antes no
- * tendria sus resultados—, y con el rojo que para el trabajo.
+ * tendria sus resultados—, que llame a `veredicto.mjs` en un `run:` de no mas de cinco lineas —la
+ * decision es del guion y de su tabla, no de un bash que ninguna prueba corre (#115)— y que le pase
+ * en `BASE` y `RAMA` el `outcome` de ESOS dos pasos y no de otros: cruzados, la tabla decide bien
+ * sobre las entradas equivocadas.
+ *
+ * <h2>Y que su rojo PARE el trabajo (vuelta 1 de #115)</h2>
+ *
+ * Todo lo anterior mira QUE se decide; esto mira que la decision cuente. Estas son las maneras,
+ * medidas, de tenerla bien escrita y que el trabajo salga verde igual —la lista es de lo medido,
+ * no una promesa de que no haya otra—. Las primeras pasaban esta guarda —56 de 56 en verde con el
+ * workflow roto, medido por los verificadores—, y las dos ultimas (`set +e` … `exit 0` alrededor
+ * de la llamada, y una plantilla de `shell:`) las midio despues la verificacion de #115:
+ *
+ *   · `continue-on-error` en el propio paso: el guion sale con 1 y GitHub pinta el paso en naranja
+ *     y el trabajo en verde. Es el verde falso que el paso existe para impedir, puesto en el paso.
+ *   · `if:` en el paso: con `if: false`, o con cualquier condicion que no se cumpla, el paso se salta
+ *     y el trabajo sale verde sin haber decidido nada. No hay `if:` legitimo aqui —si falla algo de
+ *     antes, el trabajo ya esta rojo—, asi que se prohibe entero, no solo el `false`.
+ *   · Lo mismo un nivel mas arriba, en el trabajo `consumidores`: `continue-on-error` en el trabajo
+ *     deja que ningun rojo suyo bloquee el PR, y un `if:` que lo salte lo deja «skipped», que la
+ *     proteccion de rama cuenta como aprobado.
+ *
+ * `continue-on-error: false` escrito se admite: es el valor por omision y no apaga nada.
+ *
+ * Y `QUIEN` tiene que ser el consumidor QUE SE CLONO —el `repository` del `actions/checkout` que lo
+ * baja—, no una clave cualquiera de la matriz. Con `${{ matrix.nombre }}`, que no existe, vale la
+ * cadena vacia y el guion sale con 2, que es rojo; pero con `${{ matrix.directorio }}`, que si existe,
+ * las frases del veredicto nombrarian a otro sin que nada lo cazara.
  */
 function loQueFaltaAlVeredicto(workflow: Mapa): string[] {
   const pasos = pasosDelConsumidor(workflow);
   const indice = pasos.findIndex((p) => p['name'] === NOMBRE_DEL_VEREDICTO);
   if (indice === -1) return [`no hay un paso llamado «${NOMBRE_DEL_VEREDICTO}» en el trabajo \`consumidores\``];
+  const paso = pasos[indice] ?? {};
   const faltas: string[] = [];
-  const ultimaMedida = Math.max(
-    pasos.findIndex((p) => LINEA_BASE.test(ordenDe(p))),
-    pasos.findIndex((p) => ESTA_RAMA.test(ordenDe(p))),
-  );
+  const base = pasos.find((p) => LINEA_BASE.test(ordenDe(p)));
+  const rama = pasos.find((p) => ESTA_RAMA.test(ordenDe(p)));
+  const ultimaMedida = Math.max(base === undefined ? -1 : pasos.indexOf(base), rama === undefined ? -1 : pasos.indexOf(rama));
   if (indice < ultimaMedida) faltas.push('el veredicto va antes de las medidas que tiene que leer');
-  if (!/ESTA RAMA ROMPE A/.test(ordenDe(pasos[indice] ?? {}))) faltas.push('el veredicto no tiene el rojo que para el trabajo');
+  const orden = ordenDe(paso)
+    .split('\n')
+    .map((linea) => linea.trim());
+  if (!orden.includes(LLAMADA_AL_VEREDICTO)) {
+    faltas.push(`el veredicto no llama a \`${LLAMADA_AL_VEREDICTO}\``);
+  } else if (String(paso['run'] ?? '').trim() !== LLAMADA_AL_VEREDICTO) {
+    // Que la llamada ESTE no basta: `set +e` delante y `exit 0` detras caben en cinco lineas, y el
+    // paso sale con 0 digan lo que digan las medidas (medido por la verificacion de #115). El
+    // codigo de salida del paso tiene que ser el del guion, y eso solo lo garantiza que el
+    // `run:` sea la llamada y nada mas.
+    faltas.push(`el \`run:\` del veredicto hace algo mas que \`${LLAMADA_AL_VEREDICTO}\`, y el codigo de salida del paso deja de ser el del guion`);
+  }
+  if ('shell' in paso) {
+    // Una plantilla de `shell:` decide que se ejecuta y con que codigo sale: `true {0}` no corre
+    // el guion y sale con 0. Con el `bash` por omision de GitHub, el paso sale con lo que salga el
+    // guion.
+    faltas.push('el paso del veredicto lleva `shell:`, y con otra plantilla el codigo de salida ya no es el del guion');
+  }
+  const lineas = String(paso['run'] ?? '').trimEnd().split('\n').length;
+  if (lineas > LINEAS_DEL_VEREDICTO) {
+    faltas.push(`el \`run:\` del veredicto tiene ${String(lineas)} lineas, y no puede pasar de ${String(LINEAS_DEL_VEREDICTO)}`);
+  }
+  for (const [variable, medida] of [
+    ['BASE', base],
+    ['RAMA', rama],
+  ] as const) {
+    const id = medida?.['id'];
+    const esperado = typeof id === 'string' ? `\${{ steps.${id}.outcome }}` : null;
+    if (esperado === null || valorEn(paso, 'env', variable) !== esperado) {
+      faltas.push(`\`${variable}\` no es el \`outcome\` del paso que mide ${variable === 'BASE' ? 'la linea base' : 'esta rama'}`);
+    }
+  }
+  const trabajo = trabajoDe(workflow, 'consumidores');
+  for (const [donde, cual] of [
+    [paso, 'el paso del veredicto'],
+    [trabajo ?? {}, 'el trabajo `consumidores`'],
+  ] as const) {
+    if ('continue-on-error' in donde && donde['continue-on-error'] !== false) {
+      faltas.push(`${cual} lleva \`continue-on-error\`, y con el su rojo no para nada`);
+    }
+    if ('if' in donde) faltas.push(`${cual} lleva \`if:\`, y lo que se salta no decide`);
+  }
+  const clonado = pasos.find(
+    (p) => typeof p['uses'] === 'string' && p['uses'].startsWith('actions/checkout@') && valorEn(p, 'with', 'repository') !== undefined,
+  );
+  const repositorio = valorEn(clonado, 'with', 'repository');
+  if (typeof repositorio !== 'string' || valorEn(paso, 'env', 'QUIEN') !== repositorio) {
+    faltas.push('`QUIEN` no es el `repository` del consumidor que se clono');
+  }
   return faltas;
 }
 
@@ -509,6 +590,85 @@ describe('la CI mira a sus consumidores', () => {
     expect(loQueFaltaAlVeredicto(adelantado), 'un veredicto antes de las medidas paso en verde').toEqual([
       'el veredicto va antes de las medidas que tiene que leer',
     ]);
+  });
+
+  it('LA MUESTRA (#115): un veredicto que no llama al guion, que crece, que lee las medidas cruzadas, que no para o que nombra a otro sale rojo', () => {
+    // Cada rotura sobre el workflow de ESTE arbol, en memoria, y comprobada antes de juzgarla. La
+    // primera es la de #114 otra vez: el comentario del paso sigue nombrando `veredicto.mjs`. La
+    // segunda, la que la lectura por lineas no veia: un comentario de YAML detras de un escalar.
+    const LLAMADA = `        run: ${LLAMADA_AL_VEREDICTO}\n`;
+    const VEREDICTO = `      - name: ${NOMBRE_DEL_VEREDICTO}\n`;
+    const TRABAJO = '    needs: verificar\n    timeout-minutes: 25\n';
+    const QUIEN_DEL_VEREDICTO = '          QUIEN: ${{ matrix.repositorio }}\n          RAMA_DEL_CONSUMIDOR:';
+    const ROTURAS: readonly [string, (texto: string) => string, string][] = [
+      [
+        'con la decision en bash otra vez',
+        (texto) => texto.replace(LLAMADA, '        run: exit 0\n'),
+        `el veredicto no llama a \`${LLAMADA_AL_VEREDICTO}\``,
+      ],
+      [
+        'con la llamada en un comentario de YAML',
+        (texto) => texto.replace(LLAMADA, `        run: exit 0 # ${LLAMADA_AL_VEREDICTO}\n`),
+        `el veredicto no llama a \`${LLAMADA_AL_VEREDICTO}\``,
+      ],
+      // Las dos que la verificacion de #115 midio en verde: la llamada esta, pero no decide.
+      [
+        'con el rojo tragado por `set +e` y `exit 0`',
+        (texto) => texto.replace(LLAMADA, `        run: |\n          set +e\n          ${LLAMADA_AL_VEREDICTO}\n          exit 0\n`),
+        `el \`run:\` del veredicto hace algo mas que \`${LLAMADA_AL_VEREDICTO}\`, y el codigo de salida del paso deja de ser el del guion`,
+      ],
+      [
+        'con una plantilla de `shell:` que no corre el guion',
+        (texto) => texto.replace(LLAMADA, `        shell: "true {0}"\n${LLAMADA}`),
+        'el paso del veredicto lleva `shell:`, y con otra plantilla el codigo de salida ya no es el del guion',
+      ],
+      [
+        'con un `run:` de seis lineas',
+        (texto) =>
+          texto.replace(LLAMADA, `        run: |\n${'          echo\n'.repeat(5)}          ${LLAMADA_AL_VEREDICTO}\n`),
+        'el `run:` del veredicto tiene 6 lineas, y no puede pasar de 5',
+      ],
+      [
+        'con la linea base y esta rama cruzadas',
+        (texto) =>
+          texto
+            .replace('BASE: ${{ steps.base.outcome }}', 'BASE: ${{ steps.rama.outcome }}')
+            .replace('RAMA: ${{ steps.rama.outcome }}', 'RAMA: ${{ steps.base.outcome }}'),
+        '`BASE` no es el `outcome` del paso que mide la linea base',
+      ],
+      // Las cinco de la vuelta 1 de #115: el veredicto bien escrito y su rojo sin parar nada.
+      [
+        'con `continue-on-error` en el paso del veredicto',
+        (texto) => texto.replace(VEREDICTO, `${VEREDICTO}        continue-on-error: true\n`),
+        'el paso del veredicto lleva `continue-on-error`, y con el su rojo no para nada',
+      ],
+      [
+        'con `if: false` en el paso del veredicto',
+        (texto) => texto.replace(VEREDICTO, `${VEREDICTO}        if: false\n`),
+        'el paso del veredicto lleva `if:`, y lo que se salta no decide',
+      ],
+      [
+        'con `continue-on-error` en el trabajo `consumidores`',
+        (texto) => texto.replace(TRABAJO, `${TRABAJO}    continue-on-error: true\n`),
+        'el trabajo `consumidores` lleva `continue-on-error`, y con el su rojo no para nada',
+      ],
+      [
+        'con un `if:` que salta el trabajo `consumidores`',
+        (texto) => texto.replace(TRABAJO, `${TRABAJO}    if: false\n`),
+        'el trabajo `consumidores` lleva `if:`, y lo que se salta no decide',
+      ],
+      [
+        'con `QUIEN` cableado a otra clave de la matriz que si existe',
+        (texto) => texto.replace(QUIEN_DEL_VEREDICTO, QUIEN_DEL_VEREDICTO.replace('matrix.repositorio', 'matrix.directorio')),
+        '`QUIEN` no es el `repository` del consumidor que se clono',
+      ],
+    ];
+    for (const [nombre, romper, falta] of ROTURAS) {
+      const roto = romper(textoDelWorkflow);
+      expect(roto, `la rotura «${nombre}» no se aplico`).not.toBe(textoDelWorkflow);
+      expect(roto, `«${nombre}»: el comentario ya no nombra el guion`).toContain('`veredicto.mjs`');
+      expect(loQueFaltaAlVeredicto(analizarWorkflow(roto, WORKFLOW)), `«${nombre}» paso en verde`).toContain(falta);
+    }
   });
 
   it('el Node del consumidor es la ULTIMA 24, no la que el corredor tenga en cache', () => {
