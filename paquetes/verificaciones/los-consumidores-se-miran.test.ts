@@ -218,9 +218,11 @@ const LINEAS_DEL_VEREDICTO = 5;
  *
  * <h2>Y que su rojo PARE el trabajo (vuelta 1 de #115)</h2>
  *
- * Todo lo anterior mira QUE se decide; esto mira que la decision cuente. Hay tres maneras de
- * tenerla bien escrita y que el trabajo salga verde igual, y las tres pasaban esta guarda —56 de 56
- * en verde con el workflow roto, medido por los verificadores—:
+ * Todo lo anterior mira QUE se decide; esto mira que la decision cuente. Estas son las maneras,
+ * medidas, de tenerla bien escrita y que el trabajo salga verde igual —la lista es de lo medido,
+ * no una promesa de que no haya otra—. Las primeras pasaban esta guarda —56 de 56 en verde con el
+ * workflow roto, medido por los verificadores—, y las dos ultimas (`set +e` … `exit 0` alrededor
+ * de la llamada, y una plantilla de `shell:`) las midio despues la verificacion de #115:
  *
  *   · `continue-on-error` en el propio paso: el guion sale con 1 y GitHub pinta el paso en naranja
  *     y el trabajo en verde. Es el verde falso que el paso existe para impedir, puesto en el paso.
@@ -251,7 +253,21 @@ function loQueFaltaAlVeredicto(workflow: Mapa): string[] {
   const orden = ordenDe(paso)
     .split('\n')
     .map((linea) => linea.trim());
-  if (!orden.includes(LLAMADA_AL_VEREDICTO)) faltas.push(`el veredicto no llama a \`${LLAMADA_AL_VEREDICTO}\``);
+  if (!orden.includes(LLAMADA_AL_VEREDICTO)) {
+    faltas.push(`el veredicto no llama a \`${LLAMADA_AL_VEREDICTO}\``);
+  } else if (String(paso['run'] ?? '').trim() !== LLAMADA_AL_VEREDICTO) {
+    // Que la llamada ESTE no basta: `set +e` delante y `exit 0` detras caben en cinco lineas, y el
+    // paso sale con 0 digan lo que digan las medidas (medido por la verificacion de #115). El
+    // codigo de salida del paso tiene que ser el del guion, y eso solo lo garantiza que el
+    // `run:` sea la llamada y nada mas.
+    faltas.push(`el \`run:\` del veredicto hace algo mas que \`${LLAMADA_AL_VEREDICTO}\`, y el codigo de salida del paso deja de ser el del guion`);
+  }
+  if ('shell' in paso) {
+    // Una plantilla de `shell:` decide que se ejecuta y con que codigo sale: `true {0}` no corre
+    // el guion y sale con 0. Con el `bash` por omision de GitHub, el paso sale con lo que salga el
+    // guion.
+    faltas.push('el paso del veredicto lleva `shell:`, y con otra plantilla el codigo de salida ya no es el del guion');
+  }
   const lineas = String(paso['run'] ?? '').trimEnd().split('\n').length;
   if (lineas > LINEAS_DEL_VEREDICTO) {
     faltas.push(`el \`run:\` del veredicto tiene ${String(lineas)} lineas, y no puede pasar de ${String(LINEAS_DEL_VEREDICTO)}`);
@@ -594,6 +610,17 @@ describe('la CI mira a sus consumidores', () => {
         'con la llamada en un comentario de YAML',
         (texto) => texto.replace(LLAMADA, `        run: exit 0 # ${LLAMADA_AL_VEREDICTO}\n`),
         `el veredicto no llama a \`${LLAMADA_AL_VEREDICTO}\``,
+      ],
+      // Las dos que la verificacion de #115 midio en verde: la llamada esta, pero no decide.
+      [
+        'con el rojo tragado por `set +e` y `exit 0`',
+        (texto) => texto.replace(LLAMADA, `        run: |\n          set +e\n          ${LLAMADA_AL_VEREDICTO}\n          exit 0\n`),
+        `el \`run:\` del veredicto hace algo mas que \`${LLAMADA_AL_VEREDICTO}\`, y el codigo de salida del paso deja de ser el del guion`,
+      ],
+      [
+        'con una plantilla de `shell:` que no corre el guion',
+        (texto) => texto.replace(LLAMADA, `        shell: "true {0}"\n${LLAMADA}`),
+        'el paso del veredicto lleva `shell:`, y con otra plantilla el codigo de salida ya no es el del guion',
       ],
       [
         'con un `run:` de seis lineas',
