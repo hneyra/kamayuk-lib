@@ -1,9 +1,8 @@
 import { useId, useRef, useState, type FormEvent } from 'react';
 
-import { Alerta } from '../shadcn/alerta.tsx';
 import { avisar } from '../shadcn/avisos.tsx';
 import { BotonConMotivo } from '../shadcn/boton-con-motivo.tsx';
-import { Tarjeta, TarjetaCabecera, TarjetaNota } from '../shadcn/tarjeta.tsx';
+import { Tarjeta, TarjetaCabecera } from '../shadcn/tarjeta.tsx';
 import type { TextosDeLaPantalla } from '../textos.tsx';
 import { atiende, motivoDelActo, siempreTieneValor, valoresQueViajan, type ValoresDelActo } from './acciones.ts';
 import { estrecharElCampo } from './campo-estrechado.ts';
@@ -11,11 +10,16 @@ import { type Nombrados, resolverTexto } from './componer.ts';
 import { useEnElMarcoOAqui } from './en-el-marco-o-aqui.ts';
 import { useEnVuelo } from './en-vuelo.ts';
 import type { DatosDeLaPantalla } from './datos.ts';
-import { FalloDeUnaLectura } from './EstadoDeLaLectura.tsx';
 import type { TecleadoDeUnActo } from './hoja.ts';
 import type { InteraccionDeLaPantalla } from './interaccion.ts';
-import { ActoHecho, CamposDelActo, ConfirmacionDelActo, SalidasDelActo } from './PartesDelActo.tsx';
-import { ProsaConMarcas } from './ProsaConMarcas.tsx';
+import {
+  ActoHecho,
+  CamposDelActo,
+  ConfirmacionDelActo,
+  FalloDelActo,
+  NotaDelActo,
+  SalidasDelActo,
+} from './PartesDelActo.tsx';
 import type { CampoDelActo, DefinicionDeActo } from './tipos-de-los-actos.ts';
 
 /**
@@ -236,8 +240,6 @@ export function ActoDeLaPantalla({ acto, datos, traducir, textos, interaccion }:
     else setConfirmando(true);
   };
 
-  const fallo = datos.lecturas?.get(acto.clave);
-
   return (
     <Tarjeta data-acto={acto.clave}>
       <TarjetaCabecera>{texto(acto.titulo)}</TarjetaCabecera>
@@ -252,33 +254,16 @@ export function ActoDeLaPantalla({ acto, datos, traducir, textos, interaccion }:
           {textos.cerrarElActo}
         </BotonConMotivo>
       </div>
-      {acto.notaConMarcas !== undefined && acto.notaConMarcas.length > 0 ? (
-        // Gana a `nota` (#86, `texto-con-marcas`), con los datos de la pantalla y los de la fila.
-        <TarjetaNota>
-          <ProsaConMarcas marcas={acto.notaConMarcas} nombrados={nombrados} traducir={traducir} ausente={textos.datoAusente} />
-        </TarjetaNota>
-      ) : acto.nota === undefined || acto.nota === '' ? null : (
-        <TarjetaNota>{texto(acto.nota)}</TarjetaNota>
-      )}
+      <NotaDelActo acto={acto} nombrados={nombrados} traducir={traducir} texto={texto} textos={textos} />
 
       {fase === 'hecho' ? (
         <ActoHecho acto={acto} nombrados={nombrados} traducir={traducir} texto={texto} textos={textos} interaccion={interaccion} />
       ) : (
         <form data-fase-del-acto="escribiendo" noValidate onSubmit={alEnviar}>
-          {/* El fallo encima, y el formulario sigue con lo escrito: se corrige y se vuelve a enviar.
-              Mientras viaja otra vez, el fallo viejo no se ensena: ya no dice nada de lo que se mira. */}
-          {!enCurso && fallo?.estado === 'fallo' ? (
-            <div data-fallo-de={acto.clave}>
-              <FalloDeUnaLectura fallo={fallo} textos={textos} />
-            </div>
-          ) : null}
-          {!enCurso && rechazado && fallo?.estado !== 'fallo' ? (
-            <div className="px-[15px] pt-[14px]">
-              <Alerta tono="atencion" data-rechazo-sin-fallo={acto.clave}>
-                {textos.rechazoSinFallo(acto.clave)}
-              </Alerta>
-            </div>
-          ) : null}
+          {/* Mientras viaja otra vez, el fallo viejo no se ensena: ya no dice nada de lo que se mira. */}
+          {enCurso ? null : (
+            <FalloDelActo clave={acto.clave} fallo={datos.lecturas?.get(acto.clave)} rechazado={rechazado} textos={textos} />
+          )}
           <CamposDelActo
             acto={acto}
             tecleado={tecleado}

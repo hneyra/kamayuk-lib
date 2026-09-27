@@ -12,20 +12,22 @@ import {
   TituloDeConfirmacion,
 } from '../shadcn/confirmacion.tsx';
 import { Etiqueta } from '../shadcn/etiqueta.tsx';
-import { TarjetaCampos } from '../shadcn/tarjeta.tsx';
+import { TarjetaCampos, TarjetaNota } from '../shadcn/tarjeta.tsx';
 import type { TextosDeLaPantalla } from '../textos.tsx';
 import { camposQueFaltan, motivoDeLaObservacion, seEscribeElCampo } from './acciones.ts';
 import { CampoDelBloque } from './CampoDelBloque.tsx';
 import type { Nombrados, resolverTexto } from './componer.ts';
-import type { Ausencia } from './datos.ts';
+import type { Ausencia, EstadoDeUnaLectura } from './datos.ts';
+import { FalloDeUnaLectura } from './EstadoDeLaLectura.tsx';
 import { GrupoDeAcciones } from './GrupoDeAcciones.tsx';
 import type { TecleadoDeUnActo } from './hoja.ts';
 import type { InteraccionDeLaPantalla } from './interaccion.ts';
+import { ProsaConMarcas } from './ProsaConMarcas.tsx';
 import type { CampoDelActo, DefinicionDeActo } from './tipos-de-los-actos.ts';
 
 /**
- * **Las partes de un acto: lo hecho, los campos, las salidas y la confirmacion** (#66, #86; aparte
- * de `ActoDeLaPantalla` desde #120).
+ * **Las partes de un acto: la nota, el fallo, lo hecho, los campos, las salidas y la confirmacion**
+ * (#66, #86; aparte de `ActoDeLaPantalla` desde #120).
  *
  * `ActoDeLaPantalla` tenia 301 lineas, seis `useState` y dos `useRef` en una funcion. El estado se
  * queda alli —la fase, el vuelo, el rechazo, lo tecleado—; aqui solo se dibuja, con lo que ya esta
@@ -34,6 +36,65 @@ import type { CampoDelActo, DefinicionDeActo } from './tipos-de-los-actos.ts';
 
 /** Un texto de la definicion, resuelto con los datos de la pantalla y los de la fila. */
 type Resolver = (t: Parameters<typeof resolverTexto>[0]) => string;
+
+/** La nota del acto: con marcas, si las trae, que ganan a `nota` (#86, `texto-con-marcas`). */
+export function NotaDelActo({
+  acto,
+  nombrados,
+  traducir,
+  texto,
+  textos,
+}: {
+  readonly acto: DefinicionDeActo;
+  readonly nombrados: Nombrados;
+  readonly traducir: (texto: string) => string;
+  readonly texto: Resolver;
+  readonly textos: TextosDeLaPantalla;
+}) {
+  if (acto.notaConMarcas !== undefined && acto.notaConMarcas.length > 0) {
+    // Con los datos de la pantalla y los de la fila.
+    return (
+      <TarjetaNota>
+        <ProsaConMarcas marcas={acto.notaConMarcas} nombrados={nombrados} traducir={traducir} ausente={textos.datoAusente} />
+      </TarjetaNota>
+    );
+  }
+  return acto.nota === undefined || acto.nota === '' ? null : <TarjetaNota>{texto(acto.nota)}</TarjetaNota>;
+}
+
+/**
+ * El fallo, encima del formulario, que sigue con lo escrito: se corrige y se vuelve a enviar. El del
+ * sistema, si lo puso en `datos.lecturas` con la clave del acto; si rechazo sin ponerlo, un aviso
+ * que lo dice —nunca un rechazo mudo—.
+ */
+export function FalloDelActo({
+  clave,
+  fallo,
+  rechazado,
+  textos,
+}: {
+  readonly clave: string;
+  readonly fallo: EstadoDeUnaLectura | undefined;
+  readonly rechazado: boolean;
+  readonly textos: TextosDeLaPantalla;
+}) {
+  return (
+    <>
+      {fallo?.estado === 'fallo' ? (
+        <div data-fallo-de={clave}>
+          <FalloDeUnaLectura fallo={fallo} textos={textos} />
+        </div>
+      ) : null}
+      {rechazado && fallo?.estado !== 'fallo' ? (
+        <div className="px-[15px] pt-[14px]">
+          <Alerta tono="atencion" data-rechazo-sin-fallo={clave}>
+            {textos.rechazoSinFallo(clave)}
+          </Alerta>
+        </div>
+      ) : null}
+    </>
+  );
+}
 
 /** El acto aceptado: lo que dice, y a donde se puede ir desde ahi. */
 export function ActoHecho({
