@@ -32,10 +32,10 @@ se repite. **Y las cifras de pruebas no se escriben a mano**: las escribe `yarn 
 | [`paquetes/ui`](paquetes/ui/README.md) — `@kamayuk/ui` | **Existe.** Los 42 tokens, cuatro identidades × dos modos, las piezas de shadcn y el `ProveedorDeTema`; no escribe ni una palabra. <!-- cifras:ui -->**605 pruebas** en 26 archivos, más las **3** de capa<!-- /cifras --> y las barreras de tipo. Le faltan los tokens contra el artboard y el contraste |
 | [`paquetes/ui/interprete`](paquetes/ui/interprete/README.md) — el intérprete de pantallas | **Existe**, y dibuja una hoja entera como **dato**: bloques, avisos, pie, actos, maestro-detalle, pestañas y piezas del consumidor, con lo elegido en la ruta. Sus pruebas cuentan en `paquetes/ui` |
 | [`paquetes/shell`](paquetes/shell/README.md) — `@kamayuk/shell` | **Existe.** El armazón de V8, con el catálogo por parámetro y el estado de la hoja en la ruta; no decide permisos ni escribe una palabra. <!-- cifras:shell -->**152 pruebas** en 14 archivos<!-- /cifras --> |
-| [`paquetes/verificaciones`](paquetes/verificaciones/README.md) — `@kamayuk/verificaciones` | **Existe.** Las prohibiciones de ESLint con sus muestras, las guardas del árbol, los guiones de la CI y el arnés del `Request`. <!-- cifras:verificaciones -->**324 pruebas** en 20 archivos<!-- /cifras -->. Le faltan los tokens contra el artboard y el contraste |
+| [`paquetes/verificaciones`](paquetes/verificaciones/README.md) — `@kamayuk/verificaciones` | **Existe.** Las prohibiciones de ESLint con sus muestras, las guardas del árbol, los guiones de la CI y el arnés del `Request`. <!-- cifras:verificaciones -->**346 pruebas** en 21 archivos<!-- /cifras -->. Le faltan los tokens contra el artboard y el contraste |
 | La guarda de la fila del registro | **Existe**, con su autoprueba de **catorce muestras**, adaptada a la forma de este repositorio; desde #128 exige además una fila por issue |
 
-<!-- cifras:total -->**En total: 1470 pruebas en 75 archivos, más las 3 de capa.**<!-- /cifras -->
+<!-- cifras:total -->**En total: 1492 pruebas en 76 archivos, más las 3 de capa.**<!-- /cifras -->
 
 ## La regla que gobierna este repositorio
 
@@ -90,7 +90,8 @@ paquetes/
                    contra su arbol), cifras.mjs (yarn cifras), tabla-de-estado.ts (lo que mide
                    la guarda de la tabla), rutas-de-la-ci.ts, workflow.ts (la unica lectura de
                    los workflows: el YAML analizado, no el texto), sus pruebas y sus muestras/,
-                   imports.mjs (lo que importa un archivo, por el arbol sintactico de TypeScript)
+                   imports.mjs (lo que importa un archivo, por el arbol sintactico de TypeScript),
+                   veredicto.mjs (el veredicto del trabajo consumidores, que el workflow solo llama)
   */README.md      lo que hace cada paquete, contado entero (y ui/interprete/README.md, el interprete)
 docs/
   agent/HISTORY.md            el registro «Verificar antes de afirmar», que se mezcla con merge=union
@@ -147,6 +148,7 @@ peticiones sin ninguna de las cuatro prohibiciones de importes.
 | — | **La tabla de estado, una línea por pieza** | `el-estado-cabe-en-una-linea.test.ts`, con sus muestras: ninguna fila pasa de 400 bytes y cada `README.md` de `paquetes/**` tiene su fila (#128) |
 | — | **Una guarda de la CI no se satisface con un comentario** | `workflow.ts`: las guardas leen el workflow como **YAML analizado** y preguntan por su forma —un paso con su `id`, `strategy.matrix.include`, un `with['check-latest']`—, no por si el texto «contiene» algo. Hasta #114, quitado el paso de `jq`, el `include: fromJSON` y renombrado el veredicto, `los-consumidores-se-miran` seguía en verde por los comentarios; hoy esas tres roturas son sus muestras, con las de `el-workflow-se-lee-como-yaml` |
 | — | **Ninguna acción de la CI baja de la mayor que declara `node24`** | `las-acciones-corren-en-node-24.test.ts`, con sus muestras. Lee el **directorio** `.github/workflows/`, recorre los `uses:` del YAML analizado (#114) y fija la mayor **medida**, con el `runs.using` literal al lado; lo que decide es ese `runs.using` y **no el número** —`caja` midió un `@v5` que aún declaraba `node20`—. **Sin red al correr**, y lo que no conoce sale en rojo diciéndolo (#93) |
+| — | **El veredicto de `consumidores` es un guion con su tabla, no bash** | `veredicto.mjs`, una función pura con su tabla de **ocho casos** —base ✓/✗ × rama ✓/✗ × rama del consumidor nombrada o no— y el guion corrido como proceso, en `el-veredicto-tiene-su-tabla.test.ts`; una entrada que no es un `outcome` sale con 2. `los-consumidores-se-miran` exige que el paso lo llame en un `run:` de no más de cinco líneas y con `BASE`/`RAMA` cableadas a los pasos que miden. Hasta #115 eran 62 líneas de bash, y cambiar un `exit 0` por un `exit 1` seguía en verde |
 
 **`fetch` tiene DOS sitios legítimos, y la lista se comprueba entera, no se cuenta.** Uno es el
 cliente HTTP. El otro es `paquetes/sesion/identidad.ts`, que lo llama **dos veces** y por el mismo

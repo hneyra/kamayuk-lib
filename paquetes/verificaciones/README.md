@@ -134,6 +134,13 @@ navegador, y por eso `sin-suponer-un-sistema` no lo barre.
   `yarn test` y `yarn test:capas`, leídos de `package.json`— y reescribe **sólo** el texto entre sus
   marcadores; `yarn cifras --comprobar` sale en rojo nombrando lo escrito y lo medido, y corre
   dentro de `yarn verificar`.
+- `veredicto.mjs` (#115): el veredicto del trabajo `consumidores` —`veredicto({ base, rama, quien,
+  ramaDelConsumidor }) → { codigo, lineas }`, pura—, que el paso «El veredicto» de `paquetes.yml`
+  sólo llama, con `BASE`, `RAMA`, `QUIEN` y `RAMA_DEL_CONSUMIDOR` en el entorno. Las frases son las
+  del bash que sustituyó, byte a byte; una entrada que no es un `outcome` de GitHub sale con 2 en vez
+  de decidir. Su tabla de ocho casos y el guion como proceso, en `el-veredicto-tiene-su-tabla`; que
+  el workflow lo llame —en un `run:` de no más de cinco líneas y con las entradas cableadas a los
+  pasos que miden—, en `los-consumidores-se-miran`.
 
 ## El arnés del `Request` (#92)
 
