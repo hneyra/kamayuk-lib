@@ -39,6 +39,13 @@ export {
 } from './archivos.mjs';
 export type { Hallazgo, LineaQueCasa } from './archivos.mjs';
 
+/**
+ * Lo que un archivo importa, leido por el analizador de TypeScript (#112). Vive en un `.mjs` por
+ * lo mismo que el recorrido: el guion del arnes lo usa en el arbol de un consumidor.
+ */
+export { importsDe, importsDelCss, importsQueCasan } from './imports.mjs';
+export type { Import, ImportHallado } from './imports.mjs';
+
 /** Lo que las guardas de este arbol leen como codigo. */
 const EXTENSIONES = ['.ts', '.tsx', '.mjs', '.js', '.css'] as const;
 

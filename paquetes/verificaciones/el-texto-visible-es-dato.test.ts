@@ -3,7 +3,7 @@
 // Lee el arbol de archivos y los `package.json`. No es un DOM lo que necesita, y bajo jsdom el
 // `fileURLToPath` de `texto.ts` revienta con «The URL must be of scheme file» (medido en #2).
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import ts from 'typescript';
@@ -85,6 +85,28 @@ const DIBUJAN = ['shell', 'ui'] as const;
  * frases entre por una línea, y para que el recorrido diga cuál mira.
  */
 const HABLAN_SIN_DIBUJAR = ['sesion'] as const;
+
+/**
+ * **Los paquetes que no escriben nada que una persona lea, cada uno con su motivo** (#113).
+ *
+ * Es la tercera clase, y existe para que la clasificacion se compruebe entera: hasta #113 un
+ * paquete que no estuviera en `DIBUJAN` ni en `HABLAN_SIN_DIBUJAR` quedaba fuera del barrido **en
+ * silencio**, y un septimo directorio en `paquetes/` —con un `<p>Hola a todos</p>` y un `i18next` de
+ * `peerDependency`— dejaba esta guarda en verde (medido: 14 de 14). Hoy la guarda exige que las tres
+ * clases juntas sean exactamente `readdir(paquetes)`, y un paquete nuevo sale rojo pidiendo que se
+ * le clasifique.
+ */
+const NO_HABLAN_A_UNA_PERSONA: Readonly<Record<string, string>> = {
+  api:
+    'Sus cadenas son mensajes de excepcion para quien programa —medido el 2026-09-20: 5 hallazgos de la ' +
+    'cuarta forma, todos asi—, y traducirlas seria traducir un `stack trace`.',
+  formato:
+    'Lo mismo que `api`: 14 hallazgos de la cuarta forma ese dia, todos mensajes de excepcion. Lo que ' +
+    'formatea son cifras y fechas, no frases.',
+  verificaciones:
+    'No viaja a un navegador: su trabajo es nombrar lo prohibido y hablarle a quien programa en el ' +
+    'rojo de una guarda.',
+};
 
 /**
  * Los únicos archivos donde el texto literal es legítimo: los sacos.
@@ -447,5 +469,169 @@ describe('EL AC3: los textos como dato NO trajeron ninguna dependencia nueva', (
       );
     });
     expect(importadores.map((a) => rutaDesde(RAIZ, a))).toEqual([]);
+  });
+});
+
+/**
+ * **Cada directorio de `paquetes/` esta clasificado, y las listas no se quedan viejas** (#113).
+ *
+ * `DIBUJAN`, `HABLAN_SIN_DIBUJAR` y `PEER_DECLARADAS` son listas escritas a mano, y el barrido las
+ * recorria **a ellas** y no al disco: un septimo paquete no se barria ni se le miraban las
+ * `peerDependencies`, y nada lo decia. Es el defecto que `lo-que-exports-promete-existe` ya habia
+ * resuelto leyendo el directorio; aqui las listas se quedan —dicen a que se le aplica cada forma— y
+ * se comparan con `readdir(paquetes)` en los dos sentidos.
+ */
+const LOS_PAQUETES = readdirSync(join(RAIZ, 'paquetes'), { withFileTypes: true })
+  .filter((entrada) => entrada.isDirectory())
+  .map((entrada) => entrada.name)
+  .sort((a, b) => a.localeCompare(b));
+
+/** Lo que falta por clasificar y lo que se clasifico sin existir. Pura, para darle un arbol ficticio. */
+function sinClasificar(
+  directorios: readonly string[],
+  clasificados: readonly string[],
+): { readonly faltan: string[]; readonly sobran: string[] } {
+  return {
+    faltan: directorios.filter((d) => !clasificados.includes(d)),
+    sobran: clasificados.filter((c) => !directorios.includes(c)),
+  };
+}
+
+const CLASES: readonly (readonly string[])[] = [DIBUJAN, HABLAN_SIN_DIBUJAR, Object.keys(NO_HABLAN_A_UNA_PERSONA)];
+
+describe('#113: cada paquete de `paquetes/` esta clasificado, y las listas son el disco', () => {
+  it('EL CENTINELA: se leyo el directorio, y tiene los seis', () => {
+    expect(LOS_PAQUETES).toEqual(expect.arrayContaining(['api', 'formato', 'sesion', 'shell', 'ui', 'verificaciones']));
+  });
+
+  it('las tres clases juntas son exactamente `readdir(paquetes)`, sin un paquete en dos', () => {
+    const clasificados = CLASES.flat();
+    expect(
+      sinClasificar(LOS_PAQUETES, clasificados),
+      'Hay paquetes sin clasificar (faltan) o clasificados sin existir (sobran). Cada directorio de ' +
+        '«paquetes/» va en DIBUJAN, en HABLAN_SIN_DIBUJAR o en NO_HABLAN_A_UNA_PERSONA con su motivo: ' +
+        'uno sin clasificar no lo barre nadie.',
+    ).toEqual({ faltan: [], sobran: [] });
+    expect(new Set(clasificados).size, 'un paquete esta en dos clases a la vez').toBe(clasificados.length);
+    for (const motivo of Object.values(NO_HABLAN_A_UNA_PERSONA)) expect(motivo.trim()).not.toBe('');
+  });
+
+  it('y `PEER_DECLARADAS` tiene una entrada por paquete, ni una mas', () => {
+    expect(
+      sinClasificar(LOS_PAQUETES, Object.keys(PEER_DECLARADAS)),
+      'Las «peerDependencies» de un paquete sin entrada en PEER_DECLARADAS no las comprueba nadie.',
+    ).toEqual({ faltan: [], sobran: [] });
+  });
+
+  it('LA MUESTRA: un paquete ficticio sale nombrado, y uno que ya no existe tambien', () => {
+    // Contra el disco de hoy y no contra `CLASES`: si no, una clase rota saldria roja aqui tambien y
+    // el rojo de la muestra taparia el de verdad.
+    expect(sinClasificar([...LOS_PAQUETES, 'paquete-ficticio'], LOS_PAQUETES)).toEqual({
+      faltan: ['paquete-ficticio'],
+      sobran: [],
+    });
+    expect(sinClasificar(['api'], ['api', 'fantasma'])).toEqual({ faltan: [], sobran: ['fantasma'] });
+  });
+});
+
+/**
+ * **Lo que no esta en `DIBUJAN` no dibuja: ni un JSX fuera de las dos clases que se miran** (#113,
+ * vuelta 1 de la verificacion).
+ *
+ * Que las tres clases sumen el disco no basta: la clase de un paquete se escribe a mano, y pasar
+ * `shell` de `DIBUJAN` a `NO_HABLAN_A_UNA_PERSONA` con una linea de motivo lo eximia del barrido
+ * **entero**. Medido: con eso y un `<p>Hola a todos</p>` en `paquetes/shell/Armazon.tsx`, esta
+ * guarda y `yarn test` enteros en verde. Lo que distingue a un paquete que dibuja es de **forma**
+ * —tiene JSX— y eso se lee del codigo, no de la lista: se le pregunta al analizador por cada archivo
+ * de produccion de los paquetes que NO estan en `DIBUJAN`, y se exige que no haya ninguno.
+ *
+ * **La unica excepcion es una barrera de tipo**, `barreras-de-tipos.tsx`, que monta las piezas de
+ * `ui` para que el compilador diga si un tipo se aflojo: no se ejecuta, no viaja a un navegador y
+ * nadie la lee en una pantalla. Se comprueba **entera y en los dos sentidos**, como la lista de `fetch`: una
+ * excepcion sin JSX sale roja pidiendo que se la quite. Y lo hizo al escribirla: la primera version
+ * declaraba tambien `barreras-de-campos-y-tablas.tsx`, que es `.tsx` y no tiene ni un JSX (medido).
+ *
+ * **Lo que no ve**: un `createElement` a pelo. `paquetes/api/entregar.ts` llama a
+ * `document.createElement('a')` para entregar un documento, y eso no es dibujar una pantalla; una
+ * guarda que lo contara mentiria en la otra direccion.
+ */
+const JSX_FUERA_DE_LO_QUE_DIBUJA: Readonly<Record<string, string>> = {
+  'paquetes/verificaciones/tipos/barreras-de-tipos.tsx':
+    'Barrera de tipo: monta las piezas de `ui` para que el compilador falle si un tipo se afloja. No se ejecuta.',
+};
+
+/** Las lineas de un codigo donde hay un elemento o un fragmento JSX. Pura, para darle una muestra. */
+function lineasConJsx(archivo: string, codigo: string): number[] {
+  const tipo = archivo.endsWith('.tsx')
+    ? ts.ScriptKind.TSX
+    : archivo.endsWith('.jsx')
+      ? ts.ScriptKind.JSX
+      : archivo.endsWith('.js') || archivo.endsWith('.mjs')
+        ? ts.ScriptKind.JS
+        : ts.ScriptKind.TS;
+  const fuente = ts.createSourceFile(archivo, codigo, ts.ScriptTarget.Latest, true, tipo);
+  const lineas: number[] = [];
+  const visitar = (nodo: ts.Node): void => {
+    if (ts.isJsxElement(nodo) || ts.isJsxSelfClosingElement(nodo) || ts.isJsxFragment(nodo)) {
+      lineas.push(fuente.getLineAndCharacterOfPosition(nodo.getStart(fuente)).line + 1);
+      return;
+    }
+    ts.forEachChild(nodo, visitar);
+  };
+  visitar(fuente);
+  return lineas;
+}
+
+/** Los archivos de codigo (sin CSS) de un paquete que tienen JSX, relativos a la raiz. */
+function archivosConJsx(paquete: string): string[] {
+  return archivosDeProduccion(join(RAIZ, 'paquetes', paquete))
+    .filter((a) => !a.endsWith('.css'))
+    .filter((a) => lineasConJsx(a, readFileSync(a, 'utf8')).length > 0)
+    .map((a) => rutaDesde(RAIZ, a));
+}
+
+const DIBUJAN_DE_VERDAD = new Set<string>(DIBUJAN);
+const LOS_QUE_NO_DIBUJAN = LOS_PAQUETES.filter((p) => !DIBUJAN_DE_VERDAD.has(p));
+
+describe('#113: un paquete que no esta en `DIBUJAN` no tiene ni un JSX, y la clase no se escribe a ciegas', () => {
+  it('EL CENTINELA: hay paquetes fuera de `DIBUJAN`, y el detector ve el JSX donde lo hay', () => {
+    expect(LOS_QUE_NO_DIBUJAN.length, 'no quedo ningun paquete que mirar').toBeGreaterThan(2);
+    expect(archivosConJsx('ui').length, 'el detector no ve el JSX NI DONDE LO HAY').toBeGreaterThan(10);
+  });
+
+  it('fuera de `DIBUJAN` no hay JSX, salvo las barreras de tipo declaradas, y la lista es entera', () => {
+    const conJsx = LOS_QUE_NO_DIBUJAN.flatMap(archivosConJsx);
+    const sinDeclarar = conJsx.filter((a) => !(a in JSX_FUERA_DE_LO_QUE_DIBUJA));
+    expect(
+      sinDeclarar,
+      'Estos archivos DIBUJAN y su paquete no esta en DIBUJAN, asi que el barrido del texto visible ' +
+        'no los mira:\n' +
+        sinDeclarar.map((a) => `  ${a}`).join('\n') +
+        '\n\n  Si el paquete dibuja, va en DIBUJAN; una linea de motivo en otra clase no lo exime.',
+    ).toEqual([]);
+    expect(
+      Object.keys(JSX_FUERA_DE_LO_QUE_DIBUJA).filter((a) => !conJsx.includes(a)),
+      'Estas excepciones ya no tienen JSX, o su paquete paso a DIBUJAN: quitalas de la lista.',
+    ).toEqual([]);
+    for (const motivo of Object.values(JSX_FUERA_DE_LO_QUE_DIBUJA)) expect(motivo.trim()).not.toBe('');
+  });
+
+  it('y cada paquete de `DIBUJAN` dibuja: una clase que ya no se cumple tambien es una lista vieja', () => {
+    expect(DIBUJAN.filter((p) => archivosConJsx(p).length === 0)).toEqual([]);
+  });
+
+  it('LA MUESTRA: el JSX sale con su linea, y lo que solo se le parece no', () => {
+    expect(lineasConJsx('dibuja.tsx', 'export const Saludo = () => <p>Hola a todos</p>;')).toEqual([1]);
+    expect(lineasConJsx('solo.tsx', 'export const Salto = () => <br />;')).toEqual([1]);
+    expect(lineasConJsx('fragmento.tsx', 'const a = 1;\nexport const F = () => <></>;')).toEqual([2]);
+    expect(lineasConJsx('anidado.tsx', 'export const A = () => (\n  <div>\n    <br />\n  </div>\n);')).toEqual([2]);
+    // Un generico, una comparacion y un `createElement` no son JSX.
+    expect(
+      lineasConJsx(
+        'no-dibuja.tsx',
+        "export const id = <T,>(x: T): T => x;\nexport const menor = 1 < 2 && 3 > 1;\ndocument.createElement('a');",
+      ),
+    ).toEqual([]);
+    expect(lineasConJsx('tipos.ts', 'const n = <number>(1 as unknown);')).toEqual([]);
   });
 });

@@ -46,6 +46,19 @@ navegador, y por eso `sin-suponer-un-sistema` no lo barre.
   `ui/temas/base.ts`.
 - `sin-suponer-un-sistema`, `sin-nombre-publico-entre-paquetes`, `las-capas-corren` y
   `los-consumidores-se-miran`.
+- **Un workflow se lee como YAML, no como texto** (#114): `workflow.ts` —`leerWorkflow`,
+  `analizarWorkflow` y los accesores `trabajoDe`, `pasosDe`, `valorEn` y `ordenDe`, sobre el
+  analizador `yaml`— es la única lectura de `.github/workflows/` de las guardas. Lo que es
+  comentario lo decide el analizador; dentro de un `run: |`, `ordenDe` quita además las líneas que
+  el shell no corre. Un YAML ilegible o con una clave repetida **revienta nombrando el archivo**.
+  Hasta #114 cada guarda se hacía su remedio —cuatro distintos para el mismo archivo— y
+  `los-consumidores-se-miran` se daba por satisfecha con los comentarios: quitado el paso de `jq`,
+  la línea `include: ${{ fromJSON(…) }}` y renombrado el veredicto, seguía en verde. Hoy pregunta
+  por la **forma** del objeto, y esas tres roturas son muestras permanentes sobre el workflow del
+  árbol, en memoria. Lo usan también `la-rama-del-consumidor` —que mira el resolvedor **en su paso**:
+  el token lo lleva también el del ensayo—, `las-acciones-corren-en-node-24`,
+  `las-cifras-las-escribe-un-guion` y `listasDeRutas` (`rutas-de-la-ci.ts`), con sus muestras en
+  `el-workflow-se-lee-como-yaml`.
 - `el-texto-visible-es-dato`: el barrido con el analizador de TypeScript, que desde #52 tiene una
   **cuarta forma**: **la frase** —dos rachas de letras separadas por un espacio— sobre los paquetes
   que escriben palabras **sin dibujar nada**, hoy `sesion`, cuyo `textos.ts` guarda **dos sacos**
@@ -73,7 +86,8 @@ navegador, y por eso `sin-suponer-un-sistema` no lo barre.
   mano, comprueba que cada promesa apunta a un archivo que existe y que es un archivo, y ante una
   forma de `exports` que no sepa leer sale **en rojo diciéndolo** en vez de pasar en verde.
 - `las-acciones-corren-en-node-24` (#93): lee el **directorio** `.github/workflows/`, no una lista
-  escrita, y fija por acción la mayor **cuyo `runs.using` se midió**, con el literal anotado al
+  escrita, recorre los `uses:` que GitHub ejecuta —`jobs.<id>.steps[]` y `jobs.<id>`— del YAML
+  analizado (#114), y fija por acción la mayor **cuyo `runs.using` se midió**, con el literal anotado al
   lado. No baja el `action.yml` porque eso exige red, y una guarda que necesita red es una que se
   salta el día que la red falla; lo que la tabla no conoce y lo que no es `@vN` salen **en rojo
   diciéndolo**.
@@ -95,6 +109,22 @@ navegador, y por eso `sin-suponer-un-sistema` no lo barre.
   registro tiene que cazar. Además le pregunta a git por el árbol **entero** —con los
   `.gitattributes` anidados, que anulan el de la raíz sin tocarlo— que el registro siga en `union`,
   y exige que la CI se dispare con cualquier `.gitattributes`.
+- **Lo que un archivo importa lo dice el analizador de TypeScript, no una expresión regular**
+  (#112): `imports.mjs` —en JavaScript, porque lo carga el guion del arnés— saca el especificador
+  de cada import recorriendo el árbol sintáctico (`ts.createSourceFile`), y así ven el import de
+  efecto, el dinámico, el `export … from` —también `export * as x from`, que `ts.preProcessFile`,
+  lo primero que se usó, no devuelve—, el `require`, el tipo `import('x')` y el subcamino
+  (`@kamayuk/ui/estilos.css`), sin contar los comentarios, las cadenas ni el texto JSX; el `@import` de los `.css` va aparte, en todas sus formas —también
+  `url(x)` sin comillas, que se escapaba—. Lo usan
+  `sin-nombre-publico-entre-paquetes`, `el-marco-no-decide-permisos` —con su muestra,
+  `marco-que-decide-permisos.ts`— y el guion del arnés. Lo que no ve, y lo dice: un
+  `import(variable)`.
+- **Las listas escritas a mano se comparan con lo que mandan** (#113): `SISTEMAS` —de donde sale
+  `prefijo-de-un-sistema`— con `consumidores.json` en los dos sentidos —cada consumidor está, y lo
+  que está sin consumir, `identidad`, va en `SISTEMAS_QUE_NO_CONSUMEN` con su motivo—; y las clases
+  de `el-texto-visible-es-dato` —`DIBUJAN`, `HABLAN_SIN_DIBUJAR` y `NO_HABLAN_A_UNA_PERSONA`— y las
+  claves de `PEER_DECLARADAS`, con `readdir(paquetes)`: un paquete nuevo sale rojo pidiendo que se
+  le clasifique. `CLAUDE.md` cuenta los sistemas con un solo número, el del JSON.
 
 ## Los guiones
 
@@ -111,7 +141,10 @@ navegador, y por eso `sin-suponer-un-sistema` no lo barre.
 lo que permite a los cinco correr sobre jsdom con Node 24, y **esta librería lo importa desde ahí**,
 por ruta relativa, en su `vitest.setup.ts`. Lo vigilan `el-arnes-del-request-se-publica.test.ts` con
 su muestra y el guion `el-arnes-del-request-no-se-copia.mjs`, que **el consumidor ejecuta contra su
-propio árbol** porque esta librería no lo tiene clonado.
+propio árbol** porque esta librería no lo tiene clonado. Desde #112 el guion reconoce el enchufe por
+el analizador de TypeScript, y lo busca junto a esta librería y, si no, **en el árbol mirado**: en
+la CI de un consumidor la librería es un clon sin `node_modules`. Sin `typescript` en ninguno de los
+dos sale con RC=2 diciéndolo; sus argumentos, su RC=0/1 y sus líneas no cambian.
 
 ## Lo que le falta
 

@@ -21,9 +21,21 @@ import type {
 /** Los datos con nombre, tal como llegan en `DatosDeLaPantalla.nombrados`. */
 export type Nombrados = ReadonlyMap<string, DatoConNombre> | undefined;
 
+/**
+ * **Si falta el dato** (#117): ausente, `null` o `''`. **Un `false` SI es un dato**, y tambien lo son
+ * `' '` y `'0'`: esto no interpreta el valor, solo mira si llego.
+ *
+ * Es la regla de `hay` en `seCumple`, del dato ausente de `resolverTexto`, de la peticion de una
+ * accion que `va` (`acciones.ts`) y de la insignia y la fila elegible (`reglas-de-las-tablas.ts`).
+ * Hasta #117 estaba escrita en esos cuatro sitios, con el comentario copiado en dos; antes de
+ * unificarlas se midio que las cuatro daban la misma tabla (`falta-el-dato.test.ts`).
+ */
+export const faltaElDato = (valor: DatoConNombre | undefined): valor is undefined | null | '' =>
+  valor === undefined || valor === null || valor === '';
+
 /** Un dato como texto. `true`/`false` se escriben como tales: quien quiera «Si» usa `segun`. */
 function comoTexto(valor: DatoConNombre | undefined, ausente: string): string {
-  if (valor === undefined || valor === null || valor === '') return ausente;
+  if (faltaElDato(valor)) return ausente;
   return typeof valor === 'boolean' ? String(valor) : valor;
 }
 
@@ -127,8 +139,7 @@ export function seCumple(condicion: Condicion | undefined, nombrados: Nombrados)
   if (condicion === undefined) return true;
   const valor = nombrados?.get(condicion.dato);
   if ('hay' in condicion) {
-    const hay = valor !== undefined && valor !== null && valor !== '';
-    return hay === condicion.hay;
+    return !faltaElDato(valor) === condicion.hay;
   }
   return valor !== undefined && valor === condicion.vale;
 }
