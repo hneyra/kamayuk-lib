@@ -3,7 +3,13 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { remendarElDom } from '../verificaciones/arnes-del-dom.ts';
 
-import { Armazon } from './Armazon.tsx';
+import {
+  armazonDePrueba,
+  catalogoInventado,
+  irPorElArbol,
+  montarElArmazon,
+  type OpcionesDelArmazon,
+} from './arnes-del-armazon.tsx';
 import { CarrilDeModulos } from './CarrilDeModulos.tsx';
 import type { Catalogo } from './catalogo.ts';
 import { useHoja, type ConfiguracionDelArmazon } from './contexto.tsx';
@@ -13,8 +19,9 @@ import { useHoja, type ConfiguracionDelArmazon } from './contexto.tsx';
  *
  * <h2>Por qué el catálogo está inventado, y por qué eso es la prueba</h2>
  *
- * «Almacén» y «Flota» no son módulos de ningún sistema del producto: están escritos aquí y en
- * ninguna otra parte. Si el armazón tuviera dentro un árbol propio, una lista de slugs o un mapa de
+ * «Almacén» y «Flota» no son módulos de ningún sistema del producto: están escritos en
+ * `catalogoInventado()` —el arnés de las suites del armazón, `arnes-del-armazon.tsx`— y en ninguna
+ * otra parte. Si el armazón tuviera dentro un árbol propio, una lista de slugs o un mapa de
  * rótulos, **ninguna de estas pruebas pasaría**, porque el marco no dibujaría nada de esto. Es la
  * única demostración de que sirve para el segundo sistema que lo estrene, que es lo que el AC3 pide
  * con todas las letras.
@@ -31,34 +38,8 @@ import { useHoja, type ConfiguracionDelArmazon } from './contexto.tsx';
 // Los remiendos que Radix, `cmdk` y `sonner` le piden a jsdom: escritos una vez, en el arnes (#127).
 beforeAll(remendarElDom);
 
-/**
- * Dos modulos inventados. `alm-entradas` se escribe y se enlaza con un slug propio; los otros dos
- * son de consulta. Es todo lo que el armazon va a saber del sistema que lo monta.
- */
-const CATALOGO: Catalogo = [
-  {
-    clave: 'almacen',
-    rotulo: 'Almacen',
-    nota: 'Lo que entra y lo que sale',
-    icono: 'capas',
-    destinos: [
-      {
-        clave: 'alm-panel',
-        rotulo: 'Panel del almacen',
-        seEscribe: false,
-        instruccion: 'revise lo que entro y lo que salio hoy.',
-      },
-      { clave: 'alm-entradas', rotulo: 'Entradas', seEscribe: true, slug: 'entradas' },
-    ],
-  },
-  {
-    clave: 'flota',
-    rotulo: 'Flota',
-    nota: 'Los vehiculos y sus turnos',
-    icono: 'vehiculo',
-    destinos: [{ clave: 'flo-turnos', rotulo: 'Turnos', seEscribe: true }],
-  },
-];
+/** El catalogo de dos modulos inventados del arnes: `alm-entradas` se escribe y tiene slug propio. */
+const INVENTADO = catalogoInventado();
 
 /** La pantalla que el sistema aporta. Se ensucia sola al pulsar, que es lo que hace una de verdad. */
 function PantallaDePrueba({ clave }: { readonly clave: string }) {
@@ -74,46 +55,17 @@ function PantallaDePrueba({ clave }: { readonly clave: string }) {
   );
 }
 
-interface OpcionesDeMontaje {
-  readonly catalogo?: Catalogo;
-  readonly hash?: string;
-  readonly acciones?: ConfiguracionDelArmazon['acciones'];
-}
-
 /**
- * El armazon con la misma configuracion de siempre, SIN montarlo.
- *
- * Existe aparte de `montar` para poder volver a pintarlo con otro catalogo —que es el caso del
- * `rerender`— sin repetir las ocho propiedades. Lo que `montar` hacia sigue haciendolo igual.
+ * Lo que esta suite le pasa siempre al armazon, ademas del relleno del arnes: su pantalla, una
+ * cuenta con nota, la opcion de cerrar sesion y el pie del carril. Cada prueba anade lo suyo —el
+ * catalogo, la direccion, las acciones— encima.
  */
-function armazonDePrueba({ catalogo = CATALOGO, acciones }: OpcionesDeMontaje = {}) {
-  return (
-    <Armazon
-      titulo="Sistema de prueba"
-      entidad="Entidad de prueba"
-      catalogo={catalogo}
-      cuenta={{ nombre: 'J. Ruiz', iniciales: 'JR', nota: 'ventanilla' }}
-      opcionesDeSesion={[{ rotulo: 'Cerrar sesion', peligrosa: true, al: () => {} }]}
-      pantalla={(hoja) => <PantallaDePrueba clave={hoja.destino.clave} />}
-      acciones={acciones}
-      pieDelCarril="Dos modulos inventados."
-    />
-  );
-}
-
-function montar(opciones: OpcionesDeMontaje = {}) {
-  window.location.hash = opciones.hash ?? '';
-  return render(armazonDePrueba(opciones));
-}
-
-/** Abre el modulo en el arbol y pulsa una de sus hojas. */
-function irPorElArbol(modulo: string, hoja: string): void {
-  const disparador = screen.getByRole('button', { name: new RegExp(modulo) });
-  if (disparador.getAttribute('aria-expanded') !== 'true') {
-    fireEvent.click(disparador);
-  }
-  fireEvent.click(screen.getByRole('button', { name: new RegExp(hoja) }));
-}
+const DE_ESTA_SUITE = {
+  cuenta: { nombre: 'J. Ruiz', iniciales: 'JR', nota: 'ventanilla' },
+  opcionesDeSesion: [{ rotulo: 'Cerrar sesion', peligrosa: true, al: () => {} }],
+  pantalla: (hoja) => <PantallaDePrueba clave={hoja.destino.clave} />,
+  pieDelCarril: 'Dos modulos inventados.',
+} satisfies OpcionesDelArmazon;
 
 beforeEach(() => {
   window.location.hash = '';
@@ -121,7 +73,7 @@ beforeEach(() => {
 
 describe('EL AC3: el arbol, la paleta y la cabecera se alimentan del catalogo que entra', () => {
   it('dibuja los dos modulos INVENTADOS, y abre una de sus hojas', () => {
-    montar();
+    montarElArmazon(DE_ESTA_SUITE);
 
     // Los dos rotulos salen del argumento y de ningun otro sitio: el paquete no los tiene escritos.
     expect(screen.getByRole('button', { name: /Almacen/ })).toBeTruthy();
@@ -151,7 +103,7 @@ describe('EL AC3: el arbol, la paleta y la cabecera se alimentan del catalogo qu
         destinos: [{ clave: 'pad-fichas', rotulo: 'Fichas', seEscribe: false }],
       },
     ];
-    montar({ catalogo: otro });
+    montarElArmazon({ ...DE_ESTA_SUITE, catalogo: otro });
 
     expect(screen.getByRole('button', { name: /Padron/ })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Almacen/ })).toBeNull();
@@ -171,7 +123,7 @@ describe('el carril en pantalla estrecha', () => {
     const ido: string[] = [];
     render(
       <CarrilDeModulos
-        catalogo={CATALOGO}
+        catalogo={INVENTADO}
         filtro=""
         alFiltrar={() => {}}
         moduloDesplegado="flota"
@@ -195,7 +147,7 @@ describe('el carril en pantalla estrecha', () => {
   it('y en pantalla ancha, plegado, no deja rastro en el documento', () => {
     render(
       <CarrilDeModulos
-        catalogo={CATALOGO}
+        catalogo={INVENTADO}
         filtro=""
         alFiltrar={() => {}}
         moduloDesplegado={null}
@@ -226,7 +178,7 @@ describe('el carril en pantalla estrecha', () => {
  */
 describe('la barra de instruccion', () => {
   it('sale con el modulo en negrita delante, que es como V8 la escribe', () => {
-    montar({ hash: '#/alm-panel' });
+    montarElArmazon({ ...DE_ESTA_SUITE, hash: '#/alm-panel' });
     const barra = screen.getByText(/revise lo que entro y lo que salio hoy/);
     expect(barra).toBeTruthy();
     // El modulo va delante y en negrita: es lo que dice de QUE procedimiento se habla.
@@ -235,7 +187,7 @@ describe('la barra de instruccion', () => {
 
   it('y un destino SIN instruccion no dibuja la barra, en vez de dibujarla vacia', () => {
     // Un filo que encierra nada es peor que ningun filo: se lee como un hueco donde falta algo.
-    montar({ hash: '#/flo-turnos' });
+    montarElArmazon({ ...DE_ESTA_SUITE, hash: '#/flo-turnos' });
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Turnos');
     expect(screen.queryByText(/revise lo que entro/)).toBeNull();
     expect(document.querySelector('[data-slot="cabecera-de-pantalla"] .bg-sup')).toBeNull();
@@ -244,17 +196,17 @@ describe('la barra de instruccion', () => {
 
 describe('EL AC4: lo que el catalogo no trae no se ofrece en ninguna parte', () => {
   /** El mismo catalogo sin «Flota»: lo que verian dos cuentas con permisos distintos. */
-  const SIN_FLOTA = CATALOGO.filter((modulo) => modulo.clave !== 'flota');
+  const SIN_FLOTA = INVENTADO.filter((modulo) => modulo.clave !== 'flota');
 
   it('ni en el arbol', () => {
-    montar({ catalogo: SIN_FLOTA });
+    montarElArmazon({ ...DE_ESTA_SUITE, catalogo: SIN_FLOTA });
     expect(screen.getByRole('button', { name: /Almacen/ })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Flota/ })).toBeNull();
     expect(screen.queryByText('Turnos')).toBeNull();
   });
 
   it('ni en la paleta, ni aunque se escriba su nombre entero', () => {
-    montar({ catalogo: SIN_FLOTA });
+    montarElArmazon({ ...DE_ESTA_SUITE, catalogo: SIN_FLOTA });
     fireEvent.click(screen.getByRole('button', { name: /Buscar/ }));
     fireEvent.change(screen.getByPlaceholderText(/Un modulo o un destino/), {
       target: { value: 'Turnos' },
@@ -269,7 +221,7 @@ describe('EL AC4: lo que el catalogo no trae no se ofrece en ninguna parte', () 
   it('EL CENTINELA: con el modulo en el catalogo, ese MISMO hash si abre la pantalla', () => {
     // Sin esta mitad, la de abajo pasaria igual con un armazon que no abriera nada por hash — que
     // es una guarda cumpliendose por estar rota.
-    montar({ hash: '#/flo-turnos' });
+    montarElArmazon({ ...DE_ESTA_SUITE, hash: '#/flo-turnos' });
     expect(screen.getByText('Contenido de flo-turnos')).toBeTruthy();
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Turnos');
   });
@@ -277,7 +229,7 @@ describe('EL AC4: lo que el catalogo no trae no se ofrece en ninguna parte', () 
   it('NI POR EL HASH, que es la puerta que las tres listas no cierran', () => {
     // Un enlace viejo, una direccion pegada o la vuelta de la autenticacion escriben el hash sin
     // pasar por ninguna lista.
-    montar({ catalogo: SIN_FLOTA, hash: '#/flo-turnos' });
+    montarElArmazon({ ...DE_ESTA_SUITE, catalogo: SIN_FLOTA, hash: '#/flo-turnos' });
 
     expect(screen.queryByText('Contenido de flo-turnos')).toBeNull();
     expect(screen.getByText(/no corresponde a ningun destino disponible/)).toBeTruthy();
@@ -290,7 +242,7 @@ describe('EL AC4: lo que el catalogo no trae no se ofrece en ninguna parte', () 
 describe('EL AC5: el enrutado es por hash, y no toca la ruta de verdad', () => {
   it('abrir una hoja escribe el hash y deja la ruta como estaba', () => {
     const antes = window.location.pathname;
-    montar();
+    montarElArmazon(DE_ESTA_SUITE);
     irPorElArbol('Almacen', 'Panel del almacen');
 
     expect(window.location.hash).toBe('#/alm-panel');
@@ -300,14 +252,14 @@ describe('EL AC5: el enrutado es por hash, y no toca la ruta de verdad', () => {
   });
 
   it('el slug propio de una hoja es el que viaja al hash', () => {
-    montar();
+    montarElArmazon(DE_ESTA_SUITE);
     irPorElArbol('Almacen', 'Entradas');
     expect(window.location.hash).toBe('#/entradas');
     expect(screen.getByText('Contenido de alm-entradas')).toBeTruthy();
   });
 
   it('y un hash abre su hoja al arrancar, con su modulo YA desplegado en el arbol', () => {
-    montar({ hash: '#/entradas' });
+    montarElArmazon({ ...DE_ESTA_SUITE, hash: '#/entradas' });
     expect(screen.getByText('Contenido de alm-entradas')).toBeTruthy();
     // Sin esto, la hoja actual quedaria marcada dentro de un modulo plegado: el arbol diria que no
     // hay nada abierto mientras hay algo abierto.
@@ -320,7 +272,7 @@ describe('EL AC5: el enrutado es por hash, y no toca la ruta de verdad', () => {
 describe('EL AC6: salir de una hoja sucia pregunta, y las tres salidas hacen lo que dicen', () => {
   /** Abre `alm-entradas`, la ensucia y pide salir a otra hoja. Deja el aviso en pantalla. */
   function ensuciarYSalir(acciones?: ConfiguracionDelArmazon['acciones']) {
-    montar({ hash: '#/entradas', acciones });
+    montarElArmazon({ ...DE_ESTA_SUITE, hash: '#/entradas', acciones });
     fireEvent.click(screen.getByRole('button', { name: 'Escribir algo' }));
     expect(screen.getByText('esta sucia')).toBeTruthy();
     // Y la marca sale en el arbol, que es lo que V8 pone EN LUGAR de la tira de pestanas.
@@ -389,7 +341,7 @@ describe('EL AC6: salir de una hoja sucia pregunta, y las tres salidas hacen lo 
   });
 
   it('y una hoja LIMPIA sale sin preguntar nada', () => {
-    montar({ hash: '#/entradas' });
+    montarElArmazon({ ...DE_ESTA_SUITE, hash: '#/entradas' });
     irPorElArbol('Almacen', 'Panel del almacen');
     expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(screen.getByText('Contenido de alm-panel')).toBeTruthy();
@@ -398,7 +350,7 @@ describe('EL AC6: salir de una hoja sucia pregunta, y las tres salidas hacen lo 
 
 describe('EL AC7: la paleta se abre con Ctrl+K y con Cmd+K', () => {
   it('con Ctrl+K, filtra, y navegar por ella la cierra', () => {
-    montar();
+    montarElArmazon(DE_ESTA_SUITE);
     expect(screen.queryByPlaceholderText(/Un modulo o un destino/)).toBeNull();
 
     fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
@@ -423,13 +375,13 @@ describe('EL AC7: la paleta se abre con Ctrl+K y con Cmd+K', () => {
   it('con Cmd+K, que es la MISMA tecla en el otro teclado', () => {
     // Las dos, y no una: con solo `ctrlKey`, el atajo no existe en un Mac; con solo `metaKey`, no
     // existe en ninguna de las maquinas de una ventanilla.
-    montar();
+    montarElArmazon(DE_ESTA_SUITE);
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
     expect(screen.getByPlaceholderText(/Un modulo o un destino/)).toBeTruthy();
   });
 
   it('y el boton de la barra la abre igual, que es como se aprende el atajo', () => {
-    montar();
+    montarElArmazon(DE_ESTA_SUITE);
     fireEvent.click(screen.getByRole('button', { name: /Buscar/ }));
     expect(screen.getByPlaceholderText(/Un modulo o un destino/)).toBeTruthy();
   });
@@ -438,7 +390,7 @@ describe('EL AC7: la paleta se abre con Ctrl+K y con Cmd+K', () => {
 describe('EL AC8: las acciones al pie las decide el dato', () => {
   it('una pantalla que se ESCRIBE ofrece limpiar y guardar', () => {
     const acciones = { limpiar: vi.fn(), guardar: vi.fn() };
-    montar({ hash: '#/entradas', acciones });
+    montarElArmazon({ ...DE_ESTA_SUITE, hash: '#/entradas', acciones });
 
     expect(screen.getByRole('button', { name: 'Limpiar' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Guardar' })).toBeTruthy();
@@ -451,7 +403,7 @@ describe('EL AC8: las acciones al pie las decide el dato', () => {
 
   it('una de solo CONSULTA ofrece exportar e imprimir, en la MISMA pantalla', () => {
     const acciones = { exportar: vi.fn(), imprimir: vi.fn() };
-    montar({ hash: '#/alm-panel', acciones });
+    montarElArmazon({ ...DE_ESTA_SUITE, hash: '#/alm-panel', acciones });
 
     expect(screen.getByRole('button', { name: 'Exportar' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Imprimir' })).toBeTruthy();
@@ -465,7 +417,7 @@ describe('EL AC8: las acciones al pie las decide el dato', () => {
   it('una accion que el sistema no atiende se dibuja DESHABILITADA, no se esconde', () => {
     // Un pie con un solo boton donde deberia haber dos se lee como una pantalla a medias, y uno que
     // no responde al pulsarlo se lee como una averia.
-    montar({ hash: '#/alm-panel' });
+    montarElArmazon({ ...DE_ESTA_SUITE, hash: '#/alm-panel' });
     expect(screen.getByRole('button', { name: 'Exportar' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Imprimir' })).toBeDisabled();
   });
@@ -498,9 +450,9 @@ describe('EL AC8: las acciones al pie las decide el dato', () => {
  */
 describe('EL AC1 y EL AC2 de #20: el catalogo cambia DESPUES de montar', () => {
   /** El mismo catalogo sin «Flota»: lo que ve una cuenta con menos permisos. */
-  const SIN_FLOTA = CATALOGO.filter((modulo) => modulo.clave !== 'flota');
+  const SIN_FLOTA = INVENTADO.filter((modulo) => modulo.clave !== 'flota');
   /** Y al reves: se pierde «Almacen», que es el modulo que se estaba mirando. */
-  const SOLO_FLOTA = CATALOGO.filter((modulo) => modulo.clave === 'flota');
+  const SOLO_FLOTA = INVENTADO.filter((modulo) => modulo.clave === 'flota');
 
   /**
    * El cartel del enrutador cuando algo revienta dentro de una ruta.
@@ -516,9 +468,9 @@ describe('EL AC1 y EL AC2 de #20: el catalogo cambia DESPUES de montar', () => {
     // Cinco lineas, y son las del issue: montar con el catalogo vacio —que es lo que hay mientras
     // el backend contesta—, y volver a pintar con el que llego.
     window.location.hash = '#/flo-turnos';
-    const { rerender } = render(armazonDePrueba({ catalogo: [] }));
+    const { rerender } = render(armazonDePrueba({ ...DE_ESTA_SUITE, catalogo: [] }));
 
-    rerender(armazonDePrueba({ catalogo: SIN_FLOTA }));
+    rerender(armazonDePrueba({ ...DE_ESTA_SUITE, catalogo: SIN_FLOTA }));
 
     expect(elErrorDeAplicacion()).toBeNull();
     // Y la propiedad del AC4 de #13 sigue en pie, ahora sobre el catalogo que llego: lo que no se
@@ -532,10 +484,10 @@ describe('EL AC1 y EL AC2 de #20: el catalogo cambia DESPUES de montar', () => {
     // Al refrescarse los permisos o al cambiar de ejercicio, quien esta dentro de una pantalla que
     // deja de estar permitida tiene que ver el mensaje, no un error de aplicacion.
     window.location.hash = '#/alm-panel';
-    const { rerender } = render(armazonDePrueba({ catalogo: CATALOGO }));
+    const { rerender } = render(armazonDePrueba({ ...DE_ESTA_SUITE, catalogo: INVENTADO }));
     expect(screen.getByText('Contenido de alm-panel')).toBeTruthy();
 
-    rerender(armazonDePrueba({ catalogo: SOLO_FLOTA }));
+    rerender(armazonDePrueba({ ...DE_ESTA_SUITE, catalogo: SOLO_FLOTA }));
 
     expect(elErrorDeAplicacion()).toBeNull();
     expect(screen.getByText(/no corresponde a ningun destino disponible/)).toBeTruthy();
@@ -547,11 +499,11 @@ describe('EL AC1 y EL AC2 de #20: el catalogo cambia DESPUES de montar', () => {
 
   it('y el destino que el catalogo SI trae se abre, que es el caso de `rentas`', () => {
     window.location.hash = '#/entradas';
-    const { rerender } = render(armazonDePrueba({ catalogo: [] }));
+    const { rerender } = render(armazonDePrueba({ ...DE_ESTA_SUITE, catalogo: [] }));
     // Con el catalogo todavia vacio no hay nada que ofrecer, y decirlo es lo correcto.
     expect(screen.getByText(/no corresponde a ningun destino disponible/)).toBeTruthy();
 
-    rerender(armazonDePrueba({ catalogo: CATALOGO }));
+    rerender(armazonDePrueba({ ...DE_ESTA_SUITE, catalogo: INVENTADO }));
 
     expect(elErrorDeAplicacion()).toBeNull();
     expect(screen.getByText('Contenido de alm-entradas')).toBeTruthy();
@@ -563,10 +515,10 @@ describe('EL AC1 y EL AC2 de #20: el catalogo cambia DESPUES de montar', () => {
   });
 
   it('y SIN hash, el arbol se llena y el armazon sigue vivo', () => {
-    const { rerender } = render(armazonDePrueba({ catalogo: [] }));
+    const { rerender } = render(armazonDePrueba({ ...DE_ESTA_SUITE, catalogo: [] }));
     expect(screen.queryByRole('button', { name: /Almacen/ })).toBeNull();
 
-    rerender(armazonDePrueba({ catalogo: CATALOGO }));
+    rerender(armazonDePrueba({ ...DE_ESTA_SUITE, catalogo: INVENTADO }));
 
     expect(elErrorDeAplicacion()).toBeNull();
     expect(screen.getByRole('button', { name: /Almacen/ })).toBeTruthy();
@@ -577,8 +529,8 @@ describe('EL AC1 y EL AC2 de #20: el catalogo cambia DESPUES de montar', () => {
   it('y el marco NO queda congelado: se navega con el catalogo que llego', () => {
     // Es la otra mitad. Un armazon que se quedara con el enrutador del primer catalogo pasaria las
     // de arriba y no dejaria abrir nada nuevo, que es la forma silenciosa de este mismo defecto.
-    const { rerender } = render(armazonDePrueba({ catalogo: [] }));
-    rerender(armazonDePrueba({ catalogo: CATALOGO }));
+    const { rerender } = render(armazonDePrueba({ ...DE_ESTA_SUITE, catalogo: [] }));
+    rerender(armazonDePrueba({ ...DE_ESTA_SUITE, catalogo: INVENTADO }));
 
     irPorElArbol('Flota', 'Turnos');
 
@@ -601,7 +553,7 @@ describe('EL AC1 y EL AC2 de #20: el catalogo cambia DESPUES de montar', () => {
  */
 describe('una direccion con barra final no revienta, se DICE', () => {
   it('`#/entradas/` dibuja el aviso, no un error de aplicacion', () => {
-    montar({ hash: '#/entradas/' });
+    montarElArmazon({ ...DE_ESTA_SUITE, hash: '#/entradas/' });
 
     expect(screen.queryByText(/Unexpected Application Error/i)).toBeNull();
     expect(screen.getByText(/no corresponde a ningun destino disponible/)).toBeTruthy();

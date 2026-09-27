@@ -6,7 +6,7 @@ import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { Pantalla, type DefinicionDePantalla, type PiezaDeLaPantalla } from '../ui/index.ts';
 import { remendarElDom } from '../verificaciones/arnes-del-dom.ts';
 
-import { Armazon } from './Armazon.tsx';
+import { montarElArmazon } from './arnes-del-armazon.tsx';
 import type { Catalogo } from './catalogo.ts';
 import { useHoja } from './contexto.tsx';
 import { ubicacionDe, useNavegacion, type ResultadoDeIr } from './navegacion.tsx';
@@ -31,7 +31,7 @@ beforeEach(() => {
   window.location.hash = '';
 });
 
-const CATALOGO: Catalogo = [
+const CATALOGO_DEL_DEPOSITO: Catalogo = [
   {
     clave: 'deposito',
     rotulo: 'Deposito',
@@ -93,19 +93,10 @@ function PantallaQueNavega({ clave }: { readonly clave: string }) {
   );
 }
 
-function montar(pantalla: (clave: string) => React.ReactNode, hash = '#/dep-lista') {
-  window.location.hash = hash;
+/** Monta el armazon de esta suite con la pantalla que se le da, en la lista del deposito o donde se diga. */
+function montarConLaPantalla(pantalla: (clave: string) => React.ReactNode, hash = '#/dep-lista') {
   ultimo = undefined;
-  return render(
-    <Armazon
-      titulo="Sistema de prueba"
-      entidad="Entidad de prueba"
-      catalogo={CATALOGO}
-      cuenta={{ nombre: 'J. Ruiz', iniciales: 'JR' }}
-      opcionesDeSesion={[]}
-      pantalla={(hoja) => pantalla(hoja.destino.clave)}
-    />,
-  );
+  return montarElArmazon({ catalogo: CATALOGO_DEL_DEPOSITO, pantalla: (hoja) => pantalla(hoja.destino.clave), hash });
 }
 
 describe('`ubicacionDe`: el unico sitio que escribe la direccion', () => {
@@ -133,7 +124,7 @@ describe('`ubicacionDe`: el unico sitio que escribe la direccion', () => {
 
 describe('EL AC-5: ir a otra hoja pasa por el marco', () => {
   it('con la hoja limpia, se va: con su sujeto y sus parametros en la direccion', () => {
-    montar((clave) => <PantallaQueNavega clave={clave} />);
+    montarConLaPantalla((clave) => <PantallaQueNavega clave={clave} />);
     expect(screen.getByText('ofrece el detalle: true')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Ir al detalle' }));
@@ -146,7 +137,7 @@ describe('EL AC-5: ir a otra hoja pasa por el marco', () => {
   });
 
   it('un destino que el catalogo NO ofrece no se abre, y con la hoja sucia NI PREGUNTA', () => {
-    montar((clave) => <PantallaQueNavega clave={clave} />);
+    montarConLaPantalla((clave) => <PantallaQueNavega clave={clave} />);
     expect(screen.getByText('ofrece otra: false')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Escribir algo' }));
 
@@ -162,7 +153,7 @@ describe('EL AC-5: ir a otra hoja pasa por el marco', () => {
   });
 
   it('con la hoja SUCIA pregunta; «Seguir editando» se queda, y «Salir» va con el sujeto que esperaba', () => {
-    montar((clave) => <PantallaQueNavega clave={clave} />);
+    montarConLaPantalla((clave) => <PantallaQueNavega clave={clave} />);
     fireEvent.click(screen.getByRole('button', { name: 'Escribir algo' }));
 
     fireEvent.click(screen.getByRole('button', { name: 'Ir al detalle' }));
@@ -224,7 +215,7 @@ describe('el interprete dentro del marco: `navegacion={useNavegacion()}` cabe ta
 
   it('TECLADO: Tab hasta la accion y Enter abre la otra hoja; la que el catalogo no ofrece sale impedida', async () => {
     const teclado = userEvent.setup({ delay: null });
-    montar((clave) => (clave === 'dep-lista' ? <ListaConInterprete /> : <p>Contenido de {clave}</p>));
+    montarConLaPantalla((clave) => (clave === 'dep-lista' ? <ListaConInterprete /> : <p>Contenido de {clave}</p>));
 
     const otra = screen.getByRole('button', { name: 'Ver otra hoja' });
     expect(otra.getAttribute('aria-disabled')).toBe('true');

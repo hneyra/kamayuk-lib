@@ -1,5 +1,4 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import type { ReactNode } from 'react';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { remendarElDom } from '../verificaciones/arnes-del-dom.ts';
@@ -13,7 +12,7 @@ import {
   type TrozoVisible,
 } from '../verificaciones/marcas.ts';
 
-import { Armazon } from './Armazon.tsx';
+import { montarElArmazon, type OpcionesDelArmazon } from './arnes-del-armazon.tsx';
 import { CarrilDeModulos } from './CarrilDeModulos.tsx';
 import type { Catalogo } from './catalogo.ts';
 import { ProveedorDeLosTextos, useHoja } from './contexto.tsx';
@@ -74,7 +73,7 @@ const MARCADOS = marcarElSaco(TEXTOS_DEL_ARMAZON);
  * parámetro desde #13; el armazón no los traduce y no tiene con qué. Marcándolos en el origen, lo que
  * quede sin marcar en el DOM es, por construcción, del marco.
  */
-const CATALOGO: Catalogo = [
+const CATALOGO_MARCADO: Catalogo = [
   {
     clave: 'uno',
     rotulo: marca('modulo'),
@@ -114,24 +113,23 @@ function PantallaQueSeEnsucia() {
   );
 }
 
-function montar(opciones: { readonly hash?: string; readonly pantalla?: () => ReactNode } = {}) {
-  const { hash = '', pantalla = () => <p>{marca('pantalla')}</p> } = opciones;
-  window.location.hash = hash;
-  return render(
-    <Armazon
-      titulo={marca('titulo')}
-      entidad={marca('entidad')}
-      catalogo={CATALOGO}
-      cuenta={{ nombre: marca('cuenta'), iniciales: marca('iniciales'), nota: marca('nota') }}
-      opcionesDeSesion={[{ rotulo: marca('opcion'), peligrosa: true, al: () => {} }]}
-      avisosSinLeer={3}
-      pantalla={pantalla}
-      acciones={{ guardar: () => {}, limpiar: () => {}, exportar: () => {}, imprimir: () => {} }}
-      pieDelCarril={marca('pie')}
-      textos={MARCADOS}
-    />,
-  );
-}
+/**
+ * Lo que esta suite le pasa al armazon: TODO marcado, porque el relleno del arnes —un titulo, una
+ * entidad, una cuenta— saldria sin marcar y la guarda lo contaria como escapado del saco. Cada
+ * prueba anade encima la direccion o la pantalla.
+ */
+const TODO_MARCADO = {
+  titulo: marca('titulo'),
+  entidad: marca('entidad'),
+  catalogo: CATALOGO_MARCADO,
+  cuenta: { nombre: marca('cuenta'), iniciales: marca('iniciales'), nota: marca('nota') },
+  opcionesDeSesion: [{ rotulo: marca('opcion'), peligrosa: true, al: () => {} }],
+  avisosSinLeer: 3,
+  pantalla: () => <p>{marca('pantalla')}</p>,
+  acciones: { guardar: () => {}, limpiar: () => {}, exportar: () => {}, imprimir: () => {} },
+  pieDelCarril: marca('pie'),
+  textos: MARCADOS,
+} satisfies OpcionesDelArmazon;
 
 /** Lo que se escapó del saco en lo que hay montado ahora mismo. */
 function escapadas(): readonly TrozoVisible[] {
@@ -159,7 +157,8 @@ describe('EL CENTINELA: el arnes marca de verdad, y ve lo que no esta marcado', 
     // la unica puerta que el armazon deja —la pantalla, que la dibuja el sistema— y otro por un
     // atributo anunciado, que es donde estaban escondidas tres de las palabras de la barra global y
     // donde un recorrido que solo mire nodos de texto no llega.
-    montar({
+    montarElArmazon({
+      ...TODO_MARCADO,
       hash: '#/uno-consulta',
       pantalla: () => <p aria-label="Un nombre accesible sin marcar">Un literal que nadie tradujo</p>,
     });
@@ -173,35 +172,35 @@ describe('EL CENTINELA: el arnes marca de verdad, y ve lo que no esta marcado', 
 
 describe('EL AC2: montado con todo marcado, no queda una palabra sin marcar', () => {
   it('sin ningun destino abierto: la barra, el carril y el vacio', () => {
-    montar();
+    montarElArmazon(TODO_MARCADO);
     expect(screen.getByText(MARCADOS.sinDestinoAbierto)).toBeTruthy();
     const fuera = escapadas();
     expect(fuera, elRojo(fuera, 'El armazon sin destino')).toEqual([]);
   });
 
   it('con una hoja de CONSULTA abierta: cabecera, miga, instruccion y pie de consulta', () => {
-    montar({ hash: '#/uno-consulta' });
+    montarElArmazon({ ...TODO_MARCADO, hash: '#/uno-consulta' });
     expect(screen.getByRole('button', { name: MARCADOS.exportar })).toBeTruthy();
     const fuera = escapadas();
     expect(fuera, elRojo(fuera, 'El armazon con una hoja de consulta')).toEqual([]);
   });
 
   it('con una hoja que SE ESCRIBE: el otro par de acciones y el otro aviso del pie', () => {
-    montar({ hash: '#/uno-escritura' });
+    montarElArmazon({ ...TODO_MARCADO, hash: '#/uno-escritura' });
     expect(screen.getByRole('button', { name: MARCADOS.guardar })).toBeTruthy();
     const fuera = escapadas();
     expect(fuera, elRojo(fuera, 'El armazon con una hoja que se escribe')).toEqual([]);
   });
 
   it('con un hash que el catalogo no ofrece', () => {
-    montar({ hash: '#/no-existe' });
+    montarElArmazon({ ...TODO_MARCADO, hash: '#/no-existe' });
     expect(screen.getByText(MARCADOS.destinoNoOfrecido)).toBeTruthy();
     const fuera = escapadas();
     expect(fuera, elRojo(fuera, 'El armazon con un destino no ofrecido')).toEqual([]);
   });
 
   it('con el filtro del carril sin coincidencias', () => {
-    montar();
+    montarElArmazon(TODO_MARCADO);
     fireEvent.change(screen.getByPlaceholderText(MARCADOS.filtrarElCarril), {
       target: { value: 'nada de nada' },
     });
@@ -211,7 +210,7 @@ describe('EL AC2: montado con todo marcado, no queda una palabra sin marcar', ()
   });
 
   it('con la paleta abierta, con resultados y sin ellos', () => {
-    montar();
+    montarElArmazon(TODO_MARCADO);
     fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
     expect(screen.getByPlaceholderText(MARCADOS.marcadorDeLaPaleta)).toBeTruthy();
     const conResultados = escapadas();
@@ -226,7 +225,7 @@ describe('EL AC2: montado con todo marcado, no queda una palabra sin marcar', ()
   });
 
   it('con el aviso de cambios sin guardar abierto, con sus tres salidas', () => {
-    montar({ hash: '#/uno-escritura', pantalla: () => <PantallaQueSeEnsucia /> });
+    montarElArmazon({ ...TODO_MARCADO, hash: '#/uno-escritura', pantalla: () => <PantallaQueSeEnsucia /> });
     fireEvent.click(screen.getByRole('button', { name: marca('pantalla') }));
     // Salir hacia otra hoja es lo que levanta el aviso.
     fireEvent.click(screen.getByRole('button', { name: marca('destino.consulta') }));
@@ -241,7 +240,7 @@ describe('EL AC2: montado con todo marcado, no queda una palabra sin marcar', ()
     render(
       <ProveedorDeLosTextos value={MARCADOS}>
         <CarrilDeModulos
-          catalogo={CATALOGO}
+          catalogo={CATALOGO_MARCADO}
           filtro=""
           alFiltrar={() => {}}
           moduloDesplegado="uno"
@@ -270,7 +269,7 @@ describe('EL AC4: sin saco, lo que se ve es lo de siempre', () => {
     // issue rechaza para `i18next`.
     render(
       <CarrilDeModulos
-        catalogo={CATALOGO}
+        catalogo={CATALOGO_MARCADO}
         filtro=""
         alFiltrar={() => {}}
         moduloDesplegado="uno"
@@ -291,19 +290,16 @@ describe('EL AC4: sin saco, lo que se ve es lo de siempre', () => {
   it('y un saco A MEDIAS deja las demas palabras como estaban', () => {
     // Traducir el marco no puede ser todo o nada: un sistema que solo quiera cambiar una palabra
     // no puede quedarse con treinta huecos. Por eso `textos` es `Partial`.
-    window.location.hash = '#/uno-escritura';
-    render(
-      <Armazon
-        titulo={marca('titulo')}
-        entidad={marca('entidad')}
-        catalogo={CATALOGO}
-        cuenta={{ nombre: marca('cuenta'), iniciales: marca('iniciales') }}
-        opcionesDeSesion={[]}
-        pantalla={() => <p>{marca('pantalla')}</p>}
-        acciones={{ guardar: () => {}, limpiar: () => {} }}
-        textos={{ guardar: 'Grabar' }}
-      />,
-    );
+    montarElArmazon({
+      hash: '#/uno-escritura',
+      titulo: marca('titulo'),
+      entidad: marca('entidad'),
+      catalogo: CATALOGO_MARCADO,
+      cuenta: { nombre: marca('cuenta'), iniciales: marca('iniciales') },
+      pantalla: () => <p>{marca('pantalla')}</p>,
+      acciones: { guardar: () => {}, limpiar: () => {} },
+      textos: { guardar: 'Grabar' },
+    });
     expect(screen.getByRole('button', { name: 'Grabar' })).toBeTruthy();
     expect(screen.getByRole('button', { name: TEXTOS_DEL_ARMAZON.limpiar })).toBeTruthy();
     expect(screen.getByRole('button', { name: TEXTOS_DEL_ARMAZON.volver })).toBeTruthy();
