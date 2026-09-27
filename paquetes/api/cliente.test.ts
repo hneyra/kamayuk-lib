@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ErrorDeLaApi, NoEsUnDocumento, crearCliente, type Cliente } from './cliente.ts';
+import { fetchQueContesta, problema } from './respuestas-de-prueba.ts';
 
 /**
  * El cliente HTTP de una interfaz del producto.
@@ -22,27 +23,6 @@ let cliente: Cliente;
 
 const solicitar = <T,>(ruta: string, opciones?: Parameters<Cliente['solicitar']>[1]) =>
   cliente.solicitar<T>(ruta, opciones);
-
-/**
- * Sustituye `fetch` por uno que contesta lo que se le diga, y devuelve el espia.
- *
- * **Clona en cada llamada.** Un `Response` solo se puede leer una vez, asi que devolver el mismo
- * objeto dos veces hace que la segunda peticion muera con «Body has already been read» — un rojo
- * que habla del arnes y no de lo que se estaba midiendo.
- */
-function fetchQueContesta(respuesta: Response) {
-  const espia = vi.fn<typeof fetch>(() => Promise.resolve(respuesta.clone()));
-  vi.stubGlobal('fetch', espia);
-  return espia;
-}
-
-/** Un `problem+json` con la forma que publica la cadena de identidad: CUATRO miembros. */
-function problema(estado: number, codigo: string, mensaje: string): Response {
-  return new Response(JSON.stringify({ status: estado, title: mensaje, codigo, mensaje }), {
-    status: estado,
-    headers: { 'content-type': 'application/problem+json' },
-  });
-}
 
 beforeEach(() => {
   elToken = null;
