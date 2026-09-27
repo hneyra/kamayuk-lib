@@ -78,7 +78,9 @@ paquetes/
              (leerQuienEntro), escalera.ts (peldanoDe y su tabla REGLAS), escalera.instantanea.json
              (su salida, #123), textos.ts (los sacos de la escalera y de la puerta)
   ui/        los tokens, las cuatro identidades y sus dos origenes, los componentes de shadcn (once + siete),
-             el interprete (hoja.ts, composicion.ts y sus piezas) y textos.tsx
+             el interprete (hoja.ts, composicion.ts y sus piezas) y textos.tsx;
+             shadcn/campos.ts (COMPORTAMIENTO_POR_TIPO, la unica tabla por tipo de campo) y
+             temas/ejes.ts (las identidades, los modos y su cruce, Combinacion) (#124)
   shell/     el armazon: catalogo.ts, ruta.ts, busqueda.ts, acciones.ts, navegacion.tsx, contexto.tsx,
              textos.ts, las siete piezas y los hooks internos de `Cascara` (#119):
              registro-de-hojas.ts (el reductor), navegacion-guardada.ts, hoja-abierta.ts y

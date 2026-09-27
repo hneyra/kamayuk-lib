@@ -10,7 +10,9 @@ pantallas**, que tiene su propio [`README.md`](interprete/README.md).
 - **Cuatro identidades × dos modos**: ocho paletas derivadas con reglas en OKLCH de **dos orígenes**
   —el `@theme` y `estilos/clasico.css`, que no se importa sino que se lee— con `ORIGEN_DE`
   decidiendo cuál le toca a cada una, de modo que pasarle a una identidad la base de otra no es
-  posible.
+  posible. Los dos ejes se declaran **una vez**, en `temas/ejes.ts` (#124): de sus dos listas salen
+  `Identidad`, `Modo` y `Combinacion` —`${Identidad}/${Modo}`—, y `COMBINACIONES` es su cruce. Una
+  combinación sin sus reglas o sin sus velos **no compila**, y el modo no se lee de la cadena.
 - **Once + siete** piezas de shadcn —las que el intérprete pide en cada pantalla y las del armazón,
   sobre Radix, `cmdk` y `sonner`—. Los demás componentes de shadcn entran cuando se usen.
 
