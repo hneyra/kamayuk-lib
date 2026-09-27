@@ -95,7 +95,7 @@ export function montadorDeLaPantalla({
 export const monta: Montador = montadorDeLaPantalla();
 
 /** La ruta de una hoja recien abierta: sin sujeto y sin parametros. */
-export const RUTA_VACIA: RutaDeLaHoja = { sujeto: null, parametros: {} };
+const RUTA_VACIA: RutaDeLaHoja = { sujeto: null, parametros: {} };
 
 /**
  * Lo que hace el marco con la ruta cuando la pantalla pide moverla: el sujeto, si viene, sustituye
