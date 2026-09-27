@@ -3,10 +3,11 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
 import { TEXTOS_DE_LAS_PIEZAS, TEXTOS_DEL_INTERPRETE } from '../textos.tsx';
+import { monta, SIN_FRASE } from './arnes-del-interprete.tsx';
 import { piezasSinRegistrar, resolverTexto, seCumple } from './componer.ts';
 import { coordenada, type DatosDeLaPantalla, type EstadoDeUnaLectura } from './datos.ts';
 import { MUESTRA_DEL_PUNTO_DE_EXTENSION, MUESTRAS_DEL_INTERPRETE } from './muestras.ts';
-import { Pantalla, type PantallaProps } from './Pantalla.tsx';
+import { Pantalla } from './Pantalla.tsx';
 import type { PropsDeUnaPiezaDelConsumidor } from './PiezaDeLaPantalla.tsx';
 import type { DefinicionDePantalla, PiezaDeLaPantalla } from './tipos.ts';
 
@@ -20,18 +21,6 @@ import type { DefinicionDePantalla, PiezaDeLaPantalla } from './tipos.ts';
  */
 
 type Definicion = DefinicionDePantalla<PiezaDeLaPantalla>;
-
-const SIN_FRASE = { enElCampo: '—', explicacion: '', tono: 'info' } as const;
-
-const monta = (definicion: Definicion, datos: Partial<DatosDeLaPantalla> = {}, extra: Partial<PantallaProps> = {}) =>
-  render(
-    <Pantalla
-      definicion={definicion}
-      datos={{ ausencia: SIN_FRASE, ...datos }}
-      tonoDeLaInsignia={() => 'ok'}
-      {...extra}
-    />,
-  );
 
 const lecturas = (...pares: (readonly [string, EstadoDeUnaLectura])[]) => new Map(pares);
 

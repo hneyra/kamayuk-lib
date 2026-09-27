@@ -1,13 +1,12 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
 
 import { TEXTOS_DE_LAS_PIEZAS, TEXTOS_DEL_INTERPRETE } from '../textos.tsx';
-import type { DatosDeLaPantalla, FilaDeLaTabla } from './datos.ts';
-import { cambiosEn, type CambioDeLaRuta, type HojaDelMarco, type RutaDeLaHoja } from './hoja.ts';
+import { ausenciaQueDice, ConHoja, montadorDeLaPantalla } from './arnes-del-interprete.tsx';
+import type { FilaDeLaTabla } from './datos.ts';
+import { cambiosEn, type CambioDeLaRuta } from './hoja.ts';
 import { MUESTRAS_DE_LAS_TABLAS } from './muestras-de-las-tablas.ts';
-import { Pantalla, type PantallaProps } from './Pantalla.tsx';
 import {
   notaDeLaCelda,
   paginaDeLaTabla,
@@ -32,72 +31,17 @@ import type { DefinicionDePantalla, DefinicionDeTabla, PiezaDeLaPantalla, Texto 
 
 type Definicion = DefinicionDePantalla<PiezaDeLaPantalla>;
 
-const SIN_FRASE = { enElCampo: 'sin dato', explicacion: '', tono: 'info' } as const;
-const TONO_QUE_NO_SE_USA = () => 'info' as const;
+/** Lo que dice el hueco de un campo sin dato en esta suite, que lo comprueba escrito. */
+const SIN_DATO = ausenciaQueDice('sin dato');
 
-/** Una hoja de prueba: la ruta en un estado, y cada cambio anotado. Es el marco, sin el hash. */
-function ConHoja({
-  inicial,
-  cambios,
-  definicion,
-  datos,
-  extra = {},
-}: {
-  readonly inicial: RutaDeLaHoja;
-  readonly cambios: CambioDeLaRuta[];
-  readonly definicion: Definicion;
-  readonly datos: DatosDeLaPantalla;
-  readonly extra?: Partial<PantallaProps>;
-}) {
-  const [ruta, setRuta] = useState<RutaDeLaHoja>(inicial);
-  const hoja: HojaDelMarco = {
-    ruta,
-    moverLaRuta: (cambio) => {
-      cambios.push(cambio);
-      setRuta((antes) => ({
-        sujeto: cambio.sujeto === undefined ? antes.sujeto : cambio.sujeto,
-        parametros: Object.fromEntries(
-          Object.entries({ ...antes.parametros, ...cambio.parametros }).filter(
-            (par): par is [string, string] => par[1] !== null,
-          ),
-        ),
-      }));
-    },
-  };
-  return (
-    // Radix acompana el disparador de un desplegable con un `<select>` nativo solo dentro de un
-    // formulario, y es el que se lee aqui.
-    <form>
-      <Pantalla definicion={definicion} datos={datos} tonoDeLaInsignia={TONO_QUE_NO_SE_USA} hoja={hoja} {...extra} />
-    </form>
-  );
-}
-
-const monta = (definicion: Definicion, datos: Partial<DatosDeLaPantalla> = {}, extra: Partial<PantallaProps> = {}) =>
-  render(
-    <form>
-      <Pantalla
-        definicion={definicion}
-        datos={{ ausencia: SIN_FRASE, ...datos }}
-        tonoDeLaInsignia={TONO_QUE_NO_SE_USA}
-        {...extra}
-      />
-    </form>,
-  );
+/** En un formulario: el desplegable del orden se lee por su `<select>` nativo, sin abrir su capa. */
+const montaEnUnFormulario = montadorDeLaPantalla({ ausencia: SIN_DATO, enUnFormulario: true });
 
 /**
  * Y sin el formulario de fuera, para lo que abre un acto: el acto ES un `<form>`, y anidarlos no es
  * HTML valido —React lo dice en la consola—. Aqui no hay ningun desplegable que leer.
  */
-const montaSuelta = (definicion: Definicion, datos: Partial<DatosDeLaPantalla> = {}, extra: Partial<PantallaProps> = {}) =>
-  render(
-    <Pantalla
-      definicion={definicion}
-      datos={{ ausencia: SIN_FRASE, ...datos }}
-      tonoDeLaInsignia={TONO_QUE_NO_SE_USA}
-      {...extra}
-    />,
-  );
+const montaSuelta = montadorDeLaPantalla({ ausencia: SIN_DATO });
 
 /** Una pantalla con una sola tabla, y sus filas por nombre. */
 const conTabla = (tabla: DefinicionDeTabla<Texto>): Definicion => ({
@@ -117,7 +61,7 @@ describe('`paginacion-y-orden-en-el-servidor` (H01): la pagina y el orden VIAJAN
 
   it('las filas que llegan YA son la pagina: no se corta ninguna, y el indicador lo dice el servidor', () => {
     const cambios: CambioDeLaRuta[] = [];
-    render(<ConHoja inicial={{ sujeto: null, parametros: {} }} cambios={cambios} definicion={definicion} datos={datos} />);
+    render(<ConHoja enUnFormulario inicial={{ sujeto: null, parametros: {} }} cambios={cambios} definicion={definicion} datos={datos} />);
     expect(cuerpo()).toHaveLength(2);
     // «Pagina 1 de 3»: la 1 es la 0 de la ruta leida, y el 3 lo dijo el servidor en `totalPaginas`.
     expect(screen.getByText(TEXTOS_DE_LAS_PIEZAS.paginaDe(1, 3))).toBeTruthy();
@@ -125,7 +69,7 @@ describe('`paginacion-y-orden-en-el-servidor` (H01): la pagina y el orden VIAJAN
 
   it('«Siguiente» escribe la pagina en la ruta, y «Anterior» esta IMPEDIDA con su motivo, no apagada', () => {
     const cambios: CambioDeLaRuta[] = [];
-    render(<ConHoja inicial={{ sujeto: null, parametros: {} }} cambios={cambios} definicion={definicion} datos={datos} />);
+    render(<ConHoja enUnFormulario inicial={{ sujeto: null, parametros: {} }} cambios={cambios} definicion={definicion} datos={datos} />);
     const anterior = screen.getByRole('button', { name: TEXTOS_DE_LAS_PIEZAS.paginaAnterior });
     // `aria-disabled`, NUNCA `disabled` (#66): sigue en el orden del tabulador y dice por que.
     expect(anterior.getAttribute('aria-disabled')).toBe('true');
@@ -144,6 +88,7 @@ describe('`paginacion-y-orden-en-el-servidor` (H01): la pagina y el orden VIAJAN
     // Dos filas en la pagina, como arriba, pero `hayMas: false`: la cuenta de filas no lo sabe.
     render(
       <ConHoja
+        enUnFormulario
         inicial={{ sujeto: null, parametros: {} }}
         cambios={cambios}
         definicion={definicion}
@@ -157,7 +102,7 @@ describe('`paginacion-y-orden-en-el-servidor` (H01): la pagina y el orden VIAJAN
 
   it('TECLADO: se llega a los dos mandos con el tabulador, y Enter sobre el impedido no mueve nada', async () => {
     const cambios: CambioDeLaRuta[] = [];
-    render(<ConHoja inicial={{ sujeto: null, parametros: {} }} cambios={cambios} definicion={definicion} datos={datos} />);
+    render(<ConHoja enUnFormulario inicial={{ sujeto: null, parametros: {} }} cambios={cambios} definicion={definicion} datos={datos} />);
     const anterior = screen.getByRole('button', { name: TEXTOS_DE_LAS_PIEZAS.paginaAnterior });
     anterior.focus();
     expect(document.activeElement, 'el mando impedido salio del orden del tabulador').toBe(anterior);
@@ -172,6 +117,7 @@ describe('`paginacion-y-orden-en-el-servidor` (H01): la pagina y el orden VIAJAN
     const cambios: CambioDeLaRuta[] = [];
     const { container } = render(
       <ConHoja
+        enUnFormulario
         inicial={{ sujeto: null, parametros: { pagina: '2' } }}
         cambios={cambios}
         definicion={definicion}
@@ -190,6 +136,7 @@ describe('`paginacion-y-orden-en-el-servidor` (H01): la pagina y el orden VIAJAN
     const cambios: CambioDeLaRuta[] = [];
     render(
       <ConHoja
+        enUnFormulario
         inicial={{ sujeto: null, parametros: {} }}
         cambios={cambios}
         definicion={definicion}
@@ -206,6 +153,7 @@ describe('`paginacion-y-orden-en-el-servidor` (H01): la pagina y el orden VIAJAN
     const cambios: CambioDeLaRuta[] = [];
     render(
       <ConHoja
+        enUnFormulario
         inicial={{ sujeto: null, parametros: { ordenarPor: 'situacion', direccion: 'DESCENDENTE' } }}
         cambios={cambios}
         definicion={definicion}
@@ -220,6 +168,7 @@ describe('`paginacion-y-orden-en-el-servidor` (H01): la pagina y el orden VIAJAN
     const cambios: CambioDeLaRuta[] = [];
     render(
       <ConHoja
+        enUnFormulario
         inicial={{ sujeto: null, parametros: { ordenarPor: 'loQueSea' } }}
         cambios={cambios}
         definicion={definicion}
@@ -234,7 +183,7 @@ describe('`paginacion-y-orden-en-el-servidor` (H01): la pagina y el orden VIAJAN
   });
 
   it('sin `hoja` la tabla los guarda en SU estado: funciona fuera del marco, y no sobrevive a recargar', () => {
-    monta(definicion, datos);
+    montaEnUnFormulario(definicion, datos);
     fireEvent.click(screen.getByRole('button', { name: TEXTOS_DE_LAS_PIEZAS.paginaSiguiente }));
     expect(screen.getByText(TEXTOS_DE_LAS_PIEZAS.paginaDe(2, 3))).toBeTruthy();
   });
@@ -251,7 +200,7 @@ describe('`tablas-grandes` (H21, AC-3): con 54 129 filas se monta UNA pagina', (
   }));
 
   it('cuenta los `<tr>` y no pasan del tamano, aunque lleguen 54 129', () => {
-    monta(definicion, { tablas: tablas('catalogo', sinteticas) });
+    montaEnUnFormulario(definicion, { tablas: tablas('catalogo', sinteticas) });
     expect(cuerpo()).toHaveLength(100);
     // La primera de la primera pagina, y NO la ultima de las 54 129.
     expect(screen.getByText('C-0')).toBeTruthy();
@@ -259,14 +208,14 @@ describe('`tablas-grandes` (H21, AC-3): con 54 129 filas se monta UNA pagina', (
   });
 
   it('el conteo cuenta TODAS y no la pagina: una tabla de 54 129 filas no tiene 100', () => {
-    monta(definicion, { tablas: tablas('catalogo', sinteticas) });
+    montaEnUnFormulario(definicion, { tablas: tablas('catalogo', sinteticas) });
     expect(screen.getByText(TEXTOS_DEL_INTERPRETE.registros(CUANTAS))).toBeTruthy();
     expect(screen.queryByText(TEXTOS_DEL_INTERPRETE.registros(100))).toBeNull();
   });
 
   it('la ultima pagina dice que no hay mas, y una pagina de mas alla del final se acota a la ultima', () => {
     const ultima = Math.ceil(CUANTAS / 100);
-    const { container } = monta(definicion, { tablas: tablas('catalogo', sinteticas) });
+    const { container } = montaEnUnFormulario(definicion, { tablas: tablas('catalogo', sinteticas) });
     expect(container.querySelector('[data-slot="indicador-de-pagina"]')?.textContent).toBe(
       TEXTOS_DE_LAS_PIEZAS.paginaDe(1, ultima),
     );
@@ -291,10 +240,11 @@ describe('`tablas-grandes` (H21, AC-3): con 54 129 filas se monta UNA pagina', (
     });
     const { container } = render(
       <ConHoja
+        enUnFormulario
         inicial={{ sujeto: null, parametros: { pagina: '7' } }}
         cambios={cambios}
         definicion={conTamano}
-        datos={{ ausencia: SIN_FRASE, tablas: tablas('catalogo', sinteticas) }}
+        datos={{ ausencia: SIN_DATO, tablas: tablas('catalogo', sinteticas) }}
       />,
     );
     const nativo = container.querySelector('select');
@@ -343,7 +293,7 @@ describe('`celda-nula-con-palabra-y-nota` (H22a, AC-4): `null` se dice con palab
   const { definicion, datos } = MUESTRAS_DE_LAS_TABLAS['celda-nula-con-palabra-y-nota'];
 
   it('dibuja la palabra de la definicion, y NO `""` ni `0`', () => {
-    const { container } = monta(definicion, datos);
+    const { container } = montaEnUnFormulario(definicion, datos);
     const huecos = container.querySelectorAll('[data-celda-sin-dato]');
     expect(huecos).toHaveLength(1);
     expect(huecos[0]?.textContent).toBe('—');
@@ -353,14 +303,14 @@ describe('`celda-nula-con-palabra-y-nota` (H22a, AC-4): `null` se dice con palab
   });
 
   it('sin nota propia, la de la tabla; y sin `sinDato` en la tabla, la palabra del saco', () => {
-    const { container } = monta(definicion, {
+    const { container } = montaEnUnFormulario(definicion, {
       tablas: tablas('tramos', [{ celdas: ['0.00', { texto: null }] }]),
     });
     expect(container.querySelector('[data-celda-sin-dato]')?.getAttribute('title')).toBe(
       'Ninguna operacion publica este dato.',
     );
 
-    const { container: pelada } = monta(
+    const { container: pelada } = montaEnUnFormulario(
       conTabla({ titulo: 'T', clave: 't', columnas: [{ rotulo: 'A', alineadoDerecha: false }], vacio: 'v' }),
       { tablas: tablas('t', [{ celdas: [{ texto: null }] }]) },
     );
@@ -371,7 +321,7 @@ describe('`celda-nula-con-palabra-y-nota` (H22a, AC-4): `null` se dice con palab
 
   it('una celda CON texto puede llevar su nota, y el texto no se traduce', () => {
     const traducidos: string[] = [];
-    const { container } = monta(
+    const { container } = montaEnUnFormulario(
       conTabla({ titulo: 'T', clave: 't', columnas: [{ rotulo: 'A', alineadoDerecha: false }], vacio: 'v' }),
       { tablas: tablas('t', [{ celdas: [{ texto: 'Sin tope', nota: 'Llega como nulo.' }] }]) },
       {
@@ -405,7 +355,7 @@ describe('`cabecera-con-campo-y-dominio` (H23): el campo del contrato y su domin
 
   it('bajo el rotulo va el campo, y el dominio cuando la base lo acota', () => {
     const traducidos: string[] = [];
-    const { container } = monta(definicion, datos, {
+    const { container } = montaEnUnFormulario(definicion, datos, {
       traducir: (t) => {
         traducidos.push(t);
         return `«${t}»`;
@@ -423,13 +373,13 @@ describe('`cabecera-con-campo-y-dominio` (H23): el campo del contrato y su domin
   });
 
   it('N5: la ETIQUETA de un campo lo lleva igual, y el nombre accesible del control los junta', () => {
-    const { container } = monta(definicion, datos);
+    const { container } = montaEnUnFormulario(definicion, datos);
     expect(container.querySelector('[data-slot="campo-del-contrato"]')?.textContent).toBe('registroId');
     expect(screen.getByLabelText('Registro registroId')).toBeTruthy();
   });
 
   it('una columna sin `campo` no dibuja ninguno, y ninguna lleva `aria-sort` sin `orden`', () => {
-    const { container } = monta(
+    const { container } = montaEnUnFormulario(
       conTabla({ titulo: 'T', clave: 't', columnas: [{ rotulo: 'A', alineadoDerecha: false }], vacio: 'v' }),
       { tablas: tablas('t', [{ celdas: ['1'] }]) },
     );
@@ -444,7 +394,7 @@ describe('`vacio-con-su-salida` (H26): el vacio lleva su boton dentro', () => {
   const { definicion, datos } = MUESTRAS_DE_LAS_TABLAS['vacio-con-su-salida'];
 
   it('el titulo, la frase y la salida, dentro del vacio y FUERA de la tabla', () => {
-    const { container } = monta(definicion, datos);
+    const { container } = montaEnUnFormulario(definicion, datos);
     const vacio = container.querySelector('[data-vacio]');
     expect(vacio?.textContent).toContain('Ninguna version todavia');
     expect(vacio?.textContent).toContain('Lo siguiente es abrir la primera.');
@@ -463,7 +413,7 @@ describe('`vacio-con-su-salida` (H26): el vacio lleva su boton dentro', () => {
   });
 
   it('y sin quien la atienda sale IMPEDIDA con su motivo, como cualquier otra: nunca un boton mudo', () => {
-    monta(definicion, datos);
+    montaEnUnFormulario(definicion, datos);
     const salida = screen.getByRole('button', { name: 'Abrir la primera version' });
     expect(salida.getAttribute('aria-disabled')).toBe('true');
     expect(salida).toHaveAccessibleDescription(TEXTOS_DE_LAS_PIEZAS.sinQuienLoAtienda('abrir'));
@@ -491,7 +441,7 @@ describe('`vacio-con-su-salida` (H26): el vacio lleva su boton dentro', () => {
       vacio: 'la frase sola',
       vacioConSalida: { titulo: 'con su salida' },
     });
-    const { container } = monta(losDos, { tablas: tablas('t', []) });
+    const { container } = montaEnUnFormulario(losDos, { tablas: tablas('t', []) });
     const vacios = container.querySelectorAll('[data-vacio]');
     expect(vacios, 'se dibujaron los dos vacios a la vez').toHaveLength(1);
     expect(vacios[0]?.textContent).toBe('con su salida');
@@ -504,13 +454,13 @@ describe('`filas-de-contenido-que-viajan` (H34): las filas que SON el texto de l
   const { definicion, datos } = MUESTRAS_DE_LAS_TABLAS['filas-de-contenido-que-viajan'];
 
   it('se dibujan SIN ningun dato, y pasan por `traducir` como cualquier frase', () => {
-    monta(definicion, datos, { traducir: (t) => `«${t}»` });
+    montaEnUnFormulario(definicion, datos, { traducir: (t) => `«${t}»` });
     expect(cuerpo()).toHaveLength(2);
     expect(screen.getByText('«Algo que este sistema no publica»')).toBeTruthy();
   });
 
   it('NO dicen la ausencia: no hay ninguna operacion que las conteste, y no falta nada', () => {
-    const { container } = monta(definicion, datos);
+    const { container } = montaEnUnFormulario(definicion, datos);
     expect(container.querySelector('p[data-sin-dato]'), 'unas filas que viajan dijeron que faltaba el dato').toBeNull();
     expect(container.querySelector('[data-tabla-sin-motivo]')).toBeNull();
     expect(screen.getByText(TEXTOS_DEL_INTERPRETE.registros(2))).toBeTruthy();
@@ -547,7 +497,7 @@ describe('las muestras de #61 son las de `HUECOS.md`, y se dibujan', () => {
   });
 
   it.each(Object.entries(MUESTRAS_DE_LAS_TABLAS))('«%s» se dibuja sin avisos de costura rota', (_hueco, muestra) => {
-    const { container } = monta(muestra.definicion, muestra.datos);
+    const { container } = montaEnUnFormulario(muestra.definicion, muestra.datos);
     expect(container.querySelector('[data-pieza-sin-registrar]')).toBeNull();
     expect(container.querySelector('[data-lectura-sin-estado]')).toBeNull();
     expect(container.querySelector('[data-tabla-sin-motivo]')).toBeNull();

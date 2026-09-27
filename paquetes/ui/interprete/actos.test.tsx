@@ -1,14 +1,15 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import { remendarElDom } from '../../verificaciones/arnes-del-dom.ts';
 
 import { TEXTOS_DE_LAS_PIEZAS, TEXTOS_DEL_INTERPRETE } from '../textos.tsx';
+import { descripcionDe, monta, SIN_FRASE } from './arnes-del-interprete.tsx';
 import { camposQueFaltan, claseDe, motivoDelActo, peticionDe, valoresQueViajan } from './acciones.ts';
-import type { DatosDeLaPantalla, EstadoDeUnaLectura } from './datos.ts';
+import type { EstadoDeUnaLectura } from './datos.ts';
 import { MUESTRAS_DE_LOS_ACTOS } from './muestras.ts';
-import { Pantalla, type PantallaProps } from './Pantalla.tsx';
+import { Pantalla } from './Pantalla.tsx';
 import type { DefinicionDeAccion, DefinicionDeActo, EnvioDeUnActo, NavegacionDeLaPantalla } from './tipos-de-los-actos.ts';
 import type { DefinicionDePantalla, PiezaDeLaPantalla } from './tipos.ts';
 
@@ -33,13 +34,7 @@ beforeAll(remendarElDom);
 
 type Definicion = DefinicionDePantalla<PiezaDeLaPantalla>;
 
-const SIN_FRASE = { enElCampo: '—', explicacion: '', tono: 'info' } as const;
 const T = TEXTOS_DE_LAS_PIEZAS;
-
-const monta = (definicion: Definicion, datos: Partial<DatosDeLaPantalla> = {}, extra: Partial<PantallaProps> = {}) =>
-  render(
-    <Pantalla definicion={definicion} datos={{ ausencia: SIN_FRASE, ...datos }} tonoDeLaInsignia={() => 'ok'} {...extra} />,
-  );
 
 /** Un acto con un campo obligatorio, uno opcional y la observacion de 5 a 500. */
 const ACTO: DefinicionDeActo = MUESTRAS_DE_LOS_ACTOS['acto-con-observacion'].definicion.bloques[0];
@@ -55,16 +50,6 @@ const HOJA_CON_ACTO = (acto: DefinicionDeActo = ACTO): Definicion => ({
 
 /** El primario del acto: el boton de envio, que se llama como el acto. */
 const primario = () => screen.getByRole('button', { name: 'Abrir un grupo' });
-
-/** El texto al que apunta `aria-describedby`, que es lo que el lector de pantalla lee al enfocarlo. */
-function descripcionDe(elemento: HTMLElement): string {
-  const ids = elemento.getAttribute('aria-describedby') ?? '';
-  return ids
-    .split(' ')
-    .filter((id) => id !== '')
-    .map((id) => document.getElementById(id)?.textContent ?? `«${id} no existe»`)
-    .join(' ');
-}
 
 /** Una promesa que se resuelve o se rechaza desde fuera. */
 function diferida() {

@@ -4,10 +4,11 @@ import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
 
 import { TEXTOS_DE_LAS_PIEZAS, TEXTOS_DEL_INTERPRETE } from '../textos.tsx';
+import { ausenciaQueDice, montadorDeLaPantalla } from './arnes-del-interprete.tsx';
 import { CampoDelBloque } from './CampoDelBloque.tsx';
-import { coordenada, type DatosDeLaPantalla, type FilaDeLaTabla } from './datos.ts';
+import { coordenada, type FilaDeLaTabla } from './datos.ts';
 import { MUESTRAS_DE_CAMPOS_Y_TABLAS } from './muestras-de-campos-y-tablas.ts';
-import { Pantalla, type PantallaProps } from './Pantalla.tsx';
+import type { PantallaProps } from './Pantalla.tsx';
 import { accionesQueOfrece, resolverInsignia, tablasSinVacio } from './reglas-de-las-tablas.ts';
 import type { DefinicionDePantalla, DefinicionDeTabla, PiezaDeLaPantalla, Texto } from './tipos.ts';
 
@@ -21,20 +22,12 @@ import type { DefinicionDePantalla, DefinicionDeTabla, PiezaDeLaPantalla, Texto 
 
 type Definicion = DefinicionDePantalla<PiezaDeLaPantalla>;
 
-const SIN_FRASE = { enElCampo: 'sin dato', explicacion: '', tono: 'info' } as const;
-
 /** Un reparto de tonos que MIENTE a proposito: si alguien lo usa donde hay regla, se nota. */
-const TONO_QUE_NO_SE_USA = () => 'info' as const;
 
-const monta = (definicion: Definicion, datos: Partial<DatosDeLaPantalla> = {}, extra: Partial<PantallaProps> = {}) =>
-  render(
-    <Pantalla
-      definicion={definicion}
-      datos={{ ausencia: SIN_FRASE, ...datos }}
-      tonoDeLaInsignia={TONO_QUE_NO_SE_USA}
-      {...extra}
-    />,
-  );
+/** Lo que dice el hueco de un campo sin dato en esta suite, que lo comprueba escrito. */
+const SIN_DATO = ausenciaQueDice('sin dato');
+
+const montaSinDato = montadorDeLaPantalla({ ausencia: SIN_DATO });
 
 /** Una pantalla con una sola tabla, y sus filas por nombre. */
 const conTabla = (tabla: DefinicionDeTabla<Texto>): Definicion => ({
@@ -51,7 +44,7 @@ describe('`tabla-con-vacio` (AC-3): una tabla vacia dice por que, y no inventa u
   const { definicion, datos } = MUESTRAS_DE_CAMPOS_Y_TABLAS['tabla-con-vacio'];
 
   it('con `[]` dice SU frase, con el dato dentro, FUERA de la tabla y sin conteo', () => {
-    const { container } = monta(definicion, datos, { traducir: (t) => `«${t}»` });
+    const { container } = montaSinDato(definicion, datos, { traducir: (t) => `«${t}»` });
     const vacio = container.querySelector('[data-vacio]');
     // Se traduce la plantilla y DESPUES se pone el dato, como en todo `Texto` de #44.
     expect(vacio?.textContent).toBe('«El registro 42 no tiene ninguna evidencia.»');
@@ -64,7 +57,7 @@ describe('`tabla-con-vacio` (AC-3): una tabla vacia dice por que, y no inventa u
 
   it('con `[]` y SIN motivo, lo dice un aviso visible, y nunca queda una tabla muda', () => {
     const tabla: DefinicionDeTabla<Texto> = { titulo: 'Muda', clave: 'muda', columnas: [{ rotulo: 'A', alineadoDerecha: false }] };
-    const { container } = monta(conTabla(tabla), { tablas: tablas('muda', []) });
+    const { container } = montaSinDato(conTabla(tabla), { tablas: tablas('muda', []) });
     const aviso = container.querySelector('[data-tabla-sin-motivo="muda"]');
     expect(aviso, 'una tabla sin filas y sin motivo se dibujo MUDA').not.toBeNull();
     expect(aviso?.textContent).toBe(TEXTOS_DE_LAS_PIEZAS.tablaSinMotivo);
@@ -72,7 +65,7 @@ describe('`tabla-con-vacio` (AC-3): una tabla vacia dice por que, y no inventa u
   });
 
   it('`vacio: ""` no es un motivo: sale el aviso', () => {
-    const { container } = monta(
+    const { container } = montaSinDato(
       conTabla({ titulo: 'T', clave: 't', columnas: [{ rotulo: 'A', alineadoDerecha: false }], vacio: '' }),
       { tablas: tablas('t', []) },
     );
@@ -80,7 +73,7 @@ describe('`tabla-con-vacio` (AC-3): una tabla vacia dice por que, y no inventa u
   });
 
   it('SIN dato no es vacia: dice la ausencia de #27, y no el vacio', () => {
-    const { container } = monta(definicion, { nombrados: datos.nombrados });
+    const { container } = montaSinDato(definicion, { nombrados: datos.nombrados });
     expect(container.querySelector('p[data-sin-dato]')?.textContent).toBe('sin dato');
     expect(container.querySelector('[data-vacio]')).toBeNull();
     expect(container.querySelector('[data-tabla-sin-motivo]')).toBeNull();
@@ -88,16 +81,16 @@ describe('`tabla-con-vacio` (AC-3): una tabla vacia dice por que, y no inventa u
 
   it('con filas, las filas y su conteo; el conteo que da el sistema se escribe tal cual, aun con `[]`', () => {
     const tabla = definicion.bloques[0].tabla;
-    const { unmount } = monta(conTabla(tabla), { tablas: tablas('evidencias', [{ celdas: ['Foto', '01/09'] }]) });
+    const { unmount } = montaSinDato(conTabla(tabla), { tablas: tablas('evidencias', [{ celdas: ['Foto', '01/09'] }]) });
     expect(screen.getByText(TEXTOS_DEL_INTERPRETE.registros(1))).toBeTruthy();
     expect(document.querySelector('[data-vacio]')).toBeNull();
     unmount();
-    monta(conTabla(tabla), { tablas: tablas('evidencias', [], '0 de 0') });
+    montaSinDato(conTabla(tabla), { tablas: tablas('evidencias', [], '0 de 0') });
     expect(screen.getByText('0 de 0')).toBeTruthy();
   });
 
   it('las filas de #27, por indice de bloque, tampoco quedan mudas con `[]`', () => {
-    const { container } = monta(conTabla({ titulo: 'Legado', columnas: [{ rotulo: 'A', alineadoDerecha: false }] }), {
+    const { container } = montaSinDato(conTabla({ titulo: 'Legado', columnas: [{ rotulo: 'A', alineadoDerecha: false }] }), {
       filas: new Map([[0, []]]),
     });
     expect(container.querySelector('[data-tabla-sin-motivo="Legado"]')).not.toBeNull();
@@ -292,14 +285,14 @@ describe('`tabla-con-vacio` (AC-3): una tabla vacia dice por que, y no inventa u
 describe('`marcador`', () => {
   it('el texto gris del campo vacio, traducido; en una fecha sustituye al del saco', () => {
     const { definicion, datos } = MUESTRAS_DE_CAMPOS_Y_TABLAS.marcador;
-    monta(definicion, datos, { traducir: (t) => `«${t}»` });
+    montaSinDato(definicion, datos, { traducir: (t) => `«${t}»` });
     expect(screen.getByLabelText('«Identificador»').getAttribute('placeholder')).toBe('«El numero que devolvio el alta»');
     expect(screen.getByRole('button', { name: /«Cualquier dia»/ })).toBeTruthy();
     expect(screen.queryByText(TEXTOS_DEL_INTERPRETE.marcadorDeFecha)).toBeNull();
   });
 
   it('tambien en un area, y sin marcador no hay atributo', () => {
-    monta({
+    montaSinDato({
       instruccion: '',
       bloques: [
         {
@@ -322,7 +315,7 @@ describe('`insignia-con-tono-por-regla` (AC-2): el tono es regla o dato, NUNCA d
 
   it('con regla, `tonoDeLaInsignia` NO se llama, y el tono es el que la regla declara', () => {
     const llamadas: string[] = [];
-    const { container } = monta(definicion, datos, {
+    const { container } = montaSinDato(definicion, datos, {
       tonoDeLaInsignia: (texto) => {
         llamadas.push(texto);
         return 'info';
@@ -336,20 +329,20 @@ describe('`insignia-con-tono-por-regla` (AC-2): el tono es regla o dato, NUNCA d
   });
 
   it('`segun` lee OTRO dato de la fila, y la frase del caso pasa por `traducir`', () => {
-    monta(definicion, datos, { traducir: (t) => `«${t}»` });
+    montaSinDato(definicion, datos, { traducir: (t) => `«${t}»` });
     expect(screen.getByText('«Vigente»').className).toContain('bg-ok-fondo');
     expect(screen.getByText('«Retirada»').className).toContain('bg-mal-fondo');
   });
 
   it('`tonoDesde` toma el tono que ya trae la fila: el mismo «0» puede ser `atencion` aqui y `mal` en otra', () => {
-    monta(definicion, datos);
+    montaSinDato(definicion, datos);
     expect(screen.getByText('0').className).toContain('bg-atencion-fondo');
     expect(screen.getByText('3').className).toContain('bg-mal-fondo');
   });
 
   it('sin regla, la `columnaDeInsignia` de #27 sigue preguntando al sistema: `rentas` no cambia', () => {
     const llamadas: string[] = [];
-    monta(
+    montaSinDato(
       conTabla({ titulo: 'T', columnas: [{ rotulo: 'Situacion', alineadoDerecha: false }], columnaDeInsignia: 0 }),
       { filas: new Map([[0, [['Cerrado']]]]) },
       {
@@ -389,7 +382,7 @@ describe('`dato-con-insignia`', () => {
   const { definicion, datos } = MUESTRAS_DE_CAMPOS_Y_TABLAS['dato-con-insignia'];
 
   it('el valor del campo decide, y se pinta la frase del caso DENTRO del dato', () => {
-    const { container } = monta(definicion, datos, { traducir: (t) => `«${t}»` });
+    const { container } = montaSinDato(definicion, datos, { traducir: (t) => `«${t}»` });
     const [ejercicio, cerrado] = [...container.querySelectorAll('[data-slot="dato"]')];
     expect(ejercicio?.textContent).toBe('2026');
     const insignia = within(cerrado as HTMLElement).getByText('«Todavia no»');
@@ -397,7 +390,7 @@ describe('`dato-con-insignia`', () => {
   });
 
   it('sin valor dice su ausencia y NO pinta un estado que nadie ha leido', () => {
-    const { container } = monta(definicion, { valores: new Map([[coordenada(0, 0), '2026']]) });
+    const { container } = montaSinDato(definicion, { valores: new Map([[coordenada(0, 0), '2026']]) });
     const cerrado = container.querySelectorAll('[data-slot="dato"]')[1];
     expect(cerrado?.textContent).toBe('sin dato');
     expect(cerrado?.hasAttribute('data-sin-dato')).toBe(true);
@@ -405,7 +398,7 @@ describe('`dato-con-insignia`', () => {
   });
 
   it('con `segun`, decide un dato de la pantalla', () => {
-    monta(
+    montaSinDato(
       {
         instruccion: '',
         bloques: [
@@ -433,7 +426,7 @@ describe('`opciones-con-valor-y-rotulo` (AC-4): viaja el valor, se lee el rotulo
 
   it('EL VALOR NO PASA POR `traducir`: solo los rotulos', () => {
     const traducidos: string[] = [];
-    monta(definicion, datos, {
+    montaSinDato(definicion, datos, {
       traducir: (t) => {
         traducidos.push(t);
         return `«${t}»`;
@@ -458,7 +451,7 @@ describe('`opciones-con-valor-y-rotulo` (AC-4): viaja el valor, se lee el rotulo
         <CampoDelBloque
           campo={definicion.bloques[0].campos[0]}
           valor={valor}
-          ausencia={SIN_FRASE}
+          ausencia={SIN_DATO}
           alCambiar={(v) => {
             recibidos.push(v);
             setValor(v);
@@ -490,7 +483,7 @@ describe('`opciones-con-valor-y-rotulo` (AC-4): viaja el valor, se lee el rotulo
       <form>
         <CampoDelBloque
           campo={{ etiqueta: 'Turno', tipo: 's', opciones: ['Manana', 'Tarde'] }}
-          ausencia={SIN_FRASE}
+          ausencia={SIN_DATO}
           alCambiar={(v) => recibidos.push(v)}
           traducir={(t) => `«${t}»`}
           textos={TEXTOS_DEL_INTERPRETE}
@@ -512,7 +505,7 @@ describe('`acciones-por-fila` (AC-6: con teclado): las acciones de #66, segun la
   };
 
   it('cada fila dibuja EXACTAMENTE lo que su estado ofrece, en un grupo con nombre', () => {
-    const { container } = monta(definicion, datos, ATENDIDAS);
+    const { container } = montaSinDato(definicion, datos, ATENDIDAS);
     const [pendiente, cerrada] = [...container.querySelectorAll('tbody tr')];
     const grupo = within(pendiente as HTMLElement).getByRole('group', { name: 'Registro D-1 · PENDIENTE' });
     expect(within(grupo).getAllByRole('button').map((b) => b.textContent)).toEqual(['Aprobar', 'Descartar']);
@@ -525,7 +518,7 @@ describe('`acciones-por-fila` (AC-6: con teclado): las acciones de #66, segun la
     const teclado = userEvent.setup({ delay: null });
     const abiertos: unknown[] = [];
     const idas: unknown[] = [];
-    monta(
+    montaSinDato(
       definicion,
       // Un `codigo` de la pantalla que la fila TAPA: en una fila, el dato es el de la fila.
       { ...datos, nombrados: datosDe(['codigo', 'de la pantalla']) },
@@ -554,7 +547,7 @@ describe('`acciones-por-fila` (AC-6: con teclado): las acciones de #66, segun la
   it('sin quien las atienda, son las de #66: `aria-disabled`, su motivo visible, en el tabulador y sin hacer nada', async () => {
     const teclado = userEvent.setup({ delay: null });
     const abiertos: unknown[] = [];
-    monta(definicion, datos, { actoAbierto: null, alAbrirActo: (clave) => abiertos.push(clave) });
+    montaSinDato(definicion, datos, { actoAbierto: null, alAbrirActo: (clave) => abiertos.push(clave) });
     const aprobar = screen.getByRole('button', { name: 'Aprobar' });
     expect(aprobar.getAttribute('aria-disabled')).toBe('true');
     expect(aprobar.hasAttribute('disabled'), 'un `disabled` mudo').toBe(false);
@@ -585,7 +578,7 @@ describe('`acciones-por-fila` (AC-6: con teclado): las acciones de #66, segun la
         sinAcciones: 'Nada',
       },
     };
-    monta(
+    montaSinDato(
       conTabla(tabla),
       {
         tablas: tablas('t', [
@@ -602,7 +595,7 @@ describe('`acciones-por-fila` (AC-6: con teclado): las acciones de #66, segun la
   });
 
   it('la fila realzada se marca con `aria-current`, y sin `nombreDelGrupo` el nombre sale del saco', () => {
-    const { container } = monta(
+    const { container } = montaSinDato(
       conTabla({
         titulo: 'T',
         clave: 't',
@@ -638,7 +631,7 @@ describe('`acciones-por-fila` (AC-6: con teclado): las acciones de #66, segun la
 describe('`ayuda-en-una-lista`', () => {
   it('la linea de debajo, traducida y ligada al desplegable', () => {
     const { definicion, datos } = MUESTRAS_DE_CAMPOS_Y_TABLAS['ayuda-en-una-lista'];
-    monta(definicion, datos, { traducir: (t) => `«${t}»` });
+    montaSinDato(definicion, datos, { traducir: (t) => `«${t}»` });
     expect(screen.getByRole('combobox', { name: '«Ordenar por»' })).toHaveAccessibleDescription(
       '«Solo los campos que el servidor admite»',
     );
@@ -649,7 +642,7 @@ describe('`varias-tablas-en-un-bloque`', () => {
   const { definicion, datos } = MUESTRAS_DE_CAMPOS_Y_TABLAS['varias-tablas-en-un-bloque'];
 
   it('dos tablas en la misma tarjeta, cada una con SUS filas, su vacio y su nota', () => {
-    const { container } = monta(definicion, datos);
+    const { container } = montaSinDato(definicion, datos);
     expect(container.querySelectorAll('[data-slot="tarjeta"]')).toHaveLength(1);
     const [zonas, franjas] = screen.getAllByRole('table');
     expect(within(zonas as HTMLElement).getByRole('cell', { name: 'Z-1' })).toBeTruthy();
@@ -670,10 +663,10 @@ describe('`varias-tablas-en-un-bloque`', () => {
         },
       ],
     };
-    const { unmount } = monta(def, { ...datos, filas: new Map([[0, [['p']]]]), lecturas: new Map([['l', { estado: 'con-datos' }]]) });
+    const { unmount } = montaSinDato(def, { ...datos, filas: new Map([[0, [['p']]]]), lecturas: new Map([['l', { estado: 'con-datos' }]]) });
     expect(screen.getAllByRole('columnheader').map((c) => c.textContent)).toEqual(['P', 'Zona', 'Franja']);
     unmount();
-    const { container } = monta(def, { ...datos, lecturas: new Map([['l', { estado: 'pidiendo' }]]) });
+    const { container } = montaSinDato(def, { ...datos, lecturas: new Map([['l', { estado: 'pidiendo' }]]) });
     expect(container.querySelectorAll('table')).toHaveLength(0);
   });
 });
@@ -682,7 +675,7 @@ describe('`detalle-de-fila` (AC-6: con teclado)', () => {
   const { definicion, datos } = MUESTRAS_DE_CAMPOS_Y_TABLAS['detalle-de-fila'];
 
   it('solo las filas cuyo dato lo dice llevan su segunda linea, a todo el ancho y con los datos de la fila', () => {
-    const { container } = monta(definicion, datos, { traducir: (t) => `«${t}»` });
+    const { container } = montaSinDato(definicion, datos, { traducir: (t) => `«${t}»` });
     const detalles = [...container.querySelectorAll('[data-detalle-de-fila]')];
     expect(detalles).toHaveLength(1);
     const celda = detalles[0]?.querySelector('td');
@@ -699,7 +692,7 @@ describe('`detalle-de-fila` (AC-6: con teclado)', () => {
       ...definicion.bloques[0].tabla,
       accionesPorFila: { columna: 'Acciones', acciones: [{ clave: 'ver', rotulo: 'Ver', hace: 'ver' }], sinAcciones: 'Nada' },
     });
-    const { unmount } = monta(conAcciones, datos, { alHacer: { ver: () => {} } });
+    const { unmount } = montaSinDato(conAcciones, datos, { alHacer: { ver: () => {} } });
     await teclado.tab();
     const primera = document.activeElement;
     expect(primera?.textContent).toBe('Ver');
@@ -711,7 +704,7 @@ describe('`detalle-de-fila` (AC-6: con teclado)', () => {
     unmount();
 
     // Impedida, el motivo de #66 y el detalle se SUMAN: ninguno pisa al otro.
-    monta(conAcciones, datos);
+    montaSinDato(conAcciones, datos);
     const [, segunda] = screen.getAllByRole('button', { name: 'Ver' });
     expect(segunda).toHaveAccessibleDescription(
       `${TEXTOS_DE_LAS_PIEZAS.sinQuienLoAtienda('ver')} Anulacion: Duplicado · Anulado por inspector.3 · Anulado el 02/09/2026`,
@@ -723,7 +716,7 @@ describe('`tabla-de-cabecera-fija` (con teclado)', () => {
   const { definicion, datos } = MUESTRAS_DE_CAMPOS_Y_TABLAS['tabla-de-cabecera-fija'];
 
   it('la cabecera es `sticky` dentro de un marco que se desplaza el mismo, en las dos direcciones', () => {
-    const { container } = monta(definicion, datos);
+    const { container } = montaSinDato(definicion, datos);
     const marco = container.querySelector('[data-cabecera-fija]');
     expect(marco?.getAttribute('data-slot')).toBe('tabla-marco');
     expect(marco?.className).toContain('overflow-auto');
@@ -738,7 +731,7 @@ describe('`tabla-de-cabecera-fija` (con teclado)', () => {
 
   it('el marco es una region con el nombre de la tabla y ENTRA en el tabulador, para desplazarla con el teclado', async () => {
     const teclado = userEvent.setup({ delay: null });
-    monta(definicion, datos);
+    montaSinDato(definicion, datos);
     const region = screen.getByRole('region', { name: 'Catalogo' });
     await teclado.tab();
     expect(document.activeElement).toBe(region);
@@ -750,7 +743,7 @@ describe('`tabla-de-cabecera-fija` (con teclado)', () => {
   const raiz = (container: HTMLElement) => container.firstElementChild?.className.split(' ') ?? [];
 
   it('la pantalla CEDE el alto hasta el marco: `flex-1` y `min-h-0` en su raiz', () => {
-    const { container } = monta(definicion, datos);
+    const { container } = montaSinDato(definicion, datos);
     expect(raiz(container)).toEqual(expect.arrayContaining(['flex-1', 'min-h-0']));
   });
 
@@ -767,7 +760,7 @@ describe('`tabla-de-cabecera-fija` (con teclado)', () => {
         },
       ],
     };
-    const { container } = monta(def, datos);
+    const { container } = montaSinDato(def, datos);
     expect(container.querySelector('[data-cabecera-fija]')).not.toBeNull();
     expect(raiz(container)).toEqual(expect.arrayContaining(['flex-1', 'min-h-0']));
   });
@@ -784,14 +777,14 @@ describe('`tabla-de-cabecera-fija` (con teclado)', () => {
         },
       ],
     };
-    const { container } = monta(def, datos);
+    const { container } = montaSinDato(def, datos);
     expect(container.querySelector('[data-cabecera-fija]'), 'la tabla anidada no se dibujo').not.toBeNull();
     expect(raiz(container)).not.toContain('flex-1');
     expect(raiz(container)).not.toContain('min-h-0');
   });
 
   it('sin `cabeceraFija`, la tabla de siempre: ni region, ni `sticky`', () => {
-    const { container } = monta(conTabla({ titulo: 'T', columnas: [{ rotulo: 'A', alineadoDerecha: false }] }), {
+    const { container } = montaSinDato(conTabla({ titulo: 'T', columnas: [{ rotulo: 'A', alineadoDerecha: false }] }), {
       filas: new Map([[0, [['a']]]]),
     });
     expect(container.querySelector('[data-cabecera-fija]')).toBeNull();
@@ -821,7 +814,7 @@ describe('LAS MUESTRAS: una por hueco de #65, y todas se dibujan', () => {
   });
 
   it.each(Object.entries(MUESTRAS_DE_CAMPOS_Y_TABLAS))('«%s» se dibuja sin avisos de costura rota', (_hueco, muestra) => {
-    const { container } = monta(muestra.definicion, muestra.datos, {
+    const { container } = montaSinDato(muestra.definicion, muestra.datos, {
       actos: { aprobar: () => {} },
       navegacion: { ofrece: () => true, ir: () => {} },
     });

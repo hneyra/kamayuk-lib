@@ -7,8 +7,8 @@ import { remendarElDom } from '../../verificaciones/arnes-del-dom.ts';
 
 import { Avisos, avisar } from '../shadcn/avisos.tsx';
 import { TEXTOS_DE_LAS_PIEZAS, TEXTOS_DEL_INTERPRETE } from '../textos.tsx';
+import { descripcionDe, monta, SIN_FRASE } from './arnes-del-interprete.tsx';
 import { datosQueLee } from './componer.ts';
-import type { DatosDeLaPantalla } from './datos.ts';
 import type { HojaDelMarco, LoTecleado } from './hoja.ts';
 import { MUESTRAS_DE_LOS_CAMPOS_LOS_ACTOS_Y_LA_PROSA as MUESTRAS } from './muestras-de-los-campos-los-actos-y-la-prosa.ts';
 import { Pantalla, type PantallaProps } from './Pantalla.tsx';
@@ -34,14 +34,8 @@ beforeAll(remendarElDom);
 
 type Definicion = DefinicionDePantalla<PiezaDeLaPantalla>;
 
-const SIN_FRASE = { enElCampo: '—', explicacion: '', tono: 'info' } as const;
 const T = TEXTOS_DE_LAS_PIEZAS;
 const TEXTOS_DE_LAS_PIEZAS_Y_EL_INTERPRETE = { ...TEXTOS_DEL_INTERPRETE, ...TEXTOS_DE_LAS_PIEZAS };
-
-const monta = (definicion: Definicion, datos: Partial<DatosDeLaPantalla> = {}, extra: Partial<PantallaProps> = {}) =>
-  render(
-    <Pantalla definicion={definicion} datos={{ ausencia: SIN_FRASE, ...datos }} tonoDeLaInsignia={() => 'ok'} {...extra} />,
-  );
 
 /** Una hoja escrita a mano: sin ruta, con la marca espiada. */
 function hojaEspiada(): HojaDelMarco & { marcarSucia: ReturnType<typeof vi.fn>; marcarGuardada: ReturnType<typeof vi.fn> } {
@@ -92,15 +86,6 @@ const escribir = (rotulo: string, valor: string) => {
 };
 
 const valorDe = (rotulo: string) => (screen.getByLabelText(rotulo) as HTMLInputElement).value;
-
-/** Lo que `aria-describedby` nombra, que es lo que un lector de pantalla lee al enfocarlo. */
-function descripcionDe(elemento: HTMLElement): string {
-  return (elemento.getAttribute('aria-describedby') ?? '')
-    .split(' ')
-    .filter((id) => id !== '')
-    .map((id) => document.getElementById(id)?.textContent ?? `«${id} no existe»`)
-    .join(' ');
-}
 
 // ── Grupo A ─────────────────────────────────────────────────────────────────────────────────────
 

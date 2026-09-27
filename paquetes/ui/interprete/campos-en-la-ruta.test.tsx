@@ -1,14 +1,13 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { diaDeUnaFecha, fechaDeUnDia, fechaLeida } from '../shadcn/fecha.ts';
+import { ConHoja, SIN_FRASE } from './arnes-del-interprete.tsx';
 import { cambioAlElegir, eleccionDe, momentoDeLaEleccion, valorElegido } from './campos-en-la-ruta.ts';
-import type { DatosDeLaPantalla } from './datos.ts';
-import { EL_SUJETO, type CambioDeLaRuta, type HojaDelMarco, type RutaDeLaHoja } from './hoja.ts';
+import { EL_SUJETO, type CambioDeLaRuta, type RutaDeLaHoja } from './hoja.ts';
 import { MUESTRAS_DE_LOS_CAMPOS_EN_LA_RUTA } from './muestras-de-los-campos-en-la-ruta.ts';
-import { Pantalla, type PantallaProps } from './Pantalla.tsx';
+import { Pantalla } from './Pantalla.tsx';
 import type { DefinicionDeBloque, DefinicionDePantalla, OpcionDelCampo, PiezaDeLaPantalla, Texto } from './tipos.ts';
 
 /**
@@ -22,42 +21,6 @@ import type { DefinicionDeBloque, DefinicionDePantalla, OpcionDelCampo, PiezaDeL
  * el cableado montando la pantalla con una hoja de prueba —la ruta en un estado, cada cambio
  * anotado— que es el marco sin el hash.
  */
-
-const SIN_FRASE = { enElCampo: '—', explicacion: '', tono: 'info' } as const;
-
-const RUTA_VACIA: RutaDeLaHoja = { sujeto: null, parametros: {} };
-
-/** Una hoja de prueba: la ruta en un estado, y cada cambio anotado. Es el marco, sin el hash. */
-function ConHoja({
-  inicial = RUTA_VACIA,
-  cambios,
-  definicion,
-  datos = { ausencia: SIN_FRASE },
-  extra = {},
-}: {
-  readonly inicial?: RutaDeLaHoja;
-  readonly cambios: CambioDeLaRuta[];
-  readonly definicion: DefinicionDePantalla<PiezaDeLaPantalla>;
-  readonly datos?: DatosDeLaPantalla;
-  readonly extra?: Partial<PantallaProps>;
-}) {
-  const [ruta, setRuta] = useState<RutaDeLaHoja>(inicial);
-  const hoja: HojaDelMarco = {
-    ruta,
-    moverLaRuta: (cambio) => {
-      cambios.push(cambio);
-      setRuta((antes) => ({
-        sujeto: cambio.sujeto === undefined ? antes.sujeto : cambio.sujeto,
-        parametros: Object.fromEntries(
-          Object.entries({ ...antes.parametros, ...cambio.parametros }).filter(
-            (par): par is [string, string] => par[1] !== null,
-          ),
-        ),
-      }));
-    },
-  };
-  return <Pantalla definicion={definicion} datos={datos} tonoDeLaInsignia={() => 'ok'} hoja={hoja} {...extra} />;
-}
 
 /** Una hoja de una sola caja de busqueda que escribe al salir. */
 const CON_BUSCADOR: DefinicionDePantalla<PiezaDeLaPantalla> = {
