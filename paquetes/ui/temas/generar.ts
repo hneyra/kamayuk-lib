@@ -1,4 +1,4 @@
-import { COMBINACIONES, derivar, fuenteDeLaIdentidad, identidadDe, type Origenes } from './derivar.ts';
+import { COMBINACIONES, derivar, ejesDe, fuenteDeLaIdentidad, type Combinacion, type Origenes } from './derivar.ts';
 
 /**
  * De las paletas de origen a las ocho combinaciones, como texto CSS.
@@ -9,18 +9,16 @@ import { COMBINACIONES, derivar, fuenteDeLaIdentidad, identidadDe, type Origenes
  */
 
 /** El selector de una combinacion. Ver el javadoc de `temas.css` para el orden. */
-function selector(clave: string): string {
-  const [identidad, modo] = clave.split('/');
+function selector(clave: Combinacion): string {
+  const { identidad, modo } = ejesDe(clave);
   if (modo === 'claro') {
-    return identidad === 'institucional'
-      ? `:root,\n[data-tema='institucional']`
-      : `[data-tema='${identidad ?? ''}']`;
+    return identidad === 'institucional' ? `:root,\n[data-tema='institucional']` : `[data-tema='${identidad}']`;
   }
   // El oscuro se escribe DOS veces: una bajo `prefers-color-scheme` para quien no ha elegido, y
   // otra bajo `[data-modo='oscuro']` para quien si. La primera lleva `:not([data-modo='claro'])`
   // porque elegir «claro» tiene que ganarle al sistema — sin eso, quien pide claro en un equipo
   // en oscuro no puede salir de ahi.
-  const base = identidad === 'institucional' ? ':root' : `[data-tema='${identidad ?? ''}']`;
+  const base = identidad === 'institucional' ? ':root' : `[data-tema='${identidad}']`;
   return (
     `@media (prefers-color-scheme: dark) {\n  ${base}:not([data-modo='claro'])` +
     `\n}\n@@SEPARADOR@@\n${base}[data-modo='oscuro']`
@@ -50,8 +48,8 @@ const ESQUEMA_OSCURO = '    color-scheme: dark;';
  * los tres caminos sin escribirse tres veces. Y las identidades cuyo origen no la declara no
  * emiten nada: sus bloques salen byte a byte como antes de que esto existiera.
  */
-function declaracionDeLaFuente(origenes: Origenes, clave: string): string {
-  const fuente = fuenteDeLaIdentidad(origenes, identidadDe(clave));
+function declaracionDeLaFuente(origenes: Origenes, clave: Combinacion): string {
+  const fuente = fuenteDeLaIdentidad(origenes, ejesDe(clave).identidad);
   return fuente === null ? '' : `\n    --font-sans: ${fuente};`;
 }
 
@@ -62,9 +60,10 @@ export function generar(origenes: Origenes): string {
     const colores = [...paleta]
       .map(([n, v]) => `    --color-${n.slice(2)}: ${v};`)
       .join('\n');
-    const [identidad, modo] = clave.split('/');
+    // Los ejes salen de `ejesDe` (#124), no de partir la clave por la barra.
+    const { identidad, modo } = ejesDe(clave);
     const esOscuro = modo === 'oscuro';
-    const raiz = identidad === 'institucional' ? ':root' : `[data-tema='${identidad ?? ''}']`;
+    const raiz = identidad === 'institucional' ? ':root' : `[data-tema='${identidad}']`;
 
     if (!esOscuro) {
       // El claro NO declara `color-scheme`: el `:root` de `estilos.css` ya dice `light`, que es el

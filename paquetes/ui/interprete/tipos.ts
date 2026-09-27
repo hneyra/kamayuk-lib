@@ -1,7 +1,7 @@
 import type { ComponentProps } from 'react';
 
 import type { Insignia } from '../Insignia.tsx';
-import type { TipoDeCampo } from '../shadcn/campos.ts';
+import type { MomentoDeLaEleccion, TipoDeCampo } from '../shadcn/campos.ts';
 import type { DefinicionDeAccion, DefinicionDeActo } from './tipos-de-los-actos.ts';
 import type { EnLaRuta } from './hoja.ts';
 
@@ -67,8 +67,12 @@ export type TipoDeCampoConAncho = ConAnchoCompleto<TipoDeCampo>;
  * en el boton de atras del navegador. `alSalir` da exactamente una, y el gesto que la produce
  * —salir del campo, o Intro— es deliberado. El dia que una hoja demuestre que lo necesita, entra
  * como un tercer valor de esta union sin tocar a nadie.
+ *
+ * **La union se declara en `shadcn/campos.ts`** (#124), junto a `COMPORTAMIENTO_POR_TIPO`, que es de
+ * donde sale el momento por omision de cada tipo; aqui se reexporta, que es desde donde la publica
+ * `index.ts`.
  */
-export type MomentoDeLaEleccion = 'alElegir' | 'alSalir';
+export type { MomentoDeLaEleccion };
 
 /**
  * **Donde vive en la ruta lo que se elige en un campo** (#94).

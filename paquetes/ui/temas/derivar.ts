@@ -1,5 +1,10 @@
 import { hexAOklch, oklchAHex, type Hex, type Oklch } from '../color.ts';
+import { COMBINACIONES, combinacion, ejesDe, type Combinacion, type Identidad, type Modo } from './ejes.ts';
 import { PAPELES, type Papel } from './papeles.ts';
+
+// Los ejes se declaran en `ejes.ts` (#124); se reexportan desde aqui, que es de donde los leia todo.
+export { COMBINACIONES, ejesDe };
+export type { Combinacion, Identidad, Modo };
 
 /**
  * De la paleta del artboard a las otras cinco, con reglas y no a mano.
@@ -52,9 +57,6 @@ interface Regla {
   readonly cromaMinimo?: number;
 }
 
-export type Modo = 'claro' | 'oscuro';
-export type Identidad = 'institucional' | 'alto-contraste' | 'sepia' | 'clasico';
-
 /**
  * Las identidades cuyo claro ES una paleta de origen, y no una derivacion (#56).
  *
@@ -88,20 +90,27 @@ export interface Origen {
 /** Las paletas de origen, una por `IdentidadDeOrigen`. Se leen del CSS con `leerLosOrigenes()`. */
 export type Origenes = Readonly<Record<IdentidadDeOrigen, Origen>>;
 
-/** La identidad de una clave `identidad/modo`, comprobada: una que no existe revienta nombrandola. */
-export function identidadDe(clave: string): Identidad {
-  const identidad = clave.split('/')[0] ?? '';
-  if (!(identidad in ORIGEN_DE)) {
-    throw new Error(
-      `«${clave}» no es de ninguna identidad conocida. Las que hay: ${Object.keys(ORIGEN_DE).join(', ')}.`,
-    );
-  }
-  return identidad as Identidad;
-}
+/**
+ * Las combinaciones que SON una paleta de origen: el claro de cada `IdentidadDeOrigen`. No pasan por
+ * ninguna regla (ver `REGLAS`), y por eso `REGLAS` no las lleva — y el tipo impide que las lleve.
+ */
+export type CombinacionDeOrigen = `${IdentidadDeOrigen}/claro`;
+
+/** Si la combinacion es la de un origen. Estrecha: fuera del `if`, la clave ya tiene sus reglas. */
+const esUnOrigen = (clave: Combinacion): clave is CombinacionDeOrigen =>
+  clave === combinacion(ORIGEN_DE[ejesDe(clave).identidad], 'claro');
 
 /** La fuente de una identidad: la de su origen, o `null` si su origen no declara ninguna. */
 export const fuenteDeLaIdentidad = (origenes: Origenes, identidad: Identidad): string | null =>
   origenes[ORIGEN_DE[identidad]].fuente;
+
+/**
+ * Las reglas de las combinaciones que se derivan: una por cada una que no es un origen (#124).
+ *
+ * Se exporta el TIPO para que una barrera diga que una combinacion sin reglas no compila: hasta #124
+ * esto era un `Record<string, …>`, y la que faltaba la decia un `throw` al derivar.
+ */
+export type ReglasDeLosTemas = Readonly<Record<Exclude<Combinacion, CombinacionDeOrigen>, Readonly<Record<Papel, Regla>>>>;
 
 /**
  * Las reglas, tema por tema.
@@ -109,9 +118,10 @@ export const fuenteDeLaIdentidad = (origenes: Origenes, identidad: Identidad): s
  * `institucional`/`claro` no esta: **es el origen**. La paleta del artboard se usa tal cual, sin
  * pasar por ninguna regla — si pasara, el tema que V8 dibuja seria una derivacion de si mismo y
  * un redondeo lo movería. Y desde #56 tampoco esta `clasico/claro`, por lo mismo: es el otro
- * origen (ver `ORIGEN_DE`).
+ * origen (ver `ORIGEN_DE`). Desde #124 lo dice el tipo: `ReglasDeLosTemas` las excluye, y una
+ * combinacion que se deriva sin su entrada no compila.
  */
-const REGLAS: Readonly<Record<string, Readonly<Record<Papel, Regla>>>> = {
+const REGLAS: ReglasDeLosTemas = {
   // El oscuro: se invierte la luminosidad y se baja el croma, porque un color saturado sobre
   // fondo oscuro deslumbra. Ningun papel llega al negro puro: sobre OLED produce halo y es mas
   // duro de lo que la metafora del papel necesita.
@@ -309,7 +319,7 @@ interface VelosDeLaBarra {
  */
 const DEL_ORIGEN = 'del-origen';
 
-const VELOS_DE_LA_BARRA: Readonly<Record<string, VelosDeLaBarra | typeof DEL_ORIGEN>> = {
+const VELOS_DE_LA_BARRA: Readonly<Record<Combinacion, VelosDeLaBarra | typeof DEL_ORIGEN>> = {
   // Reposo intacto: 0.09 y 0.2 son los del artboard. Solo cede el hover. Pila 0.336 <= 0.343.
   'institucional/claro': { control: 0.09, realce: 0.2, hover: 0.17 },
   // Pila 0.368 <= 0.371. El realce cede para que el hover pueda quedarse en 0.2, seis puntos por
@@ -349,19 +359,18 @@ const VELOS_QUE_APAGAN: Readonly<Record<Modo, Readonly<Record<string, string>>>>
 
 const blancoAl = (alfa: number): string => `rgba(255, 255, 255, ${String(alfa)})`;
 
-/** Los cinco translucidos de una combinacion, ya escritos como los escribe el artboard. */
-function velosDe(clave: string, base: ReadonlyMap<string, string>): ReadonlyMap<string, string> {
+/**
+ * Los cinco translucidos de una combinacion, ya escritos como los escribe el artboard.
+ *
+ * Sin `throw` desde #124: `VELOS_DE_LA_BARRA` es un `Record<Combinacion, …>`, asi que una combinacion
+ * sin sus velos no compila. Y el modo sale de `ejesDe`, no de mirar si la clave acaba en `/oscuro`.
+ */
+function velosDe(clave: Combinacion, base: ReadonlyMap<string, string>): ReadonlyMap<string, string> {
   const barra = VELOS_DE_LA_BARRA[clave];
-  if (barra === undefined) {
-    throw new Error(
-      `«${clave}» no declara sus velos de barra. Las que los declaran: ` +
-        `${Object.keys(VELOS_DE_LA_BARRA).join(', ')}.`,
-    );
-  }
   if (barra === DEL_ORIGEN) {
     return new Map([...base].filter(([nombre]) => PAPELES[nombre] === 'velo'));
   }
-  const modo: Modo = clave.endsWith('/oscuro') ? 'oscuro' : 'claro';
+  const { modo } = ejesDe(clave);
   return new Map<string, string>([
     ['--barra-control', blancoAl(barra.control)],
     ['--barra-realce', blancoAl(barra.realce)],
@@ -387,19 +396,18 @@ function remapear(x: number, min: number, max: number, [a, b]: readonly [number,
  *   y se elige aqui la de la identidad (`ORIGEN_DE`): quien llama no puede equivocarse de base.
  * @param clave `identidad/modo`, p. ej. `sepia/oscuro`
  */
-export function derivar(origenes: Origenes, clave: string): Map<string, string> {
-  const identidad = identidadDe(clave);
+export function derivar(origenes: Origenes, clave: Combinacion): Map<string, string> {
+  const { identidad } = ejesDe(clave);
   const base = origenes[ORIGEN_DE[identidad]].colores;
   // El origen no pasa por ninguna regla PARA SUS COLORES OPACOS. Ver el javadoc de REGLAS — y el
   // de `VELOS_DE_LA_BARRA`, que es la excepcion: los translucidos nunca se derivaron de la paleta
   // y desde #41 se declaran por combinacion, tambien para el origen, porque lo que los limita no
   // es de donde salen sino cuanto blanco admite la barra que tienen debajo.
-  const esElOrigen = clave === `${ORIGEN_DE[identidad]}/claro`;
+  //
+  // `null` en el origen, y las reglas de SU combinacion en las demas: `esUnOrigen` estrecha la
+  // clave, asi que `REGLAS[clave]` no puede faltar y no hay `throw` ni `as` que lo digan (#124).
+  const reglas = esUnOrigen(clave) ? null : REGLAS[clave];
   const velos = velosDe(clave, base);
-  const reglas = REGLAS[clave];
-  if (!esElOrigen && reglas === undefined) {
-    throw new Error(`No hay reglas para «${clave}». Las que hay: ${Object.keys(REGLAS).join(', ')}.`);
-  }
 
   // La rampa de cada papel EN EL ORIGEN: de que luminosidad a que luminosidad va.
   const rampas = new Map<Papel, { min: number; max: number }>();
@@ -433,12 +441,12 @@ export function derivar(origenes: Origenes, clave: string): Map<string, string> 
       salida.set(nombre, declarado);
       continue;
     }
-    if (esElOrigen) {
+    if (reglas === null) {
       salida.set(nombre, valor);
       continue;
     }
 
-    const regla = (reglas as Readonly<Record<Papel, Regla>>)[papel];
+    const regla = reglas[papel];
     const rampa = rampas.get(papel);
     const { l, c, h } = hexAOklch(valor);
     const derivado: Oklch = {
@@ -450,21 +458,3 @@ export function derivar(origenes: Origenes, clave: string): Map<string, string> 
   }
   return salida;
 }
-
-/**
- * Las ocho combinaciones, en orden estable.
- *
- * `clasico` va AL FINAL, y no por gusto (#56): `generar()` escribe los bloques en este orden, y
- * ponerla en medio desplazaria los de `sepia` en `temas.css` — o sea que el diff de un cambio que
- * no toca `sepia` diria que lo toca. Al final, los seis bloques de antes quedan donde estaban.
- */
-export const COMBINACIONES: readonly string[] = [
-  'institucional/claro',
-  'institucional/oscuro',
-  'alto-contraste/claro',
-  'alto-contraste/oscuro',
-  'sepia/claro',
-  'sepia/oscuro',
-  'clasico/claro',
-  'clasico/oscuro',
-];

@@ -29,13 +29,13 @@ se repite. **Y las cifras de pruebas no se escriben a mano**: las escribe `yarn 
 | [`paquetes/formato`](paquetes/formato/README.md) — `@kamayuk/formato` | **Existe.** Fechas, importes y documento de identidad: la hoja limpia del grafo. <!-- cifras:formato -->**68 pruebas** en 3 archivos<!-- /cifras -->. Le faltan `codigo predial` y `placa` |
 | [`paquetes/api`](paquetes/api/README.md) — `@kamayuk/api` | **Existe.** `crearCliente` y sus cuatro operaciones —`solicitar`, `solicitarRespuesta`, `descargar` y `subir`—, `entregarAlNavegador` y `ErrorDeLaApi` con las cinco extensiones del contrato. <!-- cifras:api -->**146 pruebas** en 6 archivos<!-- /cifras --> |
 | [`paquetes/sesion`](paquetes/sesion/README.md) — `@kamayuk/sesion` | **Existe.** `crearIdentidad` con PKCE S256, la sonda del emisor y `quienEntro()`; `peldanoDe()` con sus nueve peldaños y sus palabras como dato. <!-- cifras:sesion -->**175 pruebas** en 6 archivos<!-- /cifras --> |
-| [`paquetes/ui`](paquetes/ui/README.md) — `@kamayuk/ui` | **Existe.** Los 42 tokens, cuatro identidades × dos modos, las piezas de shadcn y el `ProveedorDeTema`; no escribe ni una palabra. <!-- cifras:ui -->**605 pruebas** en 26 archivos, más las **3** de capa<!-- /cifras --> y las barreras de tipo. Le faltan los tokens contra el artboard y el contraste |
+| [`paquetes/ui`](paquetes/ui/README.md) — `@kamayuk/ui` | **Existe.** Los 42 tokens, cuatro identidades × dos modos, las piezas de shadcn y el `ProveedorDeTema`; no escribe ni una palabra. <!-- cifras:ui -->**609 pruebas** en 26 archivos, más las **3** de capa<!-- /cifras --> y las barreras de tipo. Le faltan los tokens contra el artboard y el contraste |
 | [`paquetes/ui/interprete`](paquetes/ui/interprete/README.md) — el intérprete de pantallas | **Existe**, y dibuja una hoja entera como **dato**: bloques, avisos, pie, actos, maestro-detalle, pestañas y piezas del consumidor, con lo elegido en la ruta. Sus pruebas cuentan en `paquetes/ui` |
 | [`paquetes/shell`](paquetes/shell/README.md) — `@kamayuk/shell` | **Existe.** El armazón de V8, con el catálogo por parámetro y el estado de la hoja en la ruta; no decide permisos ni escribe una palabra. <!-- cifras:shell -->**152 pruebas** en 14 archivos<!-- /cifras --> |
 | [`paquetes/verificaciones`](paquetes/verificaciones/README.md) — `@kamayuk/verificaciones` | **Existe.** Las prohibiciones de ESLint con sus muestras, las guardas del árbol, los guiones de la CI y el arnés del `Request`. <!-- cifras:verificaciones -->**324 pruebas** en 20 archivos<!-- /cifras -->. Le faltan los tokens contra el artboard y el contraste |
 | La guarda de la fila del registro | **Existe**, con su autoprueba de **catorce muestras**, adaptada a la forma de este repositorio; desde #128 exige además una fila por issue |
 
-<!-- cifras:total -->**En total: 1470 pruebas en 75 archivos, más las 3 de capa.**<!-- /cifras -->
+<!-- cifras:total -->**En total: 1474 pruebas en 75 archivos, más las 3 de capa.**<!-- /cifras -->
 
 ## La regla que gobierna este repositorio
 
@@ -78,7 +78,9 @@ paquetes/
              (leerQuienEntro), escalera.ts (peldanoDe y su tabla REGLAS), escalera.instantanea.json
              (su salida, #123), textos.ts (los sacos de la escalera y de la puerta)
   ui/        los tokens, las cuatro identidades y sus dos origenes, los componentes de shadcn (once + siete),
-             el interprete (hoja.ts, composicion.ts y sus piezas) y textos.tsx
+             el interprete (hoja.ts, composicion.ts y sus piezas) y textos.tsx;
+             shadcn/campos.ts (COMPORTAMIENTO_POR_TIPO, la unica tabla por tipo de campo) y
+             temas/ejes.ts (las identidades, los modos y su cruce, Combinacion) (#124)
   shell/     el armazon: catalogo.ts, ruta.ts, busqueda.ts, acciones.ts, navegacion.tsx, contexto.tsx,
              textos.ts, las siete piezas y los hooks internos de `Cascara` (#119):
              registro-de-hojas.ts (el reductor), navegacion-guardada.ts, hoja-abierta.ts y

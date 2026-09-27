@@ -1,4 +1,4 @@
-import { tipoDe } from '../shadcn/campos.ts';
+import { COMPORTAMIENTO_POR_TIPO, tipoDe } from '../shadcn/campos.ts';
 import { cambiosEn, valorEnLaRuta, type CambioDeLaRuta, type RutaDeLaHoja } from './hoja.ts';
 import { tablasDe } from './reglas-de-las-tablas.ts';
 import type {
@@ -28,16 +28,16 @@ export function eleccionDe(campo: DefinicionDeCampo<OpcionDelCampo>): EleccionDe
 /**
  * Cuando escribe este campo, con el valor por omision de su tipo.
  *
- * **Sale del tipo, que es lo que ya decide que control se dibuja** (`tipoDe`), y no de una segunda
- * lista que mantener: una lista y un calendario se eligen de un gesto —y ese gesto es la eleccion
- * entera—, mientras que lo que se teclea tiene tantos estados intermedios como letras. Por eso el
- * primero escribe `alElegir` y el segundo `alSalir`, y cualquiera de los dos se puede pisar.
+ * **Sale del tipo, que es lo que ya decide que control se dibuja** —la columna `momento` de
+ * `COMPORTAMIENTO_POR_TIPO` (#124)—, y no de una segunda lista que mantener: una lista y un
+ * calendario se eligen de un gesto —y ese gesto es la eleccion entera—, mientras que lo que se
+ * teclea tiene tantos estados intermedios como letras. Por eso el primero escribe `alElegir` y el
+ * segundo `alSalir`, y cualquiera de los dos se puede pisar.
  */
 export function momentoDeLaEleccion(campo: DefinicionDeCampo<OpcionDelCampo>): MomentoDeLaEleccion {
   const declarado = eleccionDe(campo)?.cuando;
   if (declarado !== undefined) return declarado;
-  const tipo = tipoDe(campo.tipo);
-  return tipo === 's' || tipo === 'd' ? 'alElegir' : 'alSalir';
+  return COMPORTAMIENTO_POR_TIPO[tipoDe(campo.tipo)].momento;
 }
 
 /**
