@@ -11,6 +11,10 @@
 // prefijo-de-un-sistema: el prefijo escrito dentro de la libreria
 export const RAIZ = '/rentas/api/v1';
 
+// prefijo-de-un-sistema (#113): los dos consumidores que `SISTEMAS` no tenia, y que pasaban en verde
+export const RAIZ_DEL_PORT = '/pcf/api/v1';
+export const RAIZ_DEL_PORTAL = '/ciudadano/api';
+
 // global-de-configuracion-de-un-sistema
 export function entidad(): string {
   const global = window as unknown as Record<string, Record<string, string> | undefined>;

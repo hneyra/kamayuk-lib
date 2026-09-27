@@ -29,6 +29,7 @@ import {
 } from './acciones.ts';
 import { CampoDelBloque } from './CampoDelBloque.tsx';
 import { type Nombrados, resolverTexto } from './componer.ts';
+import { useEnVuelo } from './en-vuelo.ts';
 import type { DatosDeLaPantalla } from './datos.ts';
 import { FalloDeUnaLectura } from './EstadoDeLaLectura.tsx';
 import { GrupoDeAcciones } from './GrupoDeAcciones.tsx';
@@ -137,15 +138,15 @@ export function ActoDeLaPantalla({ acto, datos, traducir, textos, interaccion }:
   const marcarIntentado = (): void => {
     cambiarLoTecleado((antes) => (antes.intentado ? antes : { ...antes, intentado: true }));
   };
-  const [enCurso, setEnCurso] = useState(false);
   const [rechazado, setRechazado] = useState(false);
   const [fase, setFase] = useState<Fase>('escribiendo');
   const [confirmando, setConfirmando] = useState(false);
   /** Se acaba de descartar: la region viva lo dice hasta el siguiente cambio (#86). */
   const [descartado, setDescartado] = useState(false);
-  // La segunda pulsacion de un doble clic llega antes de que se pinte «en curso»: la referencia no
-  // espera a pintar. Sin ella, dos pulsaciones son dos altas, y la segunda contesta «ya existe».
-  const enVuelo = useRef(false);
+  // La segunda pulsacion de un doble clic llega antes de que se pinte «en curso»: `useEnVuelo` la
+  // corta con una referencia. Sin ella, dos pulsaciones son dos altas, y la segunda contesta «ya existe».
+  const enVuelo = useEnVuelo<'envio'>();
+  const enCurso = enVuelo.enCurso('envio');
   const ensuciada = useRef(false);
 
   // Lo que la accion que lo abrio le dio, por encima de los datos de la pantalla: una fila manda.
@@ -187,13 +188,9 @@ export function ActoDeLaPantalla({ acto, datos, traducir, textos, interaccion }:
 
   const enviar = () => {
     const manejador = interaccion.actos?.[acto.clave];
-    if (manejador === undefined || enVuelo.current) return;
-    enVuelo.current = true;
-    setEnCurso(true);
-    setRechazado(false);
+    if (manejador === undefined) return;
+    // Lanzar en sincrono es acabar mal, como una promesa rechazada: `useEnVuelo` lo captura (#117).
     const acabar = (bien: boolean) => {
-      enVuelo.current = false;
-      setEnCurso(false);
       if (bien) {
         setFase('hecho');
         interaccion.alQuedarGuardada();
@@ -203,29 +200,18 @@ export function ActoDeLaPantalla({ acto, datos, traducir, textos, interaccion }:
         if (acto.alFallar !== undefined) avisar.error(texto(acto.alFallar.aviso));
       }
     };
-    let resultado: unknown;
-    try {
-      resultado = manejador({
-        valores: valoresQueViajan(acto.campos, valores),
-        observacion: observacion.trim(),
-        parametros,
-      });
-    } catch {
-      acabar(false);
-      return;
-    }
-    if (resultado instanceof Promise) {
-      resultado.then(
-        () => {
-          acabar(true);
-        },
-        () => {
-          acabar(false);
-        },
-      );
-    } else {
-      acabar(true);
-    }
+    enVuelo.lanzar(
+      'envio',
+      () => {
+        setRechazado(false);
+        return manejador({
+          valores: valoresQueViajan(acto.campos, valores),
+          observacion: observacion.trim(),
+          parametros,
+        });
+      },
+      acabar,
+    );
   };
 
   const alEnviar = (evento: FormEvent<HTMLFormElement>) => {

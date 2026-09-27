@@ -1,11 +1,9 @@
 /**
- * La escalera de la API, leida desde la pantalla.
+ * La escalera de la API, leida desde la pantalla: de un fallo a lo que hay que decir y a quien.
  *
  * <h2>Cada peldano es un remedio distinto, y por eso no se pueden juntar</h2>
  *
- * Medido con `curl` contra la instalacion y sobre el `CodigoDeError` de los cinco sistemas, el
- * backend contesta cosas distintas a la misma peticion segun quien la haga y en que estado este
- * lo que se pide:
+ * Medido con `curl` contra la instalacion y sobre el `CodigoDeError` de los cinco sistemas:
  *
  * <table>
  *   <tr><td>sin token</td><td><b>401</b> `NO_AUTENTICADO`</td></tr>
@@ -17,81 +15,51 @@
  *   <tr><td>el cuerpo incumple una regla del dominio</td><td><b>422</b> `VALIDACION`</td></tr>
  * </table>
  *
- * El 404 **no es «la cuenta no es usuario de esta municipalidad»**, aunque hasta #52 esta tabla lo
- * dijera: esa era la respuesta de una operacion concreta de `rentas` (`AdministrarSesion.java`),
- * y medido en `identidad` una cuenta sin alta recibe **403 `SIN_PRIVILEGIO`**
- * (`GuardiaDeAcceso.java:127-136`) mientras que el 404 dice «No hay ningun <x> con identificador
- * <id>» (`AdministrarSeguridad.java:409-412`). El 404 es «eso no existe», y nada mas.
+ * El 404 **no es «la cuenta no es usuario de esta municipalidad»**, aunque hasta #52 esta tabla
+ * lo dijera: esa era una operacion de `rentas` (`AdministrarSesion.java`). En `identidad` una
+ * cuenta sin alta recibe **403 `SIN_PRIVILEGIO`** (`GuardiaDeAcceso.java:127-136`) y el 404 dice
+ * «No hay ningun <x> con identificador <id>» (`AdministrarSeguridad.java:409-412`).
  *
- * <h2>El quinto peldano lo trajo la primera escritura (I-3)</h2>
+ * <h2>De donde salio cada peldano</h2>
  *
- * Hasta #31 esta interfaz solo leia, y un 422 no podia llegar. Con
- * `PUT /seguridad/sesion/ejercicio` llega, y es **la respuesta mas probable del acto**: medido
- * contra la instalacion, una observacion de tres letras contesta «La observacion debe explicar
- * el cambio: al menos 5 caracteres…» y un ejercicio de 1800, «Ejercicio fuera de rango: 1800.
- * Se admite de 1990 a 2100». Sin este peldano las dos caian en `averia`, o sea que escribir
- * «ok» en un campo mandaba a **avisar a soporte** — y con el tono de que algo se rompio.
+ *   · **El 422 `VALIDACION`, con la primera escritura (I-3, #31).** Medido: una observacion de
+ *     tres letras contesta «…al menos 5 caracteres…» y un ejercicio de 1800, «Se admite de 1990 a
+ *     2100». Sin el peldano, escribir «ok» en un campo mandaba a **avisar a soporte**.
+ *   · **El 409, con las interfaces que ESCRIBEN (#52).** Caia en «Reintente… avise a soporte»,
+ *     **el remedio contrario**: ninguno de los 409 del producto se arregla reintentando, y cada uno
+ *     dice en su `mensaje` que hay que cambiar (`identidad` `SeguridadController.java:310` y
+ *     `AdministrarPermisos.java:313-315`; `normativa` `AdministrarParametros.java:311-330`).
+ *   · **El 422 `ORDEN_NO_ADMITIDO`, tambien de #52.** No lo provoca quien escribe sino **la
+ *     pantalla**, que pidio ordenar por un campo fuera de la lista blanca. Con el `VALIDACION`,
+ *     `normativa` dibujo sus siete errores y le salieron **seis pantallas** (`normativa`#63, #84).
+ *   · **`ArchivoRechazado` y `NoEsUnDocumento`, por su clase (#109).** Son `ErrorDeLaApi` a
+ *     proposito —la pantalla atrapa UNA clase—, pero su estado no dice lo que paso: 0 es un rechazo
+ *     local que no mando ni un byte (`api/subir.ts`), 413 y 415 hablan del archivo y 200 es un
+ *     servidor que contesto bien a una peticion mal compuesta. Por estado caian en «averia · avise
+ *     a soporte»; usan claves que ya existen, y lo propio va en titulo, detalle y remedio.
  *
- * <h2>Y los dos ultimos los trajo una interfaz que ESCRIBE (#52)</h2>
+ * <h2>Una tabla de reglas, y su orden esta escrito y vigilado (#123)</h2>
  *
- * Los dos son la misma leccion otra vez, medida cuando `identidad` y `normativa` fueron a dibujar
- * pantallas de escritura:
- *
- *   · **El 409 no es una averia.** Caia en la ultima rama, o sea en «Reintente en unos segundos.
- *     Si sigue igual, avise a soporte» — **el remedio contrario**, porque ninguno de los 409 de
- *     este producto se arregla reintentando: cada uno dice en su `mensaje` que hay que cambiar.
- *     «Ya hay un usuario con esa cuenta en esta municipalidad»
- *     (`identidad` `SeguridadController.java:310`); «El cambio dejaria a la municipalidad sin
- *     ningun usuario capaz de administrar permisos… Otorgue primero el privilegio a otro usuario
- *     o grupo» (`AdministrarPermisos.java:313-315`); «El conjunto N ya esta sellado; corregirlo
- *     exige una version nueva (ADR-0007)» y «El conjunto N no tiene ningun parametro: sellarlo
- *     vacio diria que el ejercicio esta parametrizado cuando no lo esta» (`normativa`
- *     `AdministrarParametros.java:311-330`).
- *   · **`ORDEN_NO_ADMITIDO` no es un `VALIDACION` mas.** Los dos son 422 y hasta #52 la rama solo
- *     miraba el estado, asi que compartian titulo y remedio. Pero `VALIDACION` es una regla que
- *     quien escribe puede cumplir —su `mensaje` la trae con su cifra— y `ORDEN_NO_ADMITIDO` lo
- *     provoca **la pantalla**, que pidio ordenar por un campo fuera de la lista blanca: su
- *     `mensaje` es fijo y el campo viaja aparte, en `detalles`. Decirle «corrija lo que dice el
- *     mensaje» a quien no escribio nada y no puede corregir nada es mandarlo a dar vueltas.
- *     Medido desde `normativa` al dibujar sus siete situaciones de error: le salieron **seis
- *     pantallas distintas, no siete** (`normativa`#63, PR `normativa`#84).
- *
- * <h2>Y dos subclases que se miran por su clase, no por su estado (#109)</h2>
- *
- * `ArchivoRechazado` y `NoEsUnDocumento` son `ErrorDeLaApi` a proposito —la pantalla atrapa UNA
- * clase—, y por eso pasaban el `instanceof` de arriba y caian a la clasificacion por estado. Pero
- * su estado no dice lo que paso: 0 es un rechazo local que no mando ni un byte
- * (`api/subir.ts`), 413 y 415 hablan del archivo y no de quien lo manda, y 200 es un servidor que
- * contesto bien a una peticion mal compuesta (`api/cliente.ts`). Ninguno lo nombra la escalera,
- * asi que los tres acababan en la ultima rama: «averia», reintentable y «avise a soporte». Ahora
- * se reconocen **antes** que el estado, con claves que ya existen —`no-valido` y
- * `orden-no-admitido`— y lo propio en el titulo, el detalle y el remedio.
+ * Hasta #123 eran once ramas `if`, con los cuatro valores por omision copiados en nueve y **un
+ * orden con significado que no estaba escrito en ningun sitio**: el 403 con `codigo` antes que el
+ * 403 a secas, y el 422 igual. Ahora cada peldano es una fila de `REGLAS`, de lo mas especifico a
+ * lo menos, y `escalera.test.ts` afirma que **ninguna queda tapada por otra anterior mas general**
+ * (`cubre`). Anadir un peldano es una fila, sus frases en el saco y su clave en `LAS_NUEVE_CLAVES`.
  *
  * <h2>`esAveria` y `reintentable` son DOS preguntas, y ninguna es el estado</h2>
  *
- * `esAveria` dice si esto es el sistema roto o el sistema funcionando, y decide el tono.
- * `reintentable` dice si volver a mandar la misma peticion, sin cambiar nada, puede dar otro
- * resultado — y decide si la pantalla ofrece el boton. Los dos valen `true` **solo en los dos
- * peldanos de averia**: todo 4xx que esta escalera nombra es el backend contestando lo que tenia
- * que contestar, y ninguno cambia por insistir.
+ * Valen `true` **solo en los dos peldanos de averia**, los que NO salen de la tabla. Afinar
+ * `reintentable` **entre los 5xx** —un 405 no funciona nunca, y el catalogo de `identidad` dice
+ * que no se ofrezca «Reintentar» ante el (`CodigoDeError.java:82-90`)— es otro issue.
  *
- * Afinar `reintentable` **entre los 5xx** —un 405 no puede funcionar nunca, y el propio catalogo
- * de `identidad` dice que no se ofrezca «Reintentar» ante el (`CodigoDeError.java:82-90`)— es
- * otro issue: 405, 501 y 503 siguen cayendo en `averia` y heredan su respuesta.
+ * <h2>Es una funcion pura, y sus palabras son DATO</h2>
  *
- * <h2>Es una funcion pura, y eso es deliberado</h2>
- *
- * Sin React, sin `fetch` y sin reloj: entra un fallo, sale que decir. Los peldanos se prueban sin
- * montar nada, y la pantalla que los ensena se prueba una vez.
- *
- * <h2>Y sus palabras son DATO</h2>
- *
- * El segundo argumento es un `Partial<TextosDeLaEscalera>` que se funde sobre el castellano por
- * omision, igual que `<Armazon textos>` en `@kamayuk/shell`. Llamada con un solo argumento
- * contesta lo de siempre.
+ * Sin React, sin `fetch` y sin reloj. El segundo argumento es un `Partial<TextosDeLaEscalera>`
+ * fundido sobre el castellano por omision, como `<Armazon textos>`: con uno solo, lo de siempre.
  */
 
 import { ArchivoRechazado, ErrorDeLaApi, NoEsUnDocumento } from '../api/index.ts';
+import type { MotivoDelRechazo } from '../api/index.ts';
 import { TEXTOS_DE_LA_ESCALERA, type TextosDeLaEscalera } from './textos.ts';
 
 /** Que decir, y que ofrecer, ante un fallo de la API. */
@@ -115,37 +83,173 @@ export interface Peldano {
   /** Si la pantalla ofrece el boton que vuelve a la puerta de identidad. */
   readonly pideIdentidad: boolean;
   /**
-   * Si esto es el sistema roto o el sistema funcionando.
-   *
-   * `false` en **todos** los peldanos que esta escalera nombra por su estado —401, los tres 403,
-   * el 404, el 409 y los dos 422—: en todos ellos el backend leyo la peticion, la entendio y
-   * contesto exactamente lo que tenia que contestar. Tampoco en un `ArchivoRechazado` ni en un
-   * `NoEsUnDocumento`, que se miran por su clase (#109). Solo un fallo de transporte o un estado
-   * que esta escalera no nombra —que en la practica son los 5xx— son una averia.
+   * Si esto es el sistema roto o el sistema funcionando, y decide el tono. `false` en todo lo que
+   * sale de `REGLAS`: ahi el backend leyo la peticion, la entendio y contesto lo que debia.
    */
   readonly esAveria: boolean;
   /**
-   * Si volver a mandar la misma peticion, sin cambiar nada, puede dar otro resultado.
-   *
-   * No es lo mismo que `esAveria`, y por eso son dos campos: un 409 no es una averia **y ademas**
-   * no se arregla reintentando, mientras que un corte de red no es culpa de nadie y si. Es lo que
-   * decide si la pantalla ofrece «Reintentar» — ofrecerlo donde no cambia nada es invitar a
-   * repetir hasta llamar por telefono.
+   * Si volver a mandar la misma peticion, sin cambiar nada, puede dar otro resultado: decide si se
+   * ofrece «Reintentar». No es `esAveria`: un 409 no es una averia **y ademas** no cambia por
+   * insistir, y un corte de red no es culpa de nadie y si.
    */
   readonly reintentable: boolean;
   /**
-   * El identificador con el que soporte encuentra la causa, o `null`.
-   *
-   * Es un campo y no un trozo de frase para que la pantalla lo pueda ensenar aparte —copiable,
-   * junto al boton de avisar— sin recortarlo de un texto. Solo lo llevan los 500 que lo traen:
-   * en todos los demas peldanos es `null`, y entonces el remedio no promete ningun numero.
+   * El identificador con el que soporte encuentra la causa, o `null`. Un campo y no un trozo de
+   * frase, para ensenarlo aparte y copiable. Solo lo llevan los 500 que lo traen.
    */
   readonly incidencia: string | null;
+}
+
+/** Las claves del saco que son una frase suelta, y no una funcion con un dato dentro. */
+type Frase = {
+  [K in keyof TextosDeLaEscalera]: TextosDeLaEscalera[K] extends string ? K : never;
+}[keyof TextosDeLaEscalera];
+
+/** Lo que un fallo tiene que cumplir para caer en una regla. Lo que no se pone, no se mira. */
+export interface Condicion {
+  /** La subclase de `ErrorDeLaApi`, para los que se miran por su clase y no por su estado. */
+  readonly clase?: new (...argumentos: never[]) => ErrorDeLaApi;
+  /** El motivo de un `ArchivoRechazado`. */
+  readonly motivo?: MotivoDelRechazo;
+  readonly estado?: number;
+  readonly codigo?: string;
+}
+
+/** Un peldano de la escalera: cuando se pisa, y que dice. */
+export interface Regla {
+  /** Nunca `averia`: la averia es lo que queda cuando ninguna regla se cumple. */
+  readonly clave: Exclude<Peldano['clave'], 'averia'>;
+  readonly cuando: Condicion;
+  readonly titulo: Frase;
+  readonly remedio: Frase;
+  readonly detalle: (fallo: ErrorDeLaApi, t: TextosDeLaEscalera) => string;
+  /** Solo el 401. Lo que no esta aqui vale lo mismo en todas: ni averia, ni reintentable. */
+  readonly pideIdentidad?: true;
 }
 
 /** Lo que el backend dijo, o el respaldo si esa respuesta no traia texto. */
 function loQueDijo(fallo: ErrorDeLaApi, respaldo: string): string {
   return fallo.mensaje ?? fallo.detalle ?? fallo.titulo ?? respaldo;
+}
+
+/** El detalle de casi todas: lo que el backend dijo, y si no dijo nada, esa frase del saco. */
+const dijo =
+  (respaldo: Frase) =>
+  (fallo: ErrorDeLaApi, t: TextosDeLaEscalera): string =>
+    loQueDijo(fallo, t[respaldo]);
+
+/**
+ * La escalera, **de lo mas especifico a lo menos**: gana la primera que se cumple.
+ *
+ * El detalle es **lo que el backend dijo, tal cual**, y el saco solo pone el respaldo. Nunca se
+ * resume: el 404 nombra lo que no encontro, el 409 lo que choca y el 422 la regla con su cifra
+ * —«al menos 5 caracteres»—, que es lo unico con lo que quien esta delante corrige. Copiar la
+ * regla aqui para adelantarla seria peor: seria tener dos verdades.
+ */
+export const REGLAS: readonly Regla[] = [
+  // Las dos subclases van ANTES que el estado, porque su estado no dice lo que paso (#109). Un
+  // archivo rechazado es lo mismo que un 422 —lo corrige quien lo mando—, y si el servidor explico
+  // el 413/415, lo que dijo es lo unico que nombra SU limite.
+  {
+    clave: 'no-valido', cuando: { clase: ArchivoRechazado, motivo: 'demasiado-grande' },
+    titulo: 'elArchivoPesaDeMas', remedio: 'elijaUnArchivoMasLiviano',
+    detalle: dijo('superaElTamanoAdmitido'),
+  },
+  {
+    clave: 'no-valido', cuando: { clase: ArchivoRechazado, motivo: 'tipo-no-admitido' },
+    titulo: 'elArchivoNoEsDeUnTipoAdmitido', remedio: 'elijaUnArchivoDeOtroTipo',
+    detalle: dijo('esteTipoNoSeAdmite'),
+  },
+  // Como `ORDEN_NO_ADMITIDO`: la peticion la compuso la pantalla, y quien la usa no corrige nada.
+  {
+    clave: 'orden-no-admitido', cuando: { clase: NoEsUnDocumento },
+    titulo: 'noLlegoUnDocumento', remedio: 'loArreglaQuienHizoLaDescarga',
+    detalle: dijo('llegaronDatosEnVezDeUnDocumento'),
+  },
+  {
+    clave: 'sin-identidad', cuando: { estado: 401 },
+    titulo: 'hayQueVolverAIdentificarse', remedio: 'vuelvaAIdentificarse',
+    detalle: dijo('sinTokenValido'),
+    pideIdentidad: true,
+  },
+  // Sin volver a la puerta: entrar otra vez con la misma cuenta trae el mismo token y el mismo
+  // 403. Lo que falta esta del lado del administrador, no del navegador.
+  {
+    clave: 'sin-municipalidad', cuando: { estado: 403, codigo: 'SIN_MUNICIPALIDAD' },
+    titulo: 'sinMunicipalidadAsignada', remedio: 'laAsignaQuienAdministra',
+    detalle: dijo('elTokenNoDiceLaMunicipalidad'),
+  },
+  {
+    clave: 'sin-privilegio', cuando: { estado: 403, codigo: 'SIN_PRIVILEGIO' },
+    titulo: 'faltaUnPermiso', remedio: 'pidaElPermiso',
+    detalle: dijo('sinElPrivilegioQueSePide'),
+  },
+  // Sin `codigo`, o con uno que no se conoce: adivinar cual de los dos es mandaria a la mitad de
+  // los casos a pedir un permiso que no falta.
+  {
+    clave: 'no-permitido', cuando: { estado: 403 },
+    titulo: 'noSePermitioLaOperacion', remedio: 'reviseConQueCuentaTrabaja',
+    detalle: dijo('elBackendRechazoLaPeticion'),
+  },
+  // Si ademas trae `parametroQueFalta`, sigue en el error: que hacer con el es de la pantalla
+  // (`normativa`#66 y #67). Sin mensaje, lo unico que se sabe es `VERBO /ruta`.
+  {
+    clave: 'no-encontrado', cuando: { estado: 404 },
+    titulo: 'noSeEncontroLoSolicitado', remedio: 'compruebeLoQueSePidio',
+    detalle: (fallo, t) => loQueDijo(fallo, t.noSeEncontroLaOperacion(fallo.operacion)),
+  },
+  // Hasta #52 caia en la averia: reintentar el mismo sellado del mismo conjunto da el mismo 409.
+  {
+    clave: 'conflicto', cuando: { estado: 409 },
+    titulo: 'elEstadoNoAdmiteLaOperacion', remedio: 'cambieLoQueDiceElMensaje',
+    detalle: dijo('elBackendRechazoPorElEstado'),
+  },
+  // Su `mensaje` es fijo y el campo viaja en `detalles`. Los dos juntos, sin partir ninguno: leer
+  // «Campo pedido: » aqui seria clavar una frase castellana del servidor dentro del cliente.
+  {
+    clave: 'orden-no-admitido', cuando: { estado: 422, codigo: 'ORDEN_NO_ADMITIDO' },
+    titulo: 'noSePuedeOrdenarPorEseCampo', remedio: 'loArreglaQuienHizoLaPantalla',
+    detalle: (fallo, t) =>
+      t.elCampoQueSePidio(loQueDijo(fallo, t.noSePuedeOrdenarPorEseCampo), fallo.detalles),
+  },
+  // Mandar a soporte por esto es mandar a soporte porque alguien escribio «ok».
+  {
+    clave: 'no-valido', cuando: { estado: 422 },
+    titulo: 'noCumpleUnaRegla', remedio: 'corrijaLoQueDiceElMensaje',
+    detalle: dijo('elBackendRechazoElContenido'),
+  },
+];
+
+/** Los campos de la condicion que se comparan tal cual, y de donde sale cada uno en el fallo. */
+const EN_EL_FALLO: {
+  readonly [K in 'motivo' | 'estado' | 'codigo']-?: (fallo: ErrorDeLaApi) => Condicion[K] | null;
+} = {
+  motivo: (fallo) => (fallo instanceof ArchivoRechazado ? fallo.motivo : null),
+  estado: (fallo) => fallo.estado,
+  codigo: (fallo) => fallo.codigo,
+};
+const CAMPOS = ['motivo', 'estado', 'codigo'] as const;
+
+/** Si el fallo cumple la condicion: todo lo que la condicion pone, y nada mas. */
+function cumple(fallo: ErrorDeLaApi, cuando: Condicion): boolean {
+  return (
+    (cuando.clase === undefined || fallo instanceof cuando.clase) &&
+    CAMPOS.every((c) => cuando[c] === undefined || cuando[c] === EN_EL_FALLO[c](fallo))
+  );
+}
+
+/**
+ * Si todo fallo que cumple `especifica` cumple tambien `general`, o sea, si `general` puesta
+ * antes la dejaria sin alcanzar. Es la prueba de la regla tapada, y lee la condicion con los
+ * mismos `CAMPOS` que `cumple`.
+ */
+export function cubre(general: Condicion, especifica: Condicion): boolean {
+  const { clase } = general;
+  const porClase =
+    clase === undefined ||
+    (especifica.clase !== undefined &&
+      (especifica.clase === clase || especifica.clase.prototype instanceof clase));
+  return porClase && CAMPOS.every((c) => general[c] === undefined || general[c] === especifica[c]);
 }
 
 /**
@@ -156,10 +260,7 @@ function loQueDijo(fallo: ErrorDeLaApi, respaldo: string): string {
  * @param textos lo que se quiera decir en vez del castellano por omision. Es un `Partial`: lo que
  *   no se pase sigue siendo lo de siempre, asi que llamarla con un solo argumento no cambia nada.
  */
-export function peldanoDe(
-  fallo: unknown,
-  textos: Partial<TextosDeLaEscalera> = {},
-): Peldano {
+export function peldanoDe(fallo: unknown, textos: Partial<TextosDeLaEscalera> = {}): Peldano {
   const t: TextosDeLaEscalera = { ...TEXTOS_DE_LA_ESCALERA, ...textos };
 
   if (!(fallo instanceof ErrorDeLaApi)) {
@@ -176,165 +277,16 @@ export function peldanoDe(
     };
   }
 
-  // Las dos subclases van ANTES que el estado, porque su estado no dice lo que paso: 0 es «no hubo
-  // peticion», 413/415 hablan del archivo y no de quien lo manda, y 200 es un servidor que contesto
-  // bien. Clasificadas por estado caian las tres en la ultima rama —«averia», reintentable y
-  // «avise a soporte»—, y reintentar con el mismo archivo no puede funcionar nunca (#109).
-  if (fallo instanceof ArchivoRechazado) {
-    const demasiadoGrande = fallo.motivo === 'demasiado-grande';
+  const regla = REGLAS.find((r) => cumple(fallo, r.cuando));
+  if (regla !== undefined) {
     return {
-      // Sin ensanchar la union (`LAS_NUEVE_CLAVES`): es lo mismo que un 422 —lo que se mando no
-      // se admite, y lo corrige quien lo mando—, y el motivo va en el titulo y el remedio.
-      clave: 'no-valido',
-      titulo: demasiadoGrande ? t.elArchivoPesaDeMas : t.elArchivoNoEsDeUnTipoAdmitido,
-      // Si el servidor explico el 413/415, lo que dijo es lo unico que nombra SU limite.
-      detalle: loQueDijo(fallo, demasiadoGrande ? t.superaElTamanoAdmitido : t.esteTipoNoSeAdmite),
-      remedio: demasiadoGrande ? t.elijaUnArchivoMasLiviano : t.elijaUnArchivoDeOtroTipo,
-      pideIdentidad: false,
-      esAveria: false,
-      reintentable: false,
-      incidencia: null,
-    };
-  }
-
-  if (fallo instanceof NoEsUnDocumento) {
-    return {
-      // Como `ORDEN_NO_ADMITIDO`: la peticion la compuso la pantalla, y quien la usa no tiene
-      // nada que corregir.
-      clave: 'orden-no-admitido',
-      titulo: t.noLlegoUnDocumento,
-      detalle: loQueDijo(fallo, t.llegaronDatosEnVezDeUnDocumento),
-      remedio: t.loArreglaQuienHizoLaDescarga,
-      pideIdentidad: false,
-      esAveria: false,
-      reintentable: false,
-      incidencia: null,
-    };
-  }
-
-  if (fallo.estado === 401) {
-    return {
-      clave: 'sin-identidad',
-      titulo: t.hayQueVolverAIdentificarse,
-      detalle: loQueDijo(fallo, t.sinTokenValido),
-      remedio: t.vuelvaAIdentificarse,
-      pideIdentidad: true,
-      esAveria: false,
-      reintentable: false,
-      incidencia: null,
-    };
-  }
-
-  if (fallo.estado === 403 && fallo.codigo === 'SIN_MUNICIPALIDAD') {
-    return {
-      clave: 'sin-municipalidad',
-      titulo: t.sinMunicipalidadAsignada,
-      detalle: loQueDijo(fallo, t.elTokenNoDiceLaMunicipalidad),
-      remedio: t.laAsignaQuienAdministra,
-      // No se ofrece volver a la puerta: entrar otra vez con la misma cuenta trae el mismo
-      // token y el mismo 403. Lo que falta esta del lado del administrador, no del navegador.
-      pideIdentidad: false,
-      esAveria: false,
-      reintentable: false,
-      incidencia: null,
-    };
-  }
-
-  if (fallo.estado === 403 && fallo.codigo === 'SIN_PRIVILEGIO') {
-    return {
-      clave: 'sin-privilegio',
-      titulo: t.faltaUnPermiso,
-      detalle: loQueDijo(fallo, t.sinElPrivilegioQueSePide),
-      remedio: t.pidaElPermiso,
-      pideIdentidad: false,
-      esAveria: false,
-      reintentable: false,
-      incidencia: null,
-    };
-  }
-
-  if (fallo.estado === 403) {
-    return {
-      clave: 'no-permitido',
-      titulo: t.noSePermitioLaOperacion,
-      detalle: loQueDijo(fallo, t.elBackendRechazoLaPeticion),
-      remedio: t.reviseConQueCuentaTrabaja,
-      pideIdentidad: false,
-      esAveria: false,
-      reintentable: false,
-      incidencia: null,
-    };
-  }
-
-  if (fallo.estado === 404) {
-    return {
-      clave: 'no-encontrado',
-      // Tal cual. Un 404 de este producto nombra lo que no encontro —la cuenta, el identificador,
-      // el ejercicio—, y resumirlo borraria el unico dato con el que se arregla. Cuando ademas
-      // trae `parametroQueFalta`, ese dato sigue en el error para quien lo quiera leer: aqui no se
-      // interpreta, porque que hacer con el es de la pantalla (`normativa`#66 y #67).
-      detalle: loQueDijo(fallo, t.noSeEncontroLaOperacion(fallo.operacion)),
-      titulo: t.noSeEncontroLoSolicitado,
-      remedio: t.compruebeLoQueSePidio,
-      pideIdentidad: false,
-      esAveria: false,
-      reintentable: false,
-      incidencia: null,
-    };
-  }
-
-  if (fallo.estado === 409) {
-    return {
-      clave: 'conflicto',
-      titulo: t.elEstadoNoAdmiteLaOperacion,
-      // Tal cual, como en el 422 de validacion y por lo mismo: el mensaje del backend es el dato.
-      // Es el que dice QUE choca —«ya hay un usuario con esa cuenta», «el conjunto ya esta
-      // sellado»— y a menudo por donde se sale.
-      detalle: loQueDijo(fallo, t.elBackendRechazoPorElEstado),
-      remedio: t.cambieLoQueDiceElMensaje,
-      pideIdentidad: false,
-      // El backend leyo la peticion, la entendio y la rechazo por el estado de lo que se pide.
-      // Eso es el sistema funcionando, y hasta #52 se ensenaba como «algo se rompio».
-      esAveria: false,
-      // Y sobre todo: reintentar el mismo sellado del mismo conjunto da el mismo 409.
-      reintentable: false,
-      incidencia: null,
-    };
-  }
-
-  if (fallo.estado === 422 && fallo.codigo === 'ORDEN_NO_ADMITIDO') {
-    return {
-      clave: 'orden-no-admitido',
-      titulo: t.noSePuedeOrdenarPorEseCampo,
-      // El `mensaje` de este codigo es fijo, y el campo viaja en `detalles`. Los dos juntos, sin
-      // partir ninguno: leer «Campo pedido: » aqui para sacar el campo seria clavar una frase
-      // castellana del servidor dentro del cliente.
-      detalle: t.elCampoQueSePidio(
-        loQueDijo(fallo, t.noSePuedeOrdenarPorEseCampo),
-        fallo.detalles,
-      ),
-      remedio: t.loArreglaQuienHizoLaPantalla,
-      pideIdentidad: false,
-      esAveria: false,
-      reintentable: false,
-      incidencia: null,
-    };
-  }
-
-  if (fallo.estado === 422) {
-    return {
-      clave: 'no-valido',
-      titulo: t.noCumpleUnaRegla,
-      // Tal cual, y esta es la respuesta de la escalera donde el texto del backend NO es un
-      // respaldo sino el dato: es la regla concreta que se incumplio, con su cifra dentro
-      // —«al menos 5 caracteres», «Se admite de 1990 a 2100»—, y es lo unico con lo que quien
-      // esta delante puede corregir lo que escribio. Resumirla a «revise los datos» borraria
-      // justo eso. Copiar la regla aqui para adelantarla seria peor: seria tener dos verdades.
-      detalle: loQueDijo(fallo, t.elBackendRechazoElContenido),
-      remedio: t.corrijaLoQueDiceElMensaje,
-      pideIdentidad: false,
-      // No es una averia: el backend leyo la peticion, la entendio y la rechazo por una regla
-      // suya. Mandar a soporte por esto es mandar a soporte porque alguien escribio «ok».
+      clave: regla.clave,
+      titulo: t[regla.titulo],
+      detalle: regla.detalle(fallo, t),
+      remedio: t[regla.remedio],
+      // Los valores por omision, una sola vez: nada de lo que la tabla nombra es una averia ni
+      // cambia por insistir, y ningun 4xx trae incidencia.
+      pideIdentidad: regla.pideIdentidad ?? false,
       esAveria: false,
       reintentable: false,
       incidencia: null,
@@ -349,9 +301,8 @@ export function peldanoDe(
     pideIdentidad: false,
     esAveria: true,
     reintentable: true,
-    // Lo unico con lo que soporte encuentra la causa. Hasta #52 llegaba al cliente y se tiraba
-    // en el constructor de `ErrorDeLaApi`, asi que el remedio mandaba a «avisar con este mensaje»
-    // y el mensaje era el mismo para todos los 500 de todos los sistemas.
+    // Lo unico con lo que soporte encuentra la causa. Hasta #52 se tiraba en el constructor de
+    // `ErrorDeLaApi`, y el remedio era el mismo para todos los 500 de todos los sistemas.
     incidencia: fallo.incidencia,
   };
 }

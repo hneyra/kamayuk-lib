@@ -26,6 +26,17 @@ título y un remedio por motivo (`demasiado-grande`, `tipo-no-admitido`), y `NoE
 tres en «avería · Reintente… avise a soporte», y reintentar con el mismo archivo no puede funcionar
 nunca. **La unión no crece**: lo propio va en `titulo`, `detalle` y `remedio`.
 
+**Es una tabla de reglas, y su orden está vigilado** (#123). Cada peldaño es una fila de `REGLAS`
+—una `Condicion` (`clase`, `motivo`, `estado`, `codigo`), el título y el remedio como claves del
+saco y el detalle como función—, de lo más específico a lo menos, y gana la primera que se cumple;
+los dos peldaños de avería son lo que queda fuera. Hasta #123 eran once ramas `if` con un orden que
+no estaba escrito en ningún sitio: poner el 403 a secas antes que el 403 `SIN_PRIVILEGIO` sólo daba
+síntomas (`expected 'no-permitido' to be 'sin-privilegio'`). Ahora `escalera.test.ts` afirma que
+**ninguna regla queda tapada por otra anterior más general** (`cubre`) y lo dice con las dos, y
+compara la salida entera con `escalera.instantanea.json`, tomada sobre las ramas antes de tocarlas
+(se regenera con `KAMAYUK_REGENERAR=1`). Añadir un peldaño es una fila, sus frases en el saco y su
+clave en la unión y en `LAS_NUEVE_CLAVES`. `REGLAS` y `cubre` no salen por `index.ts`.
+
 Cada peldaño dice además `reintentable` y lleva la `incidencia` del 500 **como campo**, no dentro de
 una frase. Y **sus palabras son dato** —treinta desde #52 y nueve más, al final del saco, desde
 #109—: `TEXTOS_DE_LA_ESCALERA` en `textos.ts`, que entra

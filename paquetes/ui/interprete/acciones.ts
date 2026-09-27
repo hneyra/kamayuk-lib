@@ -1,6 +1,6 @@
 import { seEscribe, tipoDe } from '../shadcn/campos.ts';
 import type { TextosDeLaPantalla } from '../textos.tsx';
-import { datosQueLee, type Nombrados, resolverTexto, seCumple } from './componer.ts';
+import { datosQueLee, faltaElDato, type Nombrados, resolverTexto, seCumple } from './componer.ts';
 import type {
   CampoDelActo,
   DefinicionDeAccion,
@@ -45,11 +45,8 @@ export function motivoDeLosImpedimentos(
   return primero === undefined ? undefined : resolver(primero.motivo, nombrados, traducir, textos);
 }
 
-/** Un dato que no esta: ausente, `null` o `''`. Un `false` SI es un dato. */
-const falta = (nombrados: Nombrados, nombre: string): boolean => {
-  const valor = nombrados?.get(nombre);
-  return valor === undefined || valor === null || valor === '';
-};
+/** Si el dato `nombre` falta en `nombrados`: la regla es `faltaElDato` (#117), y no una copia. */
+const falta = (nombrados: Nombrados, nombre: string): boolean => faltaElDato(nombrados?.get(nombre));
 
 /**
  * La peticion de una accion que `va`, o el nombre del primer dato que le falta.
