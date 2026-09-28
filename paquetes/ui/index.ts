@@ -169,7 +169,8 @@ export type {
 } from './shadcn/paleta-de-mando.tsx';
 export { Avisos, avisar } from './shadcn/avisos.tsx';
 export type { AvisosProps } from './shadcn/avisos.tsx';
-// El interprete de pantallas (#27): una definicion `[titulo, nota, campos, tabla]`, dibujada. Sube
+// El interprete de pantallas (#27): una `DefinicionDePantalla` —`{ instruccion, bloques }`, y cada
+// bloque una pieza: el de campos y tablas, un aviso, un acto, un maestro-detalle…—, dibujada. Sube
 // de `rentas` con el segundo consumidor. Las piezas de dentro —el bloque, el campo, la tabla— NO se
 // exportan: nadie dibuja medio interprete.
 export { Pantalla } from './interprete/Pantalla.tsx';
