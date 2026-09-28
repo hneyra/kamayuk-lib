@@ -43,7 +43,7 @@ export { AvisoDeCambios } from './AvisoDeCambios.tsx';
 export type { AvisoDeCambiosProps } from './AvisoDeCambios.tsx';
 export { useArmazon, useHoja, useTextos, ProveedorDeLosTextos } from './contexto.tsx';
 // Ir a otra hoja desde una pantalla, por el mismo `irA` que el arbol (#66).
-export { useNavegacion, ProveedorDeLaNavegacion, ubicacionDe } from './navegacion.tsx';
+export { useNavegacion, ubicacionDe } from './navegacion.tsx';
 export type { NavegacionDelArmazon, ResultadoDeIr, ExtraDeLaPeticion } from './navegacion.tsx';
 export type {
   ConfiguracionDelArmazon,
@@ -60,7 +60,7 @@ export {
   cuantosDestinos,
 } from './catalogo.ts';
 export type { Catalogo, ModuloDelCatalogo, Destino, HojaDelCatalogo } from './catalogo.ts';
-export { modulosQueCasan, resultadosDelMando, pieDeLaPaleta, RESULTADOS_DE_LA_PALETA } from './busqueda.ts';
+export { modulosQueCasan, resultadosDelMando, pieDeLaPaleta } from './busqueda.ts';
 export type { ModuloFiltrado, ResultadoDelMando } from './busqueda.ts';
 export { accionesDelPie, avisoDelPie } from './acciones.ts';
 export type { AccionDelPie, ActoDelPie } from './acciones.ts';
@@ -68,7 +68,6 @@ export { TEXTOS_DEL_ARMAZON } from './textos.ts';
 export type { TextosDelArmazon } from './textos.ts';
 // El estado de una hoja en la ruta (#67): `#/<slug>/<sujeto>?<parametro>=<valor>`. Las funciones son
 // puras y se publican para que un sistema escriba un enlace a una hoja sin montar el marco.
-export { accesosDe } from './catalogo.ts';
 export type { AvisoDeLaRuta } from './contexto.tsx';
 export { RUTA_VACIA, aplicarElCambio, escribirLaRuta, leerLaRuta, rutaDeLaHoja } from './ruta.ts';
 export type { Ignorados, RutaLeida } from './ruta.ts';

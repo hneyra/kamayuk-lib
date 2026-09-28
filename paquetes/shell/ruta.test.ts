@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { accesosDe, type Destino } from './catalogo.ts';
-import { aplicarElCambio, escribirLaRuta, leerLaRuta, rutaDeLaHoja } from './ruta.ts';
+import type { Destino } from './catalogo.ts';
+import { aplicarElCambio, escribirLaRuta, esUnParametro, leerLaRuta, rutaDeLaHoja, sujetoONulo } from './ruta.ts';
 
 /**
  * **La ruta de una hoja, sin montar nada** (#67, `estado-en-la-ruta`).
@@ -115,14 +115,18 @@ describe('un cambio', () => {
   });
 });
 
-describe('acceso-por-hoja', () => {
-  it('`accesosDe` da el que protege primero, despues los demas, sin repetir', () => {
-    expect(accesosDe({ ...SIN_ESTADO, acceso: 'consulta', tambien: ['detalle', 'consulta', 'otro'] })).toEqual([
-      'consulta',
-      'detalle',
-      'otro',
-    ]);
-    expect(accesosDe(SIN_ESTADO)).toEqual([]);
-    expect(accesosDe({ ...SIN_ESTADO, tambien: ['detalle'] })).toEqual(['detalle']);
+describe('el sujeto y los parametros, dichos en UN sitio (#129)', () => {
+  it('`sujetoONulo`: sin sujeto, uno en blanco o uno `null` son lo mismo, `null`; lo demas, tal cual', () => {
+    expect(sujetoONulo(undefined)).toBeNull();
+    expect(sujetoONulo(null)).toBeNull();
+    expect(sujetoONulo('')).toBeNull();
+    expect(sujetoONulo('A/07 b')).toBe('A/07 b');
+    // Un espacio es un sujeto: la ruta no recorta lo que la hoja escribe.
+    expect(sujetoONulo(' ')).toBe(' ');
+  });
+
+  it('`esUnParametro`: `sujeto` es el nombre del tramo del camino, no un parametro', () => {
+    expect(esUnParametro('sujeto')).toBe(false);
+    expect(esUnParametro('ver')).toBe(true);
   });
 });

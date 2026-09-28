@@ -44,7 +44,7 @@ que montan el `Armazon` entero pasan encima lo suyo. No sale por `index.ts`.
 
 ## Dos cosas que no se tocan
 
-- El marco **no decide permisos**: `Destino` lleva `acceso`/`tambien` y `accesosDe` los da, pero
+- El marco **no decide permisos**: `Destino` lleva `acceso`/`tambien` como dato, pero
   filtrar es del sistema, antes de pasarle el catálogo; el paquete no importa `@kamayuk/sesion`, no
   importa `@kamayuk/api` y no llama a `fetch`, y lo vigila `el-marco-no-decide-permisos`.
 - **Tampoco escribe una palabra**: las **32** suyas entran por `<Armazon textos={…} />`, un

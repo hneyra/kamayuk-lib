@@ -10,9 +10,10 @@ import type { DefinicionDePantalla, PiezaDeLaPantalla } from './tipos.ts';
  * catalogo, una derivacion— y no con las pantallas de la V6 de las que salen, que se citan en cada
  * una.
  *
- * **Las monta `Pantalla.test.tsx`, una a una**: una muestra que dejara de dibujarse como dice
- * saldria roja ahi, asi que esto no puede quedarse viejo en verde. Y la guarda de la misma prueba
- * exige que esten las ocho claves de la tabla de #44, ni una menos.
+ * **Las monta `piezas.test.tsx`, una a una**: una muestra que dejara de dibujarse como dice
+ * saldria roja ahi, asi que esto no puede quedarse viejo en verde. Y el centinela de la misma prueba
+ * exige que esten las ocho claves de la tabla de #44, ni una menos. Las de #66, abajo, las monta
+ * `actos.test.tsx`, con su propio centinela.
  *
  * No se exporta desde `index.ts`: es documentacion ejecutable, y no viaja en ningun paquete servido.
  */

@@ -20,11 +20,11 @@ import type { AccionesPorFila, Texto } from './tipos.ts';
  *
  * <h2>Los botones son los del bloque (#66), no otros</h2>
  *
- * Una accion de fila es una `DefinicionDeAccion` —`abre`, `va` o `hace`, con su `impedida`— y se
- * dibuja con el mismo `GrupoDeAcciones`: el mismo motivo cuando nadie la atiende, el mismo «en
- * curso», la misma navegacion por el marco. Lo que cambia son **los datos con que se resuelve**: los
- * de la pantalla con los de la fila encima, asi que `con: { registro: { desde: 'codigo' } }` lleva
- * al acto el codigo DE ESTA fila.
+ * Una accion de fila es una `DefinicionDeAccion` —`abre`, `va`, `hace` o `guarda` (#86), con su
+ * `impedida`— y se dibuja con el mismo `GrupoDeAcciones`: el mismo motivo cuando nadie la atiende,
+ * el mismo «en curso», la misma navegacion por el marco. Lo que cambia son **los datos con que se
+ * resuelve**: los de la pantalla con los de la fila encima, asi que `con: { registro: { desde:
+ * 'codigo' } }` lleva al acto el codigo DE ESTA fila, y `guarda` guarda el texto que lleve ESTA.
  *
  * <h2>El detalle de la fila, en su descripcion</h2>
  *

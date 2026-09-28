@@ -1,8 +1,8 @@
 import { createContext, useContext } from 'react';
 
-import { EL_SUJETO, type NavegacionDeLaPantalla, type PeticionDeNavegacion } from '../ui/index.ts';
+import type { NavegacionDeLaPantalla, PeticionDeNavegacion } from '../ui/index.ts';
 
-import { escribirLaRuta } from './ruta.ts';
+import { escribirLaRuta, esUnParametro, sujetoONulo } from './ruta.ts';
 
 /**
  * **Ir a otra hoja desde una pantalla, por el mismo sitio que el arbol** (#66, `navegar-a-otra-hoja`).
@@ -63,14 +63,19 @@ export type ExtraDeLaPeticion = Pick<PeticionDeNavegacion, 'sujeto' | 'parametro
  */
 export function ubicacionDe(slug: string, extra: ExtraDeLaPeticion = {}): string {
   const parametros = Object.fromEntries(
-    Object.entries(extra.parametros ?? {}).filter(([clave]) => clave !== EL_SUJETO),
+    Object.entries(extra.parametros ?? {}).filter(([clave]) => esUnParametro(clave)),
   );
-  const sujeto = extra.sujeto === undefined || extra.sujeto === '' ? null : extra.sujeto;
-  return escribirLaRuta(slug, { sujeto, parametros });
+  return escribirLaRuta(slug, { sujeto: sujetoONulo(extra.sujeto), parametros });
 }
 
 const DeLaNavegacion = createContext<NavegacionDelArmazon | null>(null);
 
+/**
+ * Lo pone el `Armazon`, y **no sale por `index.ts`** (#129). Publicado, dejaba a un sistema montar
+ * su propia navegacion con un `ir` que no pasa por `irA` —o sea, que se salta el aviso de cambios
+ * sin guardar—, que es justo la segunda puerta que el docblock de arriba prohibe. Medido en #129:
+ * ninguno de los seis de `consumidores.json` lo importaba.
+ */
 export const ProveedorDeLaNavegacion = DeLaNavegacion.Provider;
 
 /** Como ir a otra hoja. Revienta fuera del `<Armazon>`: fuera no hay catalogo que consultar. */

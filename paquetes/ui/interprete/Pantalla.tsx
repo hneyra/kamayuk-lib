@@ -46,7 +46,10 @@ import type { DefinicionDePantalla, PiezaDeLaPantalla as Pieza, TonoDeInsignia }
  *   idioma. En `rentas` pasaban por `useTranslation()` dentro de estas piezas; aqui no puede ser
  *   —`i18next` no es `peerDependency` de esta libreria, #19—, asi que el sistema pasa su `t`. Por
  *   omision no traduce nada. **Los datos no pasan por aqui**: traducir un importe seria absurdo.
- * · **`textos`** — las tres palabras que el interprete dice por su cuenta. Ver `textos.tsx`.
+ * · **`textos`** — las palabras que el interprete dice por su cuenta, en dos sacos: las tres de
+ *   `TextosDelInterprete`, que no gana claves porque `rentas` lo construye entero, y las de
+ *   `TextosDeLasPiezas` (#44), el saco hermano donde entra cada palabra nueva. Llega un `Partial`
+ *   de los dos juntos, y lo que falta sale del castellano de la libreria. Ver `textos.tsx`.
  * · **`tonoDeLaInsignia`** — de que color va una celda de situacion, deducido de lo que dice. Es
  *   vocabulario de cada sistema —«Vencida» en uno, «Anulado» en otro— y **es obligatoria, sin
  *   valor por omision**: uno que pintara todo de `ok` dibujaria «Vencida» en verde sin que nada lo

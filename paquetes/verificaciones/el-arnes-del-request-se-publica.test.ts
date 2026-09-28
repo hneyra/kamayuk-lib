@@ -281,6 +281,7 @@ describe('el guion, sin los `node_modules` de esta libreria (#112)', () => {
   const LO_QUE_CARGA = [
     'el-arnes-del-request-no-se-copia.mjs',
     'archivos.mjs',
+    'argumentos.mjs',
     'comentarios.mjs',
     'imports.mjs',
   ];

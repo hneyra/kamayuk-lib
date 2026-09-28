@@ -9,8 +9,9 @@ import type { Muestra } from './muestras.ts';
  * `chips-de-filtro`, `descarga-de-documento`…). Lo vigila tambien el centinela de su prueba.
  *
  * Cada una usa el dato OPCIONAL que su hueco anade; **una definicion que no lo lleva se dibuja y se
- * comporta como antes de #86**, y eso lo prueba `los-campos-los-actos-y-la-prosa.test.tsx` al lado
- * de cada una.
+ * comporta como antes de #86**, y eso lo prueba al lado de cada una la prueba de su tema:
+ * `los-campos-los-actos-y-la-prosa.test.tsx`, y desde #127 `tablas.test.tsx` para el filtro en el
+ * cliente y `actos.test.tsx` para guardar como archivo.
  *
  * La monta esa prueba, una a una, y su centinela exige las claves de esta tanda, ni una mas ni una
  * menos. Va en su archivo por lo mismo que las de #61, #65 y #94: dos issues escribiendo en el mismo

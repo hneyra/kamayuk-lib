@@ -58,48 +58,64 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { leerArgumentos } from '../../paquetes/verificaciones/argumentos.mjs';
+
 /** Lo que hace de un cambio «codigo» a efectos de esta guarda.
 
-    ESTA LISTA ES PROPIA DE ESTE REPOSITORIO Y NO SE COPIA. El guion vive replicado en
-    los cinco y lo comun es el MECANISMO —los casos de la autoprueba, `CIERRA`, «exige
-    que la fila exista y no lo que diga»—; la lista la decide cada dueno con lo que su
-    arbol tiene. Copiarla a ciegas es exactamente lo que produjo el hueco de #45.
+    ESTA LISTA ES DE ESTE REPOSITORIO, y hasta #129 este comentario no lo era: hablaba de
+    `infrastructure/src/`, de `infra/` y de `despliegue/compose.yaml`, que aqui no existen. Se
+    copio con el guion, que es justo el defecto que el propio comentario advertia. Lo comun al
+    guion es el MECANISMO —los casos de la autoprueba, `CIERRA`, «exige que la fila exista y no
+    lo que diga»—; la lista la decide cada dueno con lo que su arbol tiene.
 
-    `infrastructure/src/` (#45). El descriptor de despliegue decide que corre en la
-    municipalidad: los limites, los `securityContext`, las `NetworkPolicy`, las variables
-    de entorno del pod y sus rutas de ingreso. C-17 midio CINCO defectos que vivian ahi y
-    que solo se ven al desplegar. Estaba fuera y en los otros tres repositorios dentro:
-    este es el unico de los cuatro que tiene los dos directorios a la vez —`infra/` con la
-    carga de datos, `infrastructure/` con el descriptor—, que es de donde salio la
-    confusion al copiar. Se acota a `src/` a proposito: `infrastructure/verificaciones/`
-    son sus pruebas, y una prueba no es codigo de produccion.
+    Y esta copia NO es una de las seis que `infrastructure`#165 ata byte a byte salvo este
+    bloque: aquellas son las de `infrastructure`, `rentas`, `catastro`, `normativa`, `caja` e
+    `identidad`. Medido el 2026-09-28 contra `rentas@f768c79`, fuera de este bloque difieren,
+    entre otras cosas, la cabecera, `filasRepetidas` (#128, que solo esta aqui) y
+    `CIERRA_EN_GITHUB` (`rentas`#130, que aqui falta).
 
-    `infra/` SE QUEDA, y no por inercia (#45 AC-2). Son cuatro guiones de carga y cuatro
-    CSV, y C-6 midio lo que cuesta uno mal apuntado: un guion lanzado contra la imagen
-    equivocada arranca la aplicacion, NO CARGA NI UNA FILA y sale con codigo 0 —cero
-    lineas de carga, ni un aviso—, que es la clase de defecto que solo el registro
-    impide volver a descubrir. LO QUE CUESTA, contado: de los diez archivos de `infra/`,
-    dos son `README.md`, asi que un PR que solo los toque y ademas cierre un issue
-    tendra que dejar fila. Se acepta y no se talla una excepcion para dos archivos: esos
-    README documentan con que variable se invoca cada cargador —lo que el censo de
-    `infrastructure` cruza contra su `@ConditionalOnProperty`— y la guarda solo dispara
-    cuando el PR ADEMAS cierra un issue, asi que el exceso esta acotado.
+    `paquetes/`, salvo sus pruebas. Aqui no hay backend, ni descriptor, ni interfaz: hay SEIS
+    PAQUETES, y lo que va dentro es codigo que los sistemas de `consumidores.json` consumen por
+    `link:`. Y aqui una guarda ES el producto: `@kamayuk/verificaciones` es uno de los seis.
 
-    LO QUE SIGUE FUERA, medido y no supuesto: `despliegue/compose.yaml`, que este
-    repositorio tiene desde #44. Es el mismo defecto que `caja`#39 cerro alli con
-    `/^despliegue\//`, y aqui NO se cierra porque no es de #45 — queda dicho para que el
-    siguiente no tenga que volver a medirlo.
+    Desde #129, ademas, LO QUE DECIDE QUE SE VERIFICA Y CON QUE, aunque no viaje en un paquete.
+    Medido sobre los 43 PR mezclados en `main` hasta `8e77950`: siete no tocaron codigo de
+    `paquetes/` fuera de sus pruebas, y seis de ellos tocaban lo que entra ahora —workflows en
+    #90, #93 y el PR #105; `consumidores.json` en #45, #75 y #79 y en #93; `package.json` y
+    `vitest.setup.ts` en #90—. Los siete escribieron su fila, pero POR COSTUMBRE: la guarda
+    no se la pedia. El septimo, #77, solo toco una prueba, y sigue sin exigirla.
+
+    LO QUE SIGUE FUERA, a proposito: el Markdown, dentro o fuera de `.github/`, que se lee y
+    no se ejecuta; `yarn.lock`, que resuelve las dependencias de ESTE arbol y no viaja —el
+    consumidor resuelve con el suyo, y los rangos que si deciden viven en `package.json`—; y
+    `.editorconfig`, `.gitattributes` y `.gitignore`, que no deciden que corre ni con que. Lo
+    ejerce el contraste de la autoprueba que toca todo eso a la vez y tiene que pasar.
 
     SE EXPORTA para que su autoprueba pueda exigir que cada patron tenga su muestra. Es
-    la mitad que faltaba: quitar una muestra dejaba la autoprueba en «las 7 se comportan
-    como deben», en verde. Y se exporta en vez de copiarse alli porque una copia se queda
+    la mitad que faltaba, y la midio `rentas`#45: quitar una muestra dejaba la autoprueba en
+    «las 7 se comportan como deben», en verde. Y se exporta en vez de copiarse alli porque una copia se queda
     vieja sola y entonces la autoprueba certifica una lista que ya no es esta. */
 export const RUTAS_DE_CODIGO = [
-  // `kamayuk-lib` no tiene backend, ni descriptor, ni interfaz: tiene SEIS PAQUETES, y todo lo
-  // que va dentro de ellos es codigo que cuatro sistemas van a consumir. Por eso la lista es una
-  // sola entrada y es mas ancha que en los cinco sistemas: aqui no hay `src/` que separar de lo
-  // demas, y una guarda que solo mirara `paquetes/*/src/` no miraria nada.
+  // Los seis paquetes, salvo sus pruebas: todo lo que va dentro viaja por `link:` a los sistemas,
+  // sin compilar y sin publicar. No hay `src/` que separar de lo demas, y una guarda que solo
+  // mirara `paquetes/*/src/` no miraria nada.
   /^paquetes\/(?!.*\.(?:test|spec)\.tsx?$)/,
+  // La CI: decide que se verifica antes de mezclar —la suite, los consumidores, el registro—, y
+  // un defecto ahi es un verde que no mide nada. `infrastructure` la cuenta igual.
+  /^\.github\/workflows\//,
+  // La configuracion de la raiz, por la forma y no por el nombre, para que el siguiente
+  // `*.config.mjs` entre solo: `eslint.config.js` (las prohibiciones que este arbol se aplica, y
+  // el bloque de `fetch` de #122), `vitest.*` y `tsconfig*.json` (con que se prueba y se compila:
+  // el `paths` de #4 tapaba un rojo que solo salia en el consumidor), `package.json` (lo que
+  // encadena `yarn verificar`) y `consumidores.json` (a quien mide la CI).
+  /^[^/]+\.(?:[cm]?[jt]s|json)$/,
+  // `.nvmrc`, por el argumento de `rentas`#289: desde #116 es la unica fuente de la version de
+  // Node, y moverla cambia el runtime de la CI entera.
+  /^\.nvmrc$/,
+  // Y los guiones de la guarda, esta y su autoprueba. La autoprueba cuenta aunque sea una prueba:
+  // quitarle una muestra afloja la guarda EN VERDE, que es lo que midio `rentas`#45. Un `.md` que
+  // viniera a vivir aqui no cuenta, y lo ejerce la muestra de `docs/00-gobierno/algo.md`.
+  /^docs\/00-gobierno\/[^/]+\.mjs$/,
 ];
 
 /**
@@ -309,18 +325,26 @@ function git(argumentos) {
   return execFileSync('git', argumentos, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
 }
 
+/**
+ * Las opciones del guion, por `leerArgumentos` (`parseArgs` de `node:util`), con las dos frases de
+ * siempre: «Opcion desconocida: X» y «Falta el valor de X» (#129, AC4).
+ *
+ * Esta copia de la guarda SI puede cambiar sola: `las-seis-copias-de-la-guarda-del-registro` de
+ * `infrastructure` ata las de los cinco sistemas y la suya, no esta. Las otras seis siguen con su
+ * bucle a mano, y pasarlas a `parseArgs` a la vez es `infrastructure`#220. Lo que cambia respecto
+ * del bucle, medido como proceso antes de tocarlo: `--base=origin/main` se entiende (antes, «Falta
+ * el valor de --base=origin/main»), y una opcion desconocida sin valor detras se nombra como
+ * desconocida y no como sin valor (antes, `--otra` decia «Falta el valor de --otra»).
+ */
 function leerOpciones(argumentos) {
-  const opciones = { base: 'origin/main' };
-  for (let i = 0; i < argumentos.length; i += 2) {
-    const nombre = argumentos[i];
-    const valor = argumentos[i + 1];
-    if (valor === undefined) {
-      throw new Error(`Falta el valor de ${nombre}`);
-    }
-    if (!['--base', '--cuerpo', '--archivos', '--anadido', '--registro'].includes(nombre)) {
-      throw new Error(`Opcion desconocida: ${nombre}`);
-    }
-    opciones[nombre.slice(2)] = valor;
-  }
-  return opciones;
+  return {
+    base: 'origin/main',
+    ...leerArgumentos(argumentos, {
+      base: 'texto',
+      cuerpo: 'texto',
+      archivos: 'texto',
+      anadido: 'texto',
+      registro: 'texto',
+    }),
+  };
 }

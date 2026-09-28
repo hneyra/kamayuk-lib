@@ -7,7 +7,9 @@
  * pantalla, y la tabla de que pieza dibuja cada uno de los siete tipos de campo. **Capa 4**
  * (#13): las SIETE piezas que el armazon de V8 necesita —`Miga`, `Plegable`, `Menu`,
  * `Confirmacion`, `Cajon`, `PaletaDeMando` y `Avisos`—, que dibuja `@kamayuk/shell`. **Capa 5**
- * (#27): el interprete de pantallas, que sube de `rentas` cuando llega el segundo consumidor.
+ * (#27): el interprete de pantallas, que sube de `rentas` cuando llega el segundo consumidor. Y
+ * **el mando de los temas** (#53), `MandoDeTema`: el cajon de «Preferencias» con que una persona
+ * elige la identidad y el modo, que sube de `rentas` para que cada sistema lo monte sin copiarlo.
  *
  * <h2>Lo que NO trae todavia, dicho aqui y no descubierto luego</h2>
  *
@@ -91,7 +93,7 @@ export { Alerta } from './shadcn/alerta.tsx';
 export type { AlertaProps } from './shadcn/alerta.tsx';
 export { Avance } from './shadcn/avance.tsx';
 export type { AvanceProps } from './shadcn/avance.tsx';
-export { Formulario, CampoDelFormulario, useFormContext } from './shadcn/formulario.tsx';
+export { Formulario, CampoDelFormulario } from './shadcn/formulario.tsx';
 export type { FormularioProps, CampoDelFormularioProps } from './shadcn/formulario.tsx';
 export { PIEZA_POR_TIPO, TIPOS_DE_CAMPO, seEscribe, anchoCompleto, tipoDe } from './shadcn/campos.ts';
 export type { TipoDeCampo } from './shadcn/campos.ts';
@@ -113,6 +115,13 @@ export { cn } from './utilidades.ts';
 export { ProveedorDeTema, useTema, IDENTIDADES, MODOS } from './temas/ProveedorDeTema.tsx';
 export type { ConfiguracionDeTema, Modo } from './temas/ProveedorDeTema.tsx';
 export type { Identidad } from './temas/derivar.ts';
+// El mando de los temas (#53): el cajon de «Preferencias», con sus palabras en el saco. Lo que tiene
+// que poner quien lo monta —el proveedor por encima, la opcion que lo abre, `abierto` y `alCerrar`—
+// lo dice su docblock.
+export { MandoDeTema } from './temas/MandoDeTema.tsx';
+export type { MandoDeTemaProps } from './temas/MandoDeTema.tsx';
+export { TEXTOS_DEL_MANDO_DE_TEMA } from './textos.tsx';
+export type { TextosDelMandoDeTema } from './textos.tsx';
 export { Miga, PasoDeLaMiga } from './shadcn/miga.tsx';
 export type { MigaProps, PasoDeLaMigaProps } from './shadcn/miga.tsx';
 export { Plegable, DisparadorDelPlegable, CuerpoDelPlegable } from './shadcn/plegable.tsx';
@@ -147,7 +156,6 @@ export type {
 export {
   Cajon,
   DisparadorDelCajon,
-  CerrarElCajon,
   PanelDelCajon,
   TituloDelCajon,
   NotaDelCajon,
@@ -169,7 +177,8 @@ export type {
 } from './shadcn/paleta-de-mando.tsx';
 export { Avisos, avisar } from './shadcn/avisos.tsx';
 export type { AvisosProps } from './shadcn/avisos.tsx';
-// El interprete de pantallas (#27): una definicion `[titulo, nota, campos, tabla]`, dibujada. Sube
+// El interprete de pantallas (#27): una `DefinicionDePantalla` —`{ instruccion, bloques }`, y cada
+// bloque una pieza: el de campos y tablas, un aviso, un acto, un maestro-detalle…—, dibujada. Sube
 // de `rentas` con el segundo consumidor. Las piezas de dentro —el bloque, el campo, la tabla— NO se
 // exportan: nadie dibuja medio interprete.
 export { Pantalla } from './interprete/Pantalla.tsx';
@@ -233,6 +242,7 @@ export type {
 } from './interprete/tipos-de-los-actos.ts';
 export type { ActoAbierto } from './interprete/interaccion.ts';
 export { motivoDeLaAccion, motivoDelActo } from './interprete/acciones.ts';
+export type { ContextoDeUnaAccion, ContextoDeUnActo } from './interprete/acciones.ts';
 export { BotonConMotivo } from './shadcn/boton-con-motivo.tsx';
 export type { BotonConMotivoProps } from './shadcn/boton-con-motivo.tsx';
 // Los campos y las tablas de #65: sus tipos y sus tres reglas puras, por lo mismo que las de #44.

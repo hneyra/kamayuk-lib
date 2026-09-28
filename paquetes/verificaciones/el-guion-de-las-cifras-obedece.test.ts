@@ -113,8 +113,9 @@ function conUnaRaiz<T>(
     }
     mkdirSync(join(raiz, 'paquetes/verificaciones'), { recursive: true });
     // El guion y lo que importa: desde #126 normaliza las rutas con `rutaDesde`, de `archivos.mjs`,
-    // que a su vez importa `comentarios.mjs`. Sin ellos el proceso muere en `ERR_MODULE_NOT_FOUND`.
-    for (const modulo of ['cifras.mjs', 'archivos.mjs', 'comentarios.mjs']) {
+    // que a su vez importa `comentarios.mjs`, y desde #129 lee `--comprobar` con `argumentos.mjs`.
+    // Sin ellos el proceso muere en `ERR_MODULE_NOT_FOUND`.
+    for (const modulo of ['cifras.mjs', 'archivos.mjs', 'argumentos.mjs', 'comentarios.mjs']) {
       copyFileSync(join(dirname(GUION), modulo), join(raiz, 'paquetes/verificaciones', modulo));
     }
     mkdirSync(join(raiz, 'node_modules/vitest'), { recursive: true });

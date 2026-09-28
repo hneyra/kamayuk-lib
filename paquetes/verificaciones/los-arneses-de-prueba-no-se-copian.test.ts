@@ -37,7 +37,22 @@ import { PAQUETES, PRUEBAS, RAIZ, archivosDe, leer, rutaDesde } from './texto.ts
  *     `=` y las dos llamadas: `??=` y `Object.assign(globalThis, { ResizeObserver: … })` pegados en
  *     `armazon.test.tsx` salian en verde (medido por la verificacion independiente).
  *
+ *   - **Los `setupFiles` de `vitest.config.ts`**, leidos de su arbol y no de una lista escrita aqui:
+ *     corren antes de CADA suite, asi que un remiendo instalado en `vitest.setup.ts` es exactamente
+ *     el «global» que `arnes-del-dom.ts` prohibe, y ademas tapa la rotura del AC5. Hasta la
+ *     revision de #151 el barrido solo recorria `paquetes/`: `globalThis.ResizeObserver ??= class {…}`
+ *     al final de `vitest.setup.ts` salia en verde, 6 de 6 (medido por la revision independiente).
+ *
  * <h2>Lo que no mira, dicho</h2>
+ *
+ * **Una copia con OTRO nombre.** Busca los nombres que exporta cada arnes; un `function montar()`
+ * con un `const CATALOGO` al lado —los nombres de antes de #127— o un `fetchQueResponde` en `api`
+ * salen en verde. Lo estructural, la instalacion de `ResizeObserver`, si se ve con cualquier nombre.
+ *
+ * **Y el precio de mirar a cualquier profundidad en las pruebas**: una variable local de una prueba
+ * que se llame como un ayudante —`const problema = await respuesta.json()`— sale roja, con el
+ * mensaje de la copia. Se renombra la local; no se aparta el archivo.
+ *
  *
  * Los otros tres remiendos (`requestAnimationFrame`, `scrollIntoView`, `matchMedia`) aparecen
  * sueltos en cuatro suites que no son copias del bloque y que #127 no toca: las tres `capa-*` —que
@@ -182,9 +197,42 @@ export function instalacionesDelObservador(texto: string, archivo: string): Siti
   return sitios;
 }
 
-/** Los `.ts` y `.tsx` de los paquetes, pruebas incluidas y muestras fuera, desde `paquetes/`. */
-const ARCHIVOS = archivosDe(PAQUETES, { extensiones: ['.ts', '.tsx'], pruebas: true }).map(
-  (archivo) => ({ ruta: rutaDesde(PAQUETES, archivo), texto: leer(archivo) }),
+/**
+ * Los `setupFiles` de una configuracion de vitest, por su arbol sintactico: la propiedad
+ * `setupFiles`, con una cadena o con una lista de cadenas, a cualquier profundidad. Lo que no es
+ * un literal —`resolve(__dirname, 'x')`, una variable— no se puede leer sin ejecutar la
+ * configuracion, y NO se salta en silencio: sale en `ilegibles`, y la guarda se pone roja con el
+ * (revision del PR de #129: un segundo arranque escrito con `resolve(...)` quedaba fuera del barrido).
+ */
+export function archivosDeArranque(texto: string, archivo: string): { rutas: string[]; ilegibles: string[] } {
+  const fuente = arbolDe(texto, archivo);
+  const rutas: string[] = [];
+  const ilegibles: string[] = [];
+  const visitar = (nodo: ts.Node): void => {
+    if (ts.isPropertyAssignment(nodo) && ts.isIdentifier(nodo.name) && nodo.name.text === 'setupFiles') {
+      const valor = nodo.initializer;
+      const elementos = ts.isArrayLiteralExpression(valor) ? [...valor.elements] : [valor];
+      for (const e of elementos) {
+        if (ts.isStringLiteralLike(e)) rutas.push(e.text);
+        else ilegibles.push(`${archivo}:${String(lineaDe(fuente, e))}  ${e.getText(fuente)}`);
+      }
+    }
+    ts.forEachChild(nodo, visitar);
+  };
+  visitar(fuente);
+  return { rutas, ilegibles };
+}
+
+/** Lo que corre antes de cada suite, con su ruta desde la raiz. */
+const LEIDO_DEL_ARRANQUE = archivosDeArranque(leer(join(RAIZ, 'vitest.config.ts')), 'vitest.config.ts');
+const ARRANQUE = LEIDO_DEL_ARRANQUE.rutas.map((ruta) => join(RAIZ, ruta));
+
+/**
+ * Los `.ts` y `.tsx` de los paquetes, pruebas incluidas y muestras fuera, mas los `setupFiles`.
+ * `ruta` es desde `paquetes/` —la que se compara con `ARNESES`— y `mostrar`, desde la raiz.
+ */
+const ARCHIVOS = [...archivosDe(PAQUETES, { extensiones: ['.ts', '.tsx'], pruebas: true }), ...ARRANQUE].map(
+  (archivo) => ({ ruta: rutaDesde(PAQUETES, archivo), mostrar: rutaDesde(RAIZ, archivo), texto: leer(archivo) }),
 );
 
 /** De que arnes es cada nombre exportado. */
@@ -216,6 +264,33 @@ describe('los arneses de prueba se importan, no se copian (#127)', () => {
     expect(ARCHIVOS.length, 'el barrido no mide el arbol').toBeGreaterThan(150);
   });
 
+  it('EL CENTINELA: el barrido lee los `setupFiles` de vitest, que corren antes de cada suite', () => {
+    // Sin esto, un `setupFiles` renombrado o un `archivosDeArranque` que no viera nada dejarian el
+    // arranque fuera del barrido otra vez, en verde.
+    expect(ARRANQUE.map((archivo) => rutaDesde(RAIZ, archivo))).toContain('vitest.setup.ts');
+    expect(ARCHIVOS.some((a) => a.mostrar === 'vitest.setup.ts'), 'el barrido no lee `vitest.setup.ts`').toBe(true);
+    // Y la lectura casa con las dos formas que admite vitest: la cadena sola y la lista.
+    expect(archivosDeArranque("export default { test: { setupFiles: './a.ts' } };", 'c.ts')).toEqual({
+      rutas: ['./a.ts'],
+      ilegibles: [],
+    });
+    expect(archivosDeArranque("export default { test: { setupFiles: ['./a.ts', './b.ts'] } };", 'c.ts').rutas).toEqual([
+      './a.ts',
+      './b.ts',
+    ]);
+  });
+
+  it('y un `setupFiles` que no es un literal sale rojo: no se salta en silencio', () => {
+    // Lo que se leeria ejecutando la configuracion no se sabe leyendola: se nombra, para que alguien
+    // lo escriba como literal o le ensenne a la guarda a leerlo.
+    expect(LEIDO_DEL_ARRANQUE.ilegibles, 'un `setupFiles` de vitest.config.ts no se puede leer sin ejecutarlo').toEqual([]);
+    const muestra = "const s = './b.ts';\nexport default { test: { setupFiles: [resolve(__dirname, 'x'), s, './a.ts'] } };";
+    expect(archivosDeArranque(muestra, 'c.ts')).toEqual({
+      rutas: ['./a.ts'],
+      ilegibles: ["c.ts:2  resolve(__dirname, 'x')", 'c.ts:2  s'],
+    });
+  });
+
   it('EL CENTINELA: el barrido ve el remiendo del arnes del DOM', () => {
     // El unico codigo que SI lo instala. Si el patron dejara de casar, ninguna copia saldria.
     const delDom = ARCHIVOS.find((a) => a.ruta === EL_DEL_DOM);
@@ -223,10 +298,10 @@ describe('los arneses de prueba se importan, no se copian (#127)', () => {
   });
 
   it('ningun ayudante de un arnes se vuelve a definir fuera de el', () => {
-    const copias = ARCHIVOS.flatMap(({ ruta, texto }) =>
+    const copias = ARCHIVOS.flatMap(({ ruta, mostrar, texto }) =>
       declaracionesDe(texto, ruta)
         .filter(({ nombre }) => DUENNO.has(nombre) && DUENNO.get(nombre) !== ruta)
-        .map(({ nombre, linea }) => `  paquetes/${ruta}:${String(linea)}  ${nombre}  (es de ${String(DUENNO.get(nombre))})`),
+        .map(({ nombre, linea }) => `  ${mostrar}:${String(linea)}  ${nombre}  (es de ${String(DUENNO.get(nombre))})`),
     );
     expect(
       copias,
@@ -236,8 +311,8 @@ describe('los arneses de prueba se importan, no se copian (#127)', () => {
   });
 
   it('`ResizeObserver` se instala en UN solo sitio: `arnes-del-dom.ts`', () => {
-    const copias = ARCHIVOS.filter(({ ruta }) => ruta !== EL_DEL_DOM).flatMap(({ ruta, texto }) =>
-      instalacionesDelObservador(texto, ruta).map(({ linea }) => `  paquetes/${ruta}:${String(linea)}`),
+    const copias = ARCHIVOS.filter(({ ruta }) => ruta !== EL_DEL_DOM).flatMap(({ ruta, mostrar, texto }) =>
+      instalacionesDelObservador(texto, ruta).map(({ linea }) => `  ${mostrar}:${String(linea)}`),
     );
     expect(
       copias,

@@ -4,8 +4,8 @@
    esquivada, que en una convencion de proceso es peor todavia — el peaje se aprende a
    rodear y la tabla se queda igual de vacia.
 
-   Asi que se corre la comprobacion contra catorce situaciones fabricadas, ocho que tiene
-   que rechazar y seis que tiene que dejar pasar, y se exige que el rechazo **nombre el
+   Asi que se corre la comprobacion contra veinte situaciones fabricadas, trece que tiene
+   que rechazar y siete que tiene que dejar pasar, y se exige que el rechazo **nombre el
    issue**: rechazar por el motivo equivocado seria pasar por casualidad.
 
    La ultima en llegar es del tercer tiempo de `infrastructure`#114 y fija lo que la mudanza
@@ -13,11 +13,12 @@
    el issue no valen como fila**. Hasta entonces valian, y con eso un PR podia salir en verde
    con la tabla intacta.
 
-   Las dos ultimas en llegar son de #45 y van EN PAREJA: una toca `infrastructure/src/`
-   —el descriptor de despliegue— cerrando un issue sin dejar fila y tiene que salir roja;
-   la otra toca `infrastructure/` FUERA de `src/` —su prueba y su README— y tiene que
-   seguir pasando. Sin la segunda, «que el descriptor cuente» se podria satisfacer
-   declarando que todo cuenta, y una guarda que grita en cada PR se acaba apagando.
+   La pareja que en `rentas` llego con su #45 —`infrastructure/src/` cuenta y el resto de
+   `infrastructure/` no— aqui es otra, porque aqui no hay descriptor: una cambia el dato de
+   una guarda de `@kamayuk/verificaciones` cerrando un issue sin dejar fila y tiene que salir
+   roja; la otra toca solo pruebas de un paquete y el README de la raiz, y tiene que pasar. Sin
+   la segunda, «que el paquete cuente» se podria satisfacer declarando que todo cuenta, y una
+   guarda que grita en cada PR se acaba apagando.
 
    Y las dos que cierran la lista son de #128, y tambien van en pareja. El registro se mezcla con
    `merge=union`, que cuando dos ramas EDITAN la misma fila se queda con las dos sin avisar;
@@ -32,6 +33,12 @@
    contaban numeros: ahora se cuenta por el titulo entero, con su contraste de dos titulos
    distintos que tienen que pasar. Y una fila sin negrita, que para existir cuenta, para
    repetirse no contaba: ahora su titulo es la primera celda.
+
+   Y las seis de #129, que ensancha `RUTAS_DE_CODIGO` fuera de `paquetes/`: cinco tocan cada
+   una lo que ahora cuenta —un workflow, `consumidores.json`, `eslint.config.js`, `.nvmrc` y
+   la propia guarda— cerrando un issue sin fila y tienen que salir rojas; la sexta es su
+   contraste, y toca a la vez todo lo de la raiz que NO decide que se verifica —el Markdown,
+   `yarn.lock` y los atributos del editor y de git— y tiene que pasar.
 
    Uso: node docs/00-gobierno/verificar-las-muestras-del-registro.mjs
 */
@@ -113,6 +120,71 @@ const CASOS = [
     nombre: 'toca solo pruebas dentro de un paquete, y su README, y no exige fila',
     cuerpo: 'Cierra #44.',
     archivos: ['paquetes/api/cliente.test.ts', 'README.md'],
+    anadido: '',
+    esperado: 'verde',
+  },
+  {
+    // #129. La CI decide QUE se verifica antes de mezclar, y #93 —que era sobre workflows— pasaba
+    // sin tener que dejar fila: no tocaba `paquetes/`. La escribio por costumbre.
+    nombre: 'cierra un issue, toca un workflow de la CI y NO deja fila',
+    cuerpo: 'Closes #93.',
+    archivos: ['.github/workflows/paquetes.yml'],
+    anadido: '',
+    esperado: 'rojo',
+    dice: '#93',
+  },
+  {
+    // #129. A quien mide la CI: #45, #75 y #79 solo tocaron esto fuera de sus pruebas.
+    nombre: 'cierra un issue, toca la lista de consumidores y NO deja fila',
+    cuerpo: 'Closes #75.',
+    archivos: ['consumidores.json'],
+    anadido: '',
+    esperado: 'rojo',
+    dice: '#75',
+  },
+  {
+    // #129. Y la otra mitad del mismo patron: un `.js` de la raiz, no solo un `.json`. Es donde
+    // viven las prohibiciones que este arbol se aplica y el bloque de `fetch` de #122.
+    nombre: 'cierra un issue, toca la configuracion de ESLint de la raiz y NO deja fila',
+    cuerpo: 'Closes #122.',
+    archivos: ['eslint.config.js'],
+    anadido: '',
+    esperado: 'rojo',
+    dice: '#122',
+  },
+  {
+    // #129. Desde #116 `.nvmrc` es la unica fuente de la version de Node de la CI entera.
+    nombre: 'cierra un issue, mueve la version de Node y NO deja fila',
+    cuerpo: 'Closes #116.',
+    archivos: ['.nvmrc'],
+    anadido: '',
+    esperado: 'rojo',
+    dice: '#116',
+  },
+  {
+    // #129. La guarda misma: cambiarla sin dejar fila es aflojar el registro sin que conste.
+    nombre: 'cierra un issue, cambia esta guarda y NO deja fila',
+    cuerpo: 'Closes #128.',
+    archivos: ['docs/00-gobierno/verificar-fila-del-registro.mjs'],
+    anadido: '',
+    esperado: 'rojo',
+    dice: '#128',
+  },
+  {
+    // Su contraste, que es el que impide que #129 se satisfaga declarando que toda la raiz cuenta:
+    // lo que se LEE —el Markdown, fuera o dentro de `.github/`— y lo que no decide que corre ni
+    // con que —el `yarn.lock`, que no viaja al consumidor, y los atributos del editor y de git—.
+    nombre: 'toca la raiz pero nada que decida que se verifica, y no exige fila',
+    cuerpo: 'Closes #129.',
+    archivos: [
+      'CLAUDE.md',
+      'docs/agent/HISTORY.md',
+      '.github/pull_request_template.md',
+      'yarn.lock',
+      '.editorconfig',
+      '.gitattributes',
+      '.gitignore',
+    ],
     anadido: '',
     esperado: 'verde',
   },
@@ -208,11 +280,11 @@ const CASOS = [
   },
 ];
 
-/* Y la direccion que faltaba, que es de #45: TODO patron de `RUTAS_DE_CODIGO` tiene que
-   tener al menos una muestra ROJA que lo ejerza.
+/* Y la direccion que faltaba, que es de `rentas`#45: TODO patron de `RUTAS_DE_CODIGO` tiene
+   que tener al menos una muestra ROJA que lo ejerza.
 
    Sin ella, quitar una muestra no pone nada rojo: **deja de comprobarse, en verde**.
-   Medido con la de `infrastructure/src/` fuera, la autoprueba decia «Las 7 muestras se
+   Medido alli con la de `infrastructure/src/` fuera, la autoprueba decia «Las 7 muestras se
    comportan como deben» y salia con 0 — y peor, su contraste seguia ahi certificando que
    `infrastructure/` fuera de `src/` no cuenta, mientras nadie comprobaba que `src/` si.
    Es la leccion de «una regla sin muestra no protege nada» por el eje de las rutas.
