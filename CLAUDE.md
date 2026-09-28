@@ -33,7 +33,7 @@ se repite. **Y las cifras de pruebas no se escriben a mano**: las escribe `yarn 
 | [`paquetes/ui/interprete`](paquetes/ui/interprete/README.md) — el intérprete de pantallas | **Existe**, y dibuja una hoja entera como **dato**: bloques, avisos, pie, actos, maestro-detalle, pestañas y piezas del consumidor, con lo elegido en la ruta. Sus pruebas cuentan en `paquetes/ui` |
 | [`paquetes/shell`](paquetes/shell/README.md) — `@kamayuk/shell` | **Existe.** El armazón de V8, con el catálogo por parámetro y el estado de la hoja en la ruta; no decide permisos ni escribe una palabra. <!-- cifras:shell -->**152 pruebas** en 14 archivos<!-- /cifras --> |
 | [`paquetes/verificaciones`](paquetes/verificaciones/README.md) — `@kamayuk/verificaciones` | **Existe.** Las prohibiciones de ESLint con sus muestras, las guardas del árbol, los guiones de la CI y el arnés del `Request`. <!-- cifras:verificaciones -->**368 pruebas** en 24 archivos<!-- /cifras -->. Le faltan los tokens contra el artboard y el contraste |
-| La guarda de la fila del registro | **Existe**, con su autoprueba de **catorce muestras**, adaptada a la forma de este repositorio; desde #128 exige además una fila por issue |
+| La guarda de la fila del registro | **Existe**, con su autoprueba de **veinte muestras**; desde #128 exige además una fila por issue, y desde #129 cuenta como código también la CI, la configuración de la raíz, `.nvmrc` y la propia guarda |
 
 <!-- cifras:total -->**En total: 1713 pruebas en 82 archivos, más las 3 de capa.**<!-- /cifras -->
 
@@ -214,7 +214,7 @@ yarn verificar               # lint, tipos y pruebas, mas las de capa y la compr
 yarn test                    # solo las pruebas (SIN las de capa)
 yarn test:capas              # las que abren una capa con posicionador. Ver `las-capas-corren.test.ts`
 yarn registro                # la guarda de la fila del registro
-yarn registro:autoprueba     # sus catorce muestras
+yarn registro:autoprueba     # sus veinte muestras
 yarn cifras                  # reescribe las cifras de pruebas de CLAUDE.md y del README (#128)
 yarn cifras --comprobar      # sale en rojo si alguna cifra escrita no es la medida
 yarn consumidor:rama --consumidor duenno/sistema [--comprobar]   # contra que rama se mide (#26)
