@@ -159,7 +159,12 @@ function avisarEnLaConsola({ destino, ignorados }: AvisoDeLaRuta): void {
   );
 }
 
-/** Lo que rodea a la pantalla: la barra, el carril, la paleta, la cabecera y el pie. */
+/**
+ * El ancho de la hoja, y el de sus acciones al pie, que lo comparten: uno sin el otro deja el pie
+ * mas ancho, o mas estrecho, que la hoja de la que es. Una hoja a sangre no lleva ninguno (#67).
+ */
+const ANCHO_DE_LA_HOJA = 'max-w-[1180px]';
+
 /**
  * Lo que rodea a la pantalla: la barra, el carril, la paleta, la cabecera y el pie.
  *
@@ -248,7 +253,7 @@ function Cascara() {
               className={
                 aSangre
                   ? 'flex min-h-0 flex-1 flex-col overflow-hidden'
-                  : 'flex max-w-[1180px] flex-1 flex-col gap-[14px] px-[18px] pb-0 pt-4'
+                  : `flex ${ANCHO_DE_LA_HOJA} flex-1 flex-col gap-[14px] px-[18px] pb-0 pt-4`
               }
             >
               <ProveedorDeLaNavegacion value={navegacion}>
@@ -262,7 +267,7 @@ function Cascara() {
               </ProveedorDeLaNavegacion>
             </div>
             {hoja === null ? null : (
-              <div className={aSangre ? 'shrink-0 border-t border-linea pt-3' : 'max-w-[1180px]'}>
+              <div className={aSangre ? 'shrink-0 border-t border-linea pt-3' : ANCHO_DE_LA_HOJA}>
                 <AccionesAlPie
                   destino={hoja.destino}
                   alVolver={() => {
