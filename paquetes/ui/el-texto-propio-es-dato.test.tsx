@@ -592,6 +592,10 @@ describe('EL CENTINELA: la lista tiene sujeto, y el arnes ve un literal cuando l
     const anidado = marcarElSaco({ fuera: (n: number) => String(n), dentro: { conDato: (n: number) => String(n) } });
     expect(anidado.fuera(3)).toBe(marca('fuera'));
     expect(anidado.dentro.conDato(3)).toBe(marca('dentro.conDato'));
+    // Y lo que no es un saco no se convierte en uno en silencio: una lista perderia su `.map` y un
+    // elemento de React dejaria de serlo. Lanza nombrando la clave (revision del PR de #53).
+    expect(() => marcarElSaco({ dentro: { lista: ['a', 'b'] } })).toThrow('«dentro.lista»: es una lista');
+    expect(() => marcarElSaco({ icono: <span /> })).toThrow('«icono»: es un objeto que no es un saco');
   });
 
   it('una pieza que IGNORA el saco sale roja', () => {

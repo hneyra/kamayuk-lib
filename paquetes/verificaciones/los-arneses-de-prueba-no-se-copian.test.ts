@@ -199,27 +199,33 @@ export function instalacionesDelObservador(texto: string, archivo: string): Siti
 
 /**
  * Los `setupFiles` de una configuracion de vitest, por su arbol sintactico: la propiedad
- * `setupFiles`, con una cadena o con una lista de cadenas, a cualquier profundidad.
+ * `setupFiles`, con una cadena o con una lista de cadenas, a cualquier profundidad. Lo que no es
+ * un literal —`resolve(__dirname, 'x')`, una variable— no se puede leer sin ejecutar la
+ * configuracion, y NO se salta en silencio: sale en `ilegibles`, y la guarda se pone roja con el
+ * (revision del PR de #129: un segundo arranque escrito con `resolve(...)` quedaba fuera del barrido).
  */
-export function archivosDeArranque(texto: string, archivo: string): string[] {
+export function archivosDeArranque(texto: string, archivo: string): { rutas: string[]; ilegibles: string[] } {
   const fuente = arbolDe(texto, archivo);
   const rutas: string[] = [];
+  const ilegibles: string[] = [];
   const visitar = (nodo: ts.Node): void => {
     if (ts.isPropertyAssignment(nodo) && ts.isIdentifier(nodo.name) && nodo.name.text === 'setupFiles') {
       const valor = nodo.initializer;
       const elementos = ts.isArrayLiteralExpression(valor) ? [...valor.elements] : [valor];
-      for (const e of elementos) if (ts.isStringLiteralLike(e)) rutas.push(e.text);
+      for (const e of elementos) {
+        if (ts.isStringLiteralLike(e)) rutas.push(e.text);
+        else ilegibles.push(`${archivo}:${String(lineaDe(fuente, e))}  ${e.getText(fuente)}`);
+      }
     }
     ts.forEachChild(nodo, visitar);
   };
   visitar(fuente);
-  return rutas;
+  return { rutas, ilegibles };
 }
 
 /** Lo que corre antes de cada suite, con su ruta desde la raiz. */
-const ARRANQUE = archivosDeArranque(leer(join(RAIZ, 'vitest.config.ts')), 'vitest.config.ts').map((ruta) =>
-  join(RAIZ, ruta),
-);
+const LEIDO_DEL_ARRANQUE = archivosDeArranque(leer(join(RAIZ, 'vitest.config.ts')), 'vitest.config.ts');
+const ARRANQUE = LEIDO_DEL_ARRANQUE.rutas.map((ruta) => join(RAIZ, ruta));
 
 /**
  * Los `.ts` y `.tsx` de los paquetes, pruebas incluidas y muestras fuera, mas los `setupFiles`.
@@ -264,11 +270,25 @@ describe('los arneses de prueba se importan, no se copian (#127)', () => {
     expect(ARRANQUE.map((archivo) => rutaDesde(RAIZ, archivo))).toContain('vitest.setup.ts');
     expect(ARCHIVOS.some((a) => a.mostrar === 'vitest.setup.ts'), 'el barrido no lee `vitest.setup.ts`').toBe(true);
     // Y la lectura casa con las dos formas que admite vitest: la cadena sola y la lista.
-    expect(archivosDeArranque("export default { test: { setupFiles: './a.ts' } };", 'c.ts')).toEqual(['./a.ts']);
-    expect(archivosDeArranque("export default { test: { setupFiles: ['./a.ts', './b.ts'] } };", 'c.ts')).toEqual([
+    expect(archivosDeArranque("export default { test: { setupFiles: './a.ts' } };", 'c.ts')).toEqual({
+      rutas: ['./a.ts'],
+      ilegibles: [],
+    });
+    expect(archivosDeArranque("export default { test: { setupFiles: ['./a.ts', './b.ts'] } };", 'c.ts').rutas).toEqual([
       './a.ts',
       './b.ts',
     ]);
+  });
+
+  it('y un `setupFiles` que no es un literal sale rojo: no se salta en silencio', () => {
+    // Lo que se leeria ejecutando la configuracion no se sabe leyendola: se nombra, para que alguien
+    // lo escriba como literal o le ensenne a la guarda a leerlo.
+    expect(LEIDO_DEL_ARRANQUE.ilegibles, 'un `setupFiles` de vitest.config.ts no se puede leer sin ejecutarlo').toEqual([]);
+    const muestra = "const s = './b.ts';\nexport default { test: { setupFiles: [resolve(__dirname, 'x'), s, './a.ts'] } };";
+    expect(archivosDeArranque(muestra, 'c.ts')).toEqual({
+      rutas: ['./a.ts'],
+      ilegibles: ["c.ts:2  resolve(__dirname, 'x')", 'c.ts:2  s'],
+    });
   });
 
   it('EL CENTINELA: el barrido ve el remiendo del arnes del DOM', () => {

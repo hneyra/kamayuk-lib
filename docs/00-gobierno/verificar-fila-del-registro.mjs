@@ -58,6 +58,8 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { leerArgumentos } from '../../paquetes/verificaciones/argumentos.mjs';
+
 /** Lo que hace de un cambio «codigo» a efectos de esta guarda.
 
     ESTA LISTA ES DE ESTE REPOSITORIO, y hasta #129 este comentario no lo era: hablaba de
@@ -323,18 +325,26 @@ function git(argumentos) {
   return execFileSync('git', argumentos, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
 }
 
+/**
+ * Las opciones del guion, por `leerArgumentos` (`parseArgs` de `node:util`), con las dos frases de
+ * siempre: «Opcion desconocida: X» y «Falta el valor de X» (#129, AC4).
+ *
+ * Esta copia de la guarda SI puede cambiar sola: `las-seis-copias-de-la-guarda-del-registro` de
+ * `infrastructure` ata las de los cinco sistemas y la suya, no esta. Las otras seis siguen con su
+ * bucle a mano, y pasarlas a `parseArgs` a la vez es `infrastructure`#220. Lo que cambia respecto
+ * del bucle, medido como proceso antes de tocarlo: `--base=origin/main` se entiende (antes, «Falta
+ * el valor de --base=origin/main»), y una opcion desconocida sin valor detras se nombra como
+ * desconocida y no como sin valor (antes, `--otra` decia «Falta el valor de --otra»).
+ */
 function leerOpciones(argumentos) {
-  const opciones = { base: 'origin/main' };
-  for (let i = 0; i < argumentos.length; i += 2) {
-    const nombre = argumentos[i];
-    const valor = argumentos[i + 1];
-    if (valor === undefined) {
-      throw new Error(`Falta el valor de ${nombre}`);
-    }
-    if (!['--base', '--cuerpo', '--archivos', '--anadido', '--registro'].includes(nombre)) {
-      throw new Error(`Opcion desconocida: ${nombre}`);
-    }
-    opciones[nombre.slice(2)] = valor;
-  }
-  return opciones;
+  return {
+    base: 'origin/main',
+    ...leerArgumentos(argumentos, {
+      base: 'texto',
+      cuerpo: 'texto',
+      archivos: 'texto',
+      anadido: 'texto',
+      registro: 'texto',
+    }),
+  };
 }

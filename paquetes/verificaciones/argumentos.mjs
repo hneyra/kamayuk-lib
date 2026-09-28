@@ -7,9 +7,11 @@
  * y el del arnes daba por buena la primera `--raiz` sin mirar lo que venia detras. Ahora trocea
  * `parseArgs`, que es de Node y sabe de `=`, de `--` y de las opciones cortas, y aqui se decide.
  *
- * El cuarto, el de `docs/00-gobierno/verificar-fila-del-registro.mjs`, NO pasa por aqui: aquel
- * guion vive fuera de los paquetes y es una copia de la guarda de los otros repositorios, que no se
- * cambia en uno solo.
+ * El cuarto, el de `docs/00-gobierno/verificar-fila-del-registro.mjs`, tambien pasa por aqui desde
+ * la revision del PR de #129. Se habia dejado fuera por ser «la guarda comun que no se cambia en uno
+ * solo», y la premisa no se sostenia: `las-seis-copias-de-la-guarda-del-registro` de
+ * `infrastructure` no ata la copia de esta libreria. Las otras seis, que si estan atadas, siguen
+ * con su bucle, y pasarlas a la vez es `infrastructure`#220.
  *
  * <h2>Por que `tokens` y no `strict`</h2>
  *

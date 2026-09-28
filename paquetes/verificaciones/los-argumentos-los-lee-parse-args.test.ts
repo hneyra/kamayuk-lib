@@ -72,10 +72,19 @@ describe('los guiones, como proceso, dicen lo mismo que antes de #129', () => {
     ['rama-del-consumidor.mjs', ['--consumidor'], 'Error: Falta el valor de --consumidor'],
     ['el-arnes-del-request-no-se-copia.mjs', ['--otra'], 'Error: Opcion desconocida: --otra'],
     ['el-arnes-del-request-no-se-copia.mjs', ['--raiz'], 'Error: Falta el valor de --raiz'],
+    // La guarda del registro, desde la revision del PR de #129: su copia no esta atada a las otras seis.
+    ['../../docs/00-gobierno/verificar-fila-del-registro.mjs', ['--otra', 'x'], 'Error: Opcion desconocida: --otra'],
+    ['../../docs/00-gobierno/verificar-fila-del-registro.mjs', ['--base'], 'Error: Falta el valor de --base'],
   ])('%s %j → RC=1 y «%s»', (guion, argumentos, linea) => {
     const salida = correr(guion, argumentos);
     expect(salida.status).toBe(1);
     expect(salida.stderr.split('\n')).toContain(linea);
+  });
+
+  it('y la guarda del registro entiende ya `--base=rama`, que su bucle tomaba por una opcion sin valor', () => {
+    const salida = correr('../../docs/00-gobierno/verificar-fila-del-registro.mjs', ['--base=origin/main', '--cuerpo', '']);
+    expect(salida.stderr).not.toContain('Falta el valor de --base=origin/main');
+    expect(salida.status).toBe(0);
   });
 
   it('y `rama-del-consumidor` sin `--consumidor` sigue saliendo con 2, diciendolo', () => {
