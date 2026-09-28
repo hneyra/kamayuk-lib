@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import { elRojo, loQueNoPasoPorElSaco, marca, marcarElSaco } from '../verificaciones/marcas.ts';
+import { ABRE, elRojo, loQueNoPasoPorElSaco, marca, marcarElSaco } from '../verificaciones/marcas.ts';
 
 import { FechaDeCalculo } from './FechaDeCalculo.tsx';
 import { Importe } from './Importe.tsx';
@@ -12,7 +12,14 @@ import { Campo } from './shadcn/campo.tsx';
 import { Avisos } from './shadcn/avisos.tsx';
 import { Etiqueta } from './shadcn/etiqueta.tsx';
 import { Miga, PasoDeLaMiga } from './shadcn/miga.tsx';
-import { TEXTOS_DE_LA_UI, TEXTOS_DE_LAS_PIEZAS, TEXTOS_DEL_INTERPRETE } from './textos.tsx';
+import { MandoDeTema } from './temas/MandoDeTema.tsx';
+import { IDENTIDADES, MODOS, ProveedorDeTema } from './temas/ProveedorDeTema.tsx';
+import {
+  TEXTOS_DE_LA_UI,
+  TEXTOS_DE_LAS_PIEZAS,
+  TEXTOS_DEL_INTERPRETE,
+  TEXTOS_DEL_MANDO_DE_TEMA,
+} from './textos.tsx';
 
 /**
  * **Las palabras que `@kamayuk/ui` decía por su cuenta salen del saco** (#19, AC1).
@@ -64,6 +71,12 @@ const MARCADOS_DEL_INTERPRETE = marcarElSaco(TEXTOS_DEL_INTERPRETE);
 
 /** Y el de sus piezas (#44). */
 const MARCADAS_LAS_PIEZAS = marcarElSaco(TEXTOS_DE_LAS_PIEZAS);
+
+/**
+ * Y el del mando de los temas (#53), que es el primero ANIDADO: `identidades` y `modos` van atados a
+ * sus tipos. `marcarElSaco` baja a ellos, y la marca de Sepia es `⟦identidades.sepia⟧`.
+ */
+const MARCADO_EL_MANDO = marcarElSaco(TEXTOS_DEL_MANDO_DE_TEMA);
 
 /**
  * Una pantalla con TODAS las piezas de #44 y los tres estados que dibujan algo propio: una lectura
@@ -545,6 +558,16 @@ const PIEZAS: readonly (readonly [string, () => React.ReactElement])[] = [
       />
     ),
   ],
+  [
+    // ABIERTO, que es cuando dice algo: cerrado, el cajon no monta nada y aqui saldria verde sin
+    // haber mirado. El cajon sale por un portal, y por eso el recorrido lee `document.body`.
+    'MandoDeTema, abierto',
+    () => (
+      <ProveedorDeTema configuracion={{ identidadPorOmision: 'institucional', prefijoDeClaves: 'kamayuk.prueba' }}>
+        <MandoDeTema abierto alCerrar={() => {}} textos={MARCADO_EL_MANDO} />
+      </ProveedorDeTema>
+    ),
+  ],
 ];
 
 describe('EL CENTINELA: la lista tiene sujeto, y el arnes ve un literal cuando lo hay', () => {
@@ -553,6 +576,22 @@ describe('EL CENTINELA: la lista tiene sujeto, y el arnes ve un literal cuando l
     expect(Object.keys(TEXTOS_DE_LA_UI).length).toBeGreaterThanOrEqual(6);
     expect(Object.keys(TEXTOS_DEL_INTERPRETE).length).toBeGreaterThanOrEqual(3);
     expect(Object.keys(TEXTOS_DE_LAS_PIEZAS).length).toBeGreaterThanOrEqual(12);
+    expect(Object.keys(TEXTOS_DEL_MANDO_DE_TEMA).length).toBeGreaterThanOrEqual(9);
+  });
+
+  it('`marcarElSaco` BAJA a un saco anidado: cada rotulo del mando lleva su propia marca (#53)', () => {
+    // Hasta #53 recorria solo el primer nivel, y un `Record<Identidad, string>` salia convertido
+    // en UNA cadena —`⟦identidades⟧`— en vez de cuatro rotulos marcados: el mando habria dibujado
+    // `undefined` en cada opcion y la guarda no habria medido ninguno.
+    expect(MARCADO_EL_MANDO.titulo).toBe(marca('titulo'));
+    expect(MARCADO_EL_MANDO.identidades.sepia).toBe(marca('identidades.sepia'));
+    expect(MARCADO_EL_MANDO.modos.oscuro).toBe(marca('modos.oscuro'));
+    expect(Object.keys(MARCADO_EL_MANDO.identidades)).toEqual([...IDENTIDADES]);
+    expect(Object.keys(MARCADO_EL_MANDO.modos)).toEqual([...MODOS]);
+    // Y las funciones siguen siendo funciones, a cualquier profundidad.
+    const anidado = marcarElSaco({ fuera: (n: number) => String(n), dentro: { conDato: (n: number) => String(n) } });
+    expect(anidado.fuera(3)).toBe(marca('fuera'));
+    expect(anidado.dentro.conDato(3)).toBe(marca('dentro.conDato'));
   });
 
   it('una pieza que IGNORA el saco sale roja', () => {
@@ -614,6 +653,59 @@ describe('EL AC4: sin pasar nada, lo que se ve es lo de hoy', () => {
     expect(container.textContent).toContain('(opcional)');
     expect(container.textContent).toContain('1 registro');
     expect(container.textContent).not.toContain('1 registros');
+  });
+
+  it('y el mando de los temas, sin `textos`, dice lo que decia en `rentas` (#53)', () => {
+    render(
+      <ProveedorDeTema configuracion={{ identidadPorOmision: 'institucional', prefijoDeClaves: 'kamayuk.prueba' }}>
+        <MandoDeTema abierto alCerrar={() => {}} />
+      </ProveedorDeTema>,
+    );
+    // Palabra por palabra, las trece que `rentas` pasaba por su `t()` hasta #53. Escritas aqui y no
+    // leidas del saco: leidas del saco, esta prueba pasaria con el saco cambiado.
+    const texto = document.body.textContent;
+    for (const palabra of [
+      'Preferencias',
+      'Se guarda en este navegador y solo aqui: no viaja al servidor ni cambia lo que ven las demas personas.',
+      'Identidad visual',
+      'La paleta con que se dibuja este servicio.',
+      'Apariencia',
+      'Sin elegir, se sigue lo que el equipo tenga puesto.',
+      'Institucional',
+      'Alto contraste',
+      'Sepia',
+      'Clásico',
+      'Claro',
+      'Oscuro',
+      'El del sistema',
+    ]) {
+      expect(texto, `el mando ya no dice «${palabra}»`).toContain(palabra);
+    }
+  });
+});
+
+/**
+ * **Los nombres accesibles del mando tambien salen del saco** (#53, AC4).
+ *
+ * El recorrido de arriba mira los nodos de texto y los atributos anunciados. Lo que el lector de
+ * pantalla dice al entrar en un eje —su `legend`— o al posarse en una opcion —su `label`— es un
+ * nombre CALCULADO, y aqui se pregunta por el directamente: cada grupo, cada radio y el dialogo
+ * tienen que llamarse con una marca.
+ */
+describe('EL AC4 de #53: lo que el lector de pantalla anuncia del mando, tambien del saco', () => {
+  it('los dos grupos, los siete radios y el dialogo se llaman con una marca', () => {
+    render(
+      <ProveedorDeTema configuracion={{ identidadPorOmision: 'institucional', prefijoDeClaves: 'kamayuk.prueba' }}>
+        <MandoDeTema abierto alCerrar={() => {}} textos={MARCADO_EL_MANDO} />
+      </ProveedorDeTema>,
+    );
+    const marcado = new RegExp(`^${ABRE}`);
+    expect(screen.getAllByRole('group', { name: marcado })).toHaveLength(2);
+    expect(screen.getAllByRole('radio', { name: marcado })).toHaveLength(IDENTIDADES.length + MODOS.length + 1);
+    expect(screen.getAllByRole('radio')).toHaveLength(IDENTIDADES.length + MODOS.length + 1);
+    expect(screen.getByRole('dialog', { name: MARCADO_EL_MANDO.titulo })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: marca('identidades.sepia') })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: marca('elDelSistema') })).toBeTruthy();
   });
 });
 

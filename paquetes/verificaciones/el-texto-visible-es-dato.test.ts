@@ -55,6 +55,15 @@ import { RAIZ, archivosDeProduccion, rutaDesde, type Hallazgo } from './texto.ts
  * —la palabra deja de estar en el JSX y pasa a estar en la firma— y es exactamente por donde se
  * habría colado el arreglo perezoso de este issue.
  *
+ * **Y dos escrituras de los dos primeros que no se veian hasta #53**: un literal en una `prop` de
+ * texto —`rotulo="Identidad visual"`, que no es un atributo anunciado pero acaba en un `legend`— y
+ * un literal como hijo entre llaves —`{'Preferencias'}`, que es una expresion y no un `JsxText`—.
+ * Medido con el mando de los temas de `rentas` sin sus `t()`: cero hallazgos para trece palabras,
+ * y con las dos, seis. Las siete que quedan son valores de una propiedad de objeto —los rotulos de
+ * las identidades y de los modos—, que en `ui` no mira ninguna forma (la cuarta no se le aplica:
+ * ver abajo); las ve el montaje de `ui/el-texto-propio-es-dato.test.tsx`, con el mando abierto.
+ * Las dos tienen su muestra, que viola y que cumple (`muestras/texto-escrito-en-el-jsx.tsx`).
+ *
  * <h2>Y el CUARTO sitio, que no es ninguno de esos tres: una frase devuelta (#52)</h2>
  *
  * `@kamayuk/sesion` no dibuja nada —no tiene ni un JSX— y sin embargo escribe palabras que una
@@ -170,6 +179,17 @@ interface HallazgoDelAnalizador extends Hallazgo {
   readonly por: string;
 }
 
+/**
+ * La cadena de un literal escrito en el JSX: `"…"`, `{'…'}` o `` {`…`} `` (#53). Las tres dejan la
+ * misma palabra en la pantalla; una plantilla CON huecos no es un literal, y no se mira aqui.
+ */
+function literalDelJsx(nodo: ts.Node | undefined): string | undefined {
+  if (nodo === undefined) return undefined;
+  if (ts.isStringLiteral(nodo) || ts.isNoSubstitutionTemplateLiteral(nodo)) return nodo.text;
+  if (ts.isJsxExpression(nodo)) return literalDelJsx(nodo.expression);
+  return undefined;
+}
+
 /** El texto literal visible de un archivo, preguntándole al analizador de TypeScript. */
 function textoLiteralVisible(archivo: string): readonly HallazgoDelAnalizador[] {
   const relativo = rutaDesde(RAIZ, archivo);
@@ -191,14 +211,34 @@ function textoLiteralVisible(archivo: string): readonly HallazgoDelAnalizador[] 
         hallazgos.push({ archivo: relativo, linea: enLaLinea(nodo), por: 'texto JSX', texto });
       }
     }
-    if (ts.isJsxAttribute(nodo) && nodo.initializer !== undefined && ts.isStringLiteral(nodo.initializer)) {
+    // Un atributo con un literal: los ANUNCIADOS, que el navegador lee, y desde #53 tambien las
+    // `props` de texto —`rotulo="…"`, `nota="…"`—, que lee la pieza y acaban en un `legend` o en un
+    // `<p>`. Con comillas o entre llaves, que es la misma palabra.
+    const enElAtributo = ts.isJsxAttribute(nodo) ? literalDelJsx(nodo.initializer) : undefined;
+    if (ts.isJsxAttribute(nodo) && enElAtributo !== undefined && LETRA.test(enElAtributo)) {
       const nombre = nodo.name.getText(fuente);
-      if (ANUNCIADOS.has(nombre) && LETRA.test(nodo.initializer.text)) {
+      const por = ANUNCIADOS.has(nombre)
+        ? `atributo «${nombre}»`
+        : PROPS_DE_TEXTO.test(nombre)
+          ? `prop de texto «${nombre}»`
+          : undefined;
+      if (por !== undefined) {
+        hallazgos.push({ archivo: relativo, linea: enLaLinea(nodo), por, texto: enElAtributo });
+      }
+    }
+    // Un literal como HIJO, entre llaves (#53): `{'Preferencias'}` no es un `JsxText`, y se dibuja
+    // igual. Solo el hijo: el de un atributo ya lo mira la rama de arriba.
+    if (
+      ts.isJsxExpression(nodo) &&
+      (ts.isJsxElement(nodo.parent) || ts.isJsxFragment(nodo.parent))
+    ) {
+      const hijo = literalDelJsx(nodo);
+      if (hijo !== undefined && LETRA.test(hijo)) {
         hallazgos.push({
           archivo: relativo,
           linea: enLaLinea(nodo),
-          por: `atributo «${nombre}»`,
-          texto: nodo.initializer.text,
+          por: 'literal entre llaves',
+          texto: hijo.trim(),
         });
       }
     }
@@ -284,6 +324,54 @@ const LOS_QUE_HABLAN = HABLAN_SIN_DIBUJAR.flatMap((paquete) =>
 const BARRIDOS_POR_FRASE = LOS_QUE_HABLAN.filter((a) => !LOS_SACOS.has(rutaDesde(RAIZ, a)));
 
 const FRASES_SUELTAS = BARRIDOS_POR_FRASE.flatMap(frasesLiterales);
+
+/**
+ * **Las dos formas JSX que el barrido no veia** (#53, AC4).
+ *
+ * Medido al subir el mando de los temas de `rentas`: con el detector de las tres formas de arriba
+ * sobre el mando al que se le quitan los `t()`, **cero hallazgos** para sus trece palabras; con
+ * estas dos, **seis** —las dos del cajon y las cuatro de los ejes—.
+ * `rotulo="Identidad visual"` es un atributo JSX, pero `rotulo` no es un atributo anunciado —el
+ * navegador no lo lee: lo lee la pieza, que lo pone en un `legend`—; y `{'Preferencias'}` es una
+ * expresion, no un `JsxText`. Las dos dibujan la palabra igual.
+ *
+ * Las dos se miran desde #53, con una muestra que las viola y otra que las cumple.
+ */
+const LAS_MUESTRAS = join(RAIZ, 'paquetes', 'verificaciones', 'muestras');
+const MUESTRA_QUE_VIOLA_EL_JSX = join(LAS_MUESTRAS, 'texto-escrito-en-el-jsx.tsx');
+const MUESTRA_QUE_CUMPLE_EL_JSX = join(LAS_MUESTRAS, 'texto-del-jsx-que-sale-del-saco.tsx');
+
+describe('#53: una `prop` de texto con un literal, y un literal entre llaves', () => {
+  it('EL CENTINELA: el mando de los temas esta entre lo que se barre', () => {
+    // Es la pieza de la que viene esta forma: si el barrido no la mirara, nada de abajo diria nada
+    // del mando.
+    expect(
+      ARCHIVOS.some((a) => a.endsWith(join('ui', 'temas', 'MandoDeTema.tsx'))),
+      'el barrido no llego al mando de los temas',
+    ).toBe(true);
+  });
+
+  it('LA MUESTRA que las viola sale con cada forma, su linea y su cadena', () => {
+    const halladas = textoLiteralVisible(MUESTRA_QUE_VIOLA_EL_JSX).map(
+      (h) => `${String(h.linea)} ${h.por}: ${h.texto}`,
+    );
+    expect(halladas, 'la muestra que VIOLA las dos formas no las dispara').toEqual([
+      '29 prop de texto «rotulo»: Identidad visual',
+      '29 prop de texto «nota»: La paleta con que se dibuja este servicio.',
+      '31 prop de texto «rotulo»: Apariencia',
+      '31 prop de texto «nota»: Sin elegir, se sigue lo que el equipo tenga puesto.',
+      '33 literal entre llaves: Preferencias',
+      '35 literal entre llaves: El del sistema',
+    ]);
+  });
+
+  it('y LA MUESTRA que las cumple no sale: la forma sabe callarse', () => {
+    expect(
+      textoLiteralVisible(MUESTRA_QUE_CUMPLE_EL_JSX),
+      'la muestra que CUMPLE las dos formas sale roja: la guarda tiene falsos positivos',
+    ).toEqual([]);
+  });
+});
 
 describe('EL AC1: el texto literal visible vive SOLO en los dos sacos', () => {
   it('EL CENTINELA: hay archivos que barrer, y los sacos SI tienen texto', () => {

@@ -2,8 +2,8 @@
 
 Los **42** tokens del artboard en un `@theme` de Tailwind v4 —38 colores, 2 radios, 2 sombras—;
 **cuatro identidades × dos modos**; `Importe`/`Insignia`/`FechaDeCalculo`/`Icono` y los trazos con
-nombre genérico; **once + siete** piezas de shadcn; el `ProveedorDeTema`; y el **intérprete de
-pantallas**, que tiene su propio [`README.md`](interprete/README.md).
+nombre genérico; **once + siete** piezas de shadcn; el `ProveedorDeTema` y el `MandoDeTema`; y el
+**intérprete de pantallas**, que tiene su propio [`README.md`](interprete/README.md).
 
 ## Qué trae
 
@@ -15,6 +15,13 @@ pantallas**, que tiene su propio [`README.md`](interprete/README.md).
   combinación sin sus reglas o sin sus velos **no compila**, y el modo no se lee de la cadena.
 - **Once + siete** piezas de shadcn —las que el intérprete pide en cada pantalla y las del armazón,
   sobre Radix, `cmdk` y `sonner`—. Los demás componentes de shadcn entran cuando se usen.
+- **El mando de los temas**, `MandoDeTema` (#53): el cajón de «Preferencias» con que una persona
+  elige los dos ejes, que subió de `rentas` para que cada sistema lo monte sin copiarlo. Dos grupos de
+  radios **nativos** —`IDENTIDADES`, y `MODOS` más «el del sistema», que quita el atributo—, con
+  `name` distinto por eje. Sus trece palabras viven en `TEXTOS_DEL_MANDO_DE_TEMA` y entran por
+  `textos`; los rótulos van atados a `Identidad` y `Modo`, así que una identidad sin rótulo no
+  compila. Quien lo monta pone el `ProveedorDeTema` por encima, la opción en `opcionesDeSesion` del
+  armazón —que no sabe que hay un tema—, `abierto` y `alCerrar`.
 
 ## Tres cosas que no se tocan
 

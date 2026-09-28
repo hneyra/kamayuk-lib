@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 
+import type { Identidad, Modo } from './temas/ejes.ts';
+
 /**
  * **Las palabras que el sistema de diseño dice por su cuenta** (#19).
  *
@@ -288,3 +290,68 @@ export const TEXTOS_DE_LAS_PIEZAS: TextosDeLasPiezas = {
 
 /** Los dos sacos que `Pantalla` recibe juntos, y lo que una pieza del consumidor recibe ya fundido. */
 export type TextosDeLaPantalla = TextosDelInterprete & TextosDeLasPiezas;
+
+/**
+ * **Las palabras del mando de los temas** (#53).
+ *
+ * El mando vivio en `rentas` —`frontend/src/preferencias/MandoDeTema.tsx`— con sus trece palabras
+ * pasadas por el `t()` de ese sistema, y sube aqui para que `identidad` y `catastro` lo monten sin
+ * copiarlo. `t()` no puede subir con el: `i18next` no es `peerDependency` de la libreria (#19,
+ * AC3), asi que las palabras entran por `props` como el resto de `ui`, con este castellano por
+ * omision —el que `rentas` ensenaba, palabra por palabra—.
+ *
+ * <h2>Los rotulos de las identidades y de los modos van ATADOS a sus tipos</h2>
+ *
+ * `identidades` es un `Record<Identidad, string>` y `modos` un `Record<Modo, string>`, y no una
+ * lista de cadenas: una identidad nueva en `ejes.ts` deja **sin compilar** este saco —y el de cada
+ * sistema que lo escriba entero— hasta que alguien diga como se lee. Con una lista, el mando la
+ * ofreceria con el rotulo de otra o sin ninguno, y nada lo diria.
+ *
+ * Por eso este saco es el primero ANIDADO de la libreria, y `marcarElSaco`
+ * (`verificaciones/marcas.ts`) baja a el desde #53: la marca de Sepia es `⟦identidades.sepia⟧`, y
+ * no un objeto entero convertido en una cadena.
+ *
+ * «El del sistema» va aparte y no en `modos`: **no es un modo**, es no elegir ninguno, y vale `null`
+ * en `useTema()`.
+ */
+export interface TextosDelMandoDeTema {
+  /** El titulo del cajon. Es tambien su nombre accesible: Radix lo pide aunque no se dibujara. */
+  readonly titulo: string;
+  /** La nota bajo el titulo: donde se guarda lo elegido, y a quien NO le cambia nada. */
+  readonly nota: string;
+  /** El rotulo del primer eje, que es el `legend` de su grupo y por tanto su nombre accesible. */
+  readonly ejeDeLaIdentidad: string;
+  /** Lo que se lee bajo el primer eje. */
+  readonly notaDeLaIdentidad: string;
+  /** El rotulo del segundo eje. */
+  readonly ejeDelModo: string;
+  /** Lo que se lee bajo el segundo: la unica frase que dice que hace «El del sistema». */
+  readonly notaDelModo: string;
+  /** Como se lee cada identidad. Una identidad sin rotulo no compila. */
+  readonly identidades: Readonly<Record<Identidad, string>>;
+  /** Como se lee cada modo. El tercero —no elegir— no esta aqui: no es un modo. */
+  readonly modos: Readonly<Record<Modo, string>>;
+  /** La tercera opcion del segundo eje, que devuelve el modo al equipo. */
+  readonly elDelSistema: string;
+}
+
+/** Lo que `rentas` ensenaba hasta #53. Quien no pase nada, ve esto. */
+export const TEXTOS_DEL_MANDO_DE_TEMA: TextosDelMandoDeTema = {
+  titulo: 'Preferencias',
+  nota: 'Se guarda en este navegador y solo aqui: no viaja al servidor ni cambia lo que ven las demas personas.',
+  ejeDeLaIdentidad: 'Identidad visual',
+  notaDeLaIdentidad: 'La paleta con que se dibuja este servicio.',
+  ejeDelModo: 'Apariencia',
+  notaDelModo: 'Sin elegir, se sigue lo que el equipo tenga puesto.',
+  identidades: {
+    institucional: 'Institucional',
+    'alto-contraste': 'Alto contraste',
+    sepia: 'Sepia',
+    clasico: 'Clásico',
+  },
+  modos: {
+    claro: 'Claro',
+    oscuro: 'Oscuro',
+  },
+  elDelSistema: 'El del sistema',
+};

@@ -44,14 +44,30 @@ export const CIERRA = '⟧';
  * sus argumentos**, a propósito: lo que llevan dentro es un dato —un número, un filtro, el rótulo de
  * una hoja— y un dato no se traduce; dejarlo salir sin marcar sería pedirle a la guarda que lo
  * denunciara.
+ *
+ * **Y baja a los sacos anidados** (#53). El del mando de los temas lleva sus rótulos atados a los
+ * tipos —`identidades: Record<Identidad, string>`—, y hasta #53 esto recorría sólo el primer nivel:
+ * el `Record` entero salía convertido en UNA cadena, `⟦identidades⟧`, el mando dibujaba `undefined`
+ * en cada opción y la guarda de los nodos de texto seguía en verde, porque no había texto que ver.
+ * Ahora la marca lleva el camino entero: `⟦identidades.sepia⟧`.
  */
 export function marcarElSaco<T extends object>(saco: T): T {
+  return marcarDesde(saco, '') as T;
+}
+
+function marcarDesde(saco: object, camino: string): Record<string, unknown> {
   const marcado: Record<string, unknown> = {};
   for (const [clave, valor] of Object.entries(saco)) {
-    const marca = `${ABRE}${clave}${CIERRA}`;
-    marcado[clave] = typeof valor === 'function' ? () => marca : marca;
+    const donde = `${camino}${clave}`;
+    const marca = `${ABRE}${donde}${CIERRA}`;
+    marcado[clave] =
+      typeof valor === 'function'
+        ? () => marca
+        : typeof valor === 'object' && valor !== null
+          ? marcarDesde(valor, `${donde}.`)
+          : marca;
   }
-  return marcado as T;
+  return marcado;
 }
 
 /** Una marca suelta, para los datos que el consumidor aporta y el marco no traduce. */
