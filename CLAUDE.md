@@ -105,7 +105,8 @@ paquetes/
                    los workflows: el YAML analizado, no el texto), sus pruebas y sus muestras/,
                    imports.mjs (lo que importa un archivo, por el arbol sintactico de TypeScript),
                    version-de-node.ts (los sitios que dicen la version de Node, #116),
-                   veredicto.mjs (el veredicto del trabajo consumidores, que el workflow solo llama)
+                   veredicto.mjs (el veredicto del trabajo consumidores, que el workflow solo llama),
+                   argumentos.mjs (leerArgumentos: los argumentos de los guiones, por parseArgs, #129)
   */README.md      lo que hace cada paquete, contado entero (y ui/interprete/README.md, el interprete)
 docs/
   agent/HISTORY.md            el registro «Verificar antes de afirmar», que se mezcla con merge=union

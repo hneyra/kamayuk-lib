@@ -46,6 +46,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { rutaDesde } from './archivos.mjs';
+import { leerArgumentos } from './argumentos.mjs';
 
 /** La raiz de `kamayuk-lib`: el padre de `paquetes/`. */
 const RAIZ = fileURLToPath(new URL('../..', import.meta.url));
@@ -576,10 +577,12 @@ function listar(argumentos) {
  * Lo corre como proceso `el-guion-de-las-cifras-obedece.test.ts`.
  */
 function principal() {
-  const argumentos = process.argv.slice(2);
-  const desconocidos = argumentos.filter((a) => a !== '--comprobar');
-  if (desconocidos.length > 0) {
-    console.error(`Opcion desconocida: ${desconocidos.join(' ')}. La unica es --comprobar.`);
+  /** @type {{ comprobar?: true }} */
+  let opciones;
+  try {
+    opciones = leerArgumentos(process.argv.slice(2), { comprobar: 'marca' });
+  } catch (error) {
+    console.error(`${error instanceof Error ? error.message : String(error)}. La unica es --comprobar.`);
     process.exit(2);
   }
 
@@ -590,7 +593,7 @@ function principal() {
   const deCapa = listar(argumentosDeVitest('test:capas', manifiesto.scripts['test:capas']));
 
   const { codigo, informe, porEscribir } = decidir({
-    comprobar: argumentos.includes('--comprobar'),
+    comprobar: opciones.comprobar === true,
     medidas: medir({ paquetes: paquetesDe(RAIZ), normales, deCapa, raiz: RAIZ }),
     archivos: DONDE_HAY_CIFRAS.map((donde) => ({
       donde,

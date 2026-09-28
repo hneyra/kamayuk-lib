@@ -141,6 +141,12 @@ navegador, y por eso `sin-suponer-un-sistema` no lo barre.
 
 ## Los guiones
 
+- **Sus argumentos los trocea `parseArgs`** (#129): `argumentos.mjs` da `leerArgumentos(argumentos,
+  { nombre: 'texto' | 'marca' })`, y por ahí pasan `rama-del-consumidor.mjs`,
+  `el-arnes-del-request-no-se-copia.mjs` y `cifras.mjs`, que llevaban cada uno su bucle. Con las
+  frases de siempre —«Opcion desconocida: X», «Falta el valor de X»— y el mismo código de salida, que
+  sujeta `los-argumentos-los-lee-parse-args`; ahora, además, `--opcion=valor`. Los dos que se copian
+  a una raíz sin `node_modules` para correrlos como proceso lo copian también.
 - `rama-del-consumidor.mjs`: decide contra qué rama del consumidor se mide un PR, con sus muestras y
   su ensayo contra un remoto de verdad (#26).
 - `cifras.mjs` (#128): `yarn cifras` mide con `vitest list --json` —con los argumentos de
