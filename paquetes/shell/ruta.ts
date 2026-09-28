@@ -65,12 +65,32 @@ export function leerLaRuta(pathname: string, search: string): RutaLeida | null {
   return { slug, sujeto: crudo === null ? null : descodificar(crudo), parametros };
 }
 
+/**
+ * **El sujeto que se escribe: `null` si no hay, y `''` tampoco es uno** (#129).
+ *
+ * Un sujeto en blanco no se puede escribir —`#/<slug>/` no es ninguna de las formas, #20—, asi que
+ * sin sujeto, `null` y `''` son lo mismo. Hasta #129 lo decian tres sitios con la misma cadena de
+ * ternarios —aqui, `ubicacionDe` y el salto del marco—, y el dia que uno cambiara, `ir` y la barra
+ * de direcciones dirian cosas distintas de la misma hoja. No recorta: un espacio es un sujeto.
+ */
+export function sujetoONulo(sujeto: string | null | undefined): string | null {
+  return sujeto === undefined || sujeto === null || sujeto === '' ? null : sujeto;
+}
+
+/**
+ * Si un nombre puede ser un parametro de la ruta: todos menos `sujeto`, que es el nombre con que
+ * una pieza dice «el tramo del camino» (`EL_SUJETO`). Lo preguntan lo que la hoja declara y lo que
+ * `ubicacionDe` escribe, y por eso vive aqui y no en cada uno (#129).
+ */
+export function esUnParametro(nombre: string): boolean {
+  return nombre !== EL_SUJETO;
+}
+
 /** Lo que una hoja declara que guarda en la ruta. Sin declaracion, nada. */
 function declarado(destino: Destino): { readonly sujeto: boolean; readonly parametros: ReadonlySet<string> } {
   return {
     sujeto: destino.enLaRuta?.sujeto === true,
-    // `sujeto` no puede ser un parametro: es el nombre con que una pieza dice «el tramo del camino».
-    parametros: new Set((destino.enLaRuta?.parametros ?? []).filter((p) => p !== EL_SUJETO)),
+    parametros: new Set((destino.enLaRuta?.parametros ?? []).filter(esUnParametro)),
   };
 }
 
@@ -117,7 +137,7 @@ export function aplicarElCambio(
     if (valor === null || valor === '') delete parametros[clave];
     else parametros[clave] = valor;
   }
-  const sujeto = cambio.sujeto === undefined ? antes.sujeto : cambio.sujeto === '' ? null : cambio.sujeto;
+  const sujeto = cambio.sujeto === undefined ? antes.sujeto : sujetoONulo(cambio.sujeto);
   return rutaDeLaHoja(destino, { sujeto, parametros });
 }
 

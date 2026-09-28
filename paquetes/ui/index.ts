@@ -93,7 +93,7 @@ export { Alerta } from './shadcn/alerta.tsx';
 export type { AlertaProps } from './shadcn/alerta.tsx';
 export { Avance } from './shadcn/avance.tsx';
 export type { AvanceProps } from './shadcn/avance.tsx';
-export { Formulario, CampoDelFormulario, useFormContext } from './shadcn/formulario.tsx';
+export { Formulario, CampoDelFormulario } from './shadcn/formulario.tsx';
 export type { FormularioProps, CampoDelFormularioProps } from './shadcn/formulario.tsx';
 export { PIEZA_POR_TIPO, TIPOS_DE_CAMPO, seEscribe, anchoCompleto, tipoDe } from './shadcn/campos.ts';
 export type { TipoDeCampo } from './shadcn/campos.ts';
@@ -156,7 +156,6 @@ export type {
 export {
   Cajon,
   DisparadorDelCajon,
-  CerrarElCajon,
   PanelDelCajon,
   TituloDelCajon,
   NotaDelCajon,
@@ -178,7 +177,8 @@ export type {
 } from './shadcn/paleta-de-mando.tsx';
 export { Avisos, avisar } from './shadcn/avisos.tsx';
 export type { AvisosProps } from './shadcn/avisos.tsx';
-// El interprete de pantallas (#27): una definicion `[titulo, nota, campos, tabla]`, dibujada. Sube
+// El interprete de pantallas (#27): una `DefinicionDePantalla` —`{ instruccion, bloques }`, y cada
+// bloque una pieza: el de campos y tablas, un aviso, un acto, un maestro-detalle…—, dibujada. Sube
 // de `rentas` con el segundo consumidor. Las piezas de dentro —el bloque, el campo, la tabla— NO se
 // exportan: nadie dibuja medio interprete.
 export { Pantalla } from './interprete/Pantalla.tsx';
@@ -242,6 +242,7 @@ export type {
 } from './interprete/tipos-de-los-actos.ts';
 export type { ActoAbierto } from './interprete/interaccion.ts';
 export { motivoDeLaAccion, motivoDelActo } from './interprete/acciones.ts';
+export type { ContextoDeUnaAccion, ContextoDeUnActo } from './interprete/acciones.ts';
 export { BotonConMotivo } from './shadcn/boton-con-motivo.tsx';
 export type { BotonConMotivoProps } from './shadcn/boton-con-motivo.tsx';
 // Los campos y las tablas de #65: sus tipos y sus tres reglas puras, por lo mismo que las de #44.

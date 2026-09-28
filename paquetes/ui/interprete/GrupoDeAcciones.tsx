@@ -10,8 +10,9 @@ import type { AccionesDeLaHoja } from './interaccion.ts';
 import type { DefinicionDeAccion } from './tipos-de-los-actos.ts';
 
 /**
- * **Una fila de acciones**: la de la cabecera de un bloque, o la de un acto ya hecho (#66,
- * `acciones-del-bloque`, `impedido-con-motivo` y `navegar-a-otra-hoja`).
+ * **Una fila de acciones**: la de la cabecera de un bloque, la de una fila de tabla, la del vacio de
+ * una tabla o la de un acto ya hecho (#66, `acciones-del-bloque`, `impedido-con-motivo` y
+ * `navegar-a-otra-hoja`).
  *
  * Cada boton decide si se puede pulsar con `motivoDeLaAccion`, y **los motivos se dibujan una vez
  * cada uno**, debajo de la fila: dos botones impedidos por «falta elegir un grupo» comparten el
@@ -33,7 +34,10 @@ import type { DefinicionDeAccion } from './tipos-de-los-actos.ts';
  *     `sinDescarga`—, y si la entrega revienta al pulsar, se dice lo mismo desde ese momento</td></tr>
  * </table>
  *
- * #65 (`acciones-por-fila`) puede montar esta misma pieza con los `nombrados` de la fila.
+ * La montan cuatro sitios, y ninguno la copia: la cabecera del bloque (`Pantalla`), cada fila
+ * (`AccionesDeLaFila`, #65 `acciones-por-fila`, con los `nombrados` de la fila encima de los de la
+ * pantalla), el vacio con salida de una tabla (`SinFilasDeLaTabla`, #61) y el acto hecho
+ * (`PartesDelActo`).
  */
 
 /**

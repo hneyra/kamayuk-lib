@@ -13,7 +13,7 @@ import { ArchivoRechazado, ErrorDeLaApi, crearCliente, type Cliente } from './cl
  * defecto que mas probablemente vuelva, porque la linea que lo introduce parece obviamente
  * correcta. Por eso se comprueba **la lista entera de cabeceras**, y no solo que falte una.
  *
- * Las demas: que el token viaje como en las otras dos operaciones y se lea en cada llamada; que
+ * Las demas: que el token viaje como en las otras tres operaciones y se lea en cada llamada; que
  * el avance salga con las cifras del navegador; que cancelar rechace con lo mismo que rechaza
  * `fetch`; y que los tres desenlaces que la pantalla tiene que poder distinguir —pesa de mas, no
  * es del tipo que es, y el 422 de validacion de esta casa— lleguen distinguidos.

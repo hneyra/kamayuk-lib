@@ -167,18 +167,14 @@ export function destinoDeSlug(catalogo: Catalogo, slug: string): string | null {
   return null;
 }
 
-/** Las claves que el catálogo ofrece. Es contra esto que se valida cualquier destino. */
-export function destinosOfrecidos(catalogo: Catalogo): ReadonlySet<string> {
-  return new Set(catalogo.flatMap((modulo) => modulo.destinos.map((destino) => destino.clave)));
-}
-
 /**
- * Los accesos que una hoja declara: el que la protege primero y después los demás, sin repetir
- * (#67). Es lo que un sistema cruza con sus permisos para filtrar; el marco no lo cruza con nada.
+ * Las claves que el catálogo ofrece: las del índice, y no otra cuenta de las mismas hojas (#129).
+ *
+ * El marco no la usa —valida contra `indiceDelCatalogo`—, pero `pcf` sí, en su prueba del catálogo
+ * (medido en #129 sobre los seis de `consumidores.json`), y por eso sigue publicada.
  */
-export function accesosDe(destino: Destino): readonly string[] {
-  const todos = destino.acceso === undefined ? [...(destino.tambien ?? [])] : [destino.acceso, ...(destino.tambien ?? [])];
-  return todos.filter((acceso, i) => todos.indexOf(acceso) === i);
+export function destinosOfrecidos(catalogo: Catalogo): ReadonlySet<string> {
+  return new Set(indiceDelCatalogo(catalogo).keys());
 }
 
 /** Cuántas hojas tiene el catálogo. Lo dice el pie de la paleta. */

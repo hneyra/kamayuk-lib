@@ -623,8 +623,9 @@ export interface DetalleDeFila<T extends Texto = string> {
 /**
  * Un boton de una fila: **una accion de #66**, con la `clave` por la que `segun.ofrece` la nombra.
  *
- * Abre un acto (`abre`, con `con` para pasarle datos de la fila), va a otra hoja (`va`) o hace una
- * operacion del sistema (`hace`), y se impide con su motivo (`impedida`), igual que las del bloque.
+ * Abre un acto (`abre`, con `con` para pasarle datos de la fila), va a otra hoja (`va`), hace una
+ * operacion del sistema (`hace`) o guarda como archivo un texto que se leyo (`guarda`, #86), y se
+ * impide con su motivo (`impedida`), igual que las del bloque.
  * Sus textos se resuelven contra los datos de la pantalla **y los de su fila**, que ganan.
  */
 export type AccionDeFila = DefinicionDeAccion & { readonly clave: string };

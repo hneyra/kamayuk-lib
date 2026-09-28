@@ -60,6 +60,7 @@ import { join, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { APARTADAS, archivosDe, lineasDelTextoQueCasan, rutaDesde } from './archivos.mjs';
+import { leerArgumentos } from './argumentos.mjs';
 import { SinAnalizador, elAnalizador, importsDe } from './imports.mjs';
 
 /** La subruta publicada. Lo que un consumidor escribe, y lo que resuelve por su `exports`. */
@@ -212,7 +213,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 }
 
 function principal() {
-  const raiz = resolve(leerLaRaiz(process.argv.slice(2)));
+  const raiz = resolve(leerArgumentos(process.argv.slice(2), { raiz: 'texto' }).raiz ?? process.cwd());
   /** @type {Barrido} */
   let barrido;
   try {
@@ -257,18 +258,4 @@ function principal() {
   }
 
   console.log(`El arnes se importa, y no se copia. Lo enchufa: ${enchufan.join(', ')}`);
-}
-
-/**
- * @param {readonly string[]} argumentos
- * @returns {string}
- */
-function leerLaRaiz(argumentos) {
-  for (let i = 0; i < argumentos.length; i += 1) {
-    if (argumentos[i] !== '--raiz') throw new Error(`Opcion desconocida: ${String(argumentos[i])}`);
-    const valor = argumentos[i + 1];
-    if (valor === undefined) throw new Error('Falta el valor de --raiz');
-    return valor;
-  }
-  return process.cwd();
 }

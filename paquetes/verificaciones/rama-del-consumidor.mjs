@@ -69,6 +69,8 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { leerArgumentos } from './argumentos.mjs';
+
 /** La palabra con la que el cuerpo del PR nombra una rama de un consumidor. */
 export const CLAVE = 'consumidor';
 
@@ -388,7 +390,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 }
 
 function principal() {
-  const opciones = leerOpciones(process.argv.slice(2));
+  const opciones = leerArgumentos(process.argv.slice(2), {
+    consumidor: 'texto',
+    cuerpo: 'texto',
+    consumidores: 'texto',
+    comprobar: 'marca',
+  });
   const consumidor = opciones.consumidor;
   if (!consumidor) {
     console.error('FALLO: falta --consumidor duenno/sistema.');
@@ -457,36 +464,4 @@ function principal() {
 
   console.log(`rama=${resolucion.rama}`);
   console.log(`nombrada=${resolucion.nombrada ? 'si' : 'no'}`);
-}
-
-/**
- * @param {readonly string[]} argumentos
- * @returns {{ consumidor?: string, cuerpo?: string, consumidores?: string, comprobar: boolean }}
- */
-function leerOpciones(argumentos) {
-  /** @type {{ consumidor?: string, cuerpo?: string, consumidores?: string, comprobar: boolean }} */
-  const opciones = { comprobar: false };
-  for (let i = 0; i < argumentos.length; i += 1) {
-    const nombre = argumentos[i];
-    if (nombre === '--comprobar') {
-      opciones.comprobar = true;
-      continue;
-    }
-    if (nombre !== '--consumidor' && nombre !== '--cuerpo' && nombre !== '--consumidores') {
-      throw new Error(`Opcion desconocida: ${String(nombre)}`);
-    }
-    const valor = argumentos[i + 1];
-    if (valor === undefined) {
-      throw new Error(`Falta el valor de ${nombre}`);
-    }
-    if (nombre === '--consumidor') {
-      opciones.consumidor = valor;
-    } else if (nombre === '--cuerpo') {
-      opciones.cuerpo = valor;
-    } else {
-      opciones.consumidores = valor;
-    }
-    i += 1;
-  }
-  return opciones;
 }

@@ -6,7 +6,7 @@ import type { RutaDeLaHoja } from '../ui/index.ts';
 import { slugDe, type HojaDelCatalogo } from './catalogo.ts';
 import type { AvisoDeLaRuta } from './contexto.tsx';
 import { ubicacionDe, type ExtraDeLaPeticion, type NavegacionDelArmazon } from './navegacion.tsx';
-import { rutaDeLaHoja } from './ruta.ts';
+import { rutaDeLaHoja, sujetoONulo } from './ruta.ts';
 
 /**
  * La ruta de una hoja como la pide `ubicacionDe`. **Todo lo que el marco escribe en la barra pasa
@@ -93,7 +93,7 @@ export function useNavegacionGuardada({
         return;
       }
       const { ruta: declarada, ignorados } = rutaDeLaHoja(destino.destino, {
-        sujeto: extra?.sujeto === undefined || extra.sujeto === '' ? null : extra.sujeto,
+        sujeto: sujetoONulo(extra?.sujeto),
         parametros: extra?.parametros ?? {},
       });
       if (ignorados.length > 0) alIgnorar({ destino: clave, ignorados });
