@@ -66,7 +66,7 @@ export interface ResultadoDelMando {
  * cuarenta convierte «escribir dos letras y pulsar Enter» en «escribir dos letras y buscar». Doce
  * caben en la altura que el artboard le da sin desplazar.
  */
-export const RESULTADOS_DE_LA_PALETA = 12;
+const RESULTADOS_DE_LA_PALETA = 12;
 
 /**
  * Los destinos que casan con lo que se escribió en la paleta, recortados a doce.

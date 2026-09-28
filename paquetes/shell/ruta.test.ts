@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { accesosDe, type Destino } from './catalogo.ts';
+import type { Destino } from './catalogo.ts';
 import { aplicarElCambio, escribirLaRuta, esUnParametro, leerLaRuta, rutaDeLaHoja, sujetoONulo } from './ruta.ts';
 
 /**
@@ -128,17 +128,5 @@ describe('el sujeto y los parametros, dichos en UN sitio (#129)', () => {
   it('`esUnParametro`: `sujeto` es el nombre del tramo del camino, no un parametro', () => {
     expect(esUnParametro('sujeto')).toBe(false);
     expect(esUnParametro('ver')).toBe(true);
-  });
-});
-
-describe('acceso-por-hoja', () => {
-  it('`accesosDe` da el que protege primero, despues los demas, sin repetir', () => {
-    expect(accesosDe({ ...SIN_ESTADO, acceso: 'consulta', tambien: ['detalle', 'consulta', 'otro'] })).toEqual([
-      'consulta',
-      'detalle',
-      'otro',
-    ]);
-    expect(accesosDe(SIN_ESTADO)).toEqual([]);
-    expect(accesosDe({ ...SIN_ESTADO, tambien: ['detalle'] })).toEqual(['detalle']);
   });
 });

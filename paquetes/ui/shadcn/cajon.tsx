@@ -27,7 +27,6 @@ import { CAPA_PANEL_DEL_CAJON, CAPA_VELO_DEL_CAJON } from './capas.ts';
 
 export const Cajon = Dialog.Root;
 export const DisparadorDelCajon = Dialog.Trigger;
-export const CerrarElCajon = Dialog.Close;
 
 const panel = cva(
   `fixed ${CAPA_PANEL_DEL_CAJON} flex flex-col bg-fondo shadow-sombra-2 outline-none`,

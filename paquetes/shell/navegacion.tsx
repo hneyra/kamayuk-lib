@@ -70,6 +70,12 @@ export function ubicacionDe(slug: string, extra: ExtraDeLaPeticion = {}): string
 
 const DeLaNavegacion = createContext<NavegacionDelArmazon | null>(null);
 
+/**
+ * Lo pone el `Armazon`, y **no sale por `index.ts`** (#129). Publicado, dejaba a un sistema montar
+ * su propia navegacion con un `ir` que no pasa por `irA` —o sea, que se salta el aviso de cambios
+ * sin guardar—, que es justo la segunda puerta que el docblock de arriba prohibe. Medido en #129:
+ * ninguno de los seis de `consumidores.json` lo importaba.
+ */
 export const ProveedorDeLaNavegacion = DeLaNavegacion.Provider;
 
 /** Como ir a otra hoja. Revienta fuera del `<Armazon>`: fuera no hay catalogo que consultar. */

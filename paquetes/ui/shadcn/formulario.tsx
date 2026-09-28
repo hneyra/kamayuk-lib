@@ -2,7 +2,6 @@ import type { ComponentProps, ReactNode } from 'react';
 import {
   Controller,
   FormProvider,
-  useFormContext,
   type ControllerRenderProps,
   type FieldPath,
   type FieldValues,
@@ -103,5 +102,3 @@ export function CampoDelFormulario<T extends FieldValues, N extends FieldPath<T>
     />
   );
 }
-
-export { useFormContext };

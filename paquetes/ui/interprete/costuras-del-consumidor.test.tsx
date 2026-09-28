@@ -4,8 +4,19 @@ import { describe, expect, it } from 'vitest';
 // Por el INDICE, a proposito: es la puerta por la que entra el consumidor, y las dos costuras de
 // #102 eran costuras de esa puerta —una funcion que no salia por ella y una firma que no aceptaba
 // lo que ella misma publica—. Importado de `./componer.ts`, esto pasaria en verde con las dos.
-import { esBloque, piezasSinRegistrar } from '../index.ts';
+import {
+  TEXTOS_DE_LAS_PIEZAS,
+  TEXTOS_DEL_INTERPRETE,
+  esBloque,
+  motivoDeLaAccion,
+  motivoDelActo,
+  piezasSinRegistrar,
+} from '../index.ts';
 import type {
+  ContextoDeUnActo,
+  ContextoDeUnaAccion,
+  DefinicionDeAccion,
+  DefinicionDeActo,
   DefinicionDePantalla,
   PiezaDeLaPantalla,
   PiezasDelConsumidor,
@@ -61,5 +72,54 @@ describe('#102: la guarda del consumidor se escribe con lo que el indice publica
       ],
     };
     expect(piezasSinRegistrar(definicion, REGISTRO)).toEqual(['olvidada']);
+  });
+});
+
+/**
+ * **Las dos reglas de «por que no se puede» salen por el indice, y su contexto tambien** (#129).
+ *
+ * `motivoDeLaAccion` y `motivoDelActo` se publicaban desde #66 y sus parametros no: un sistema que
+ * quisiera preguntar por que un boton sale impedido podia llamarlas con un literal, pero no nombrar
+ * lo que les pasa —ni tiparlo en una variable, ni escribir una funcion que lo construya—. Esto lo
+ * escribe como lo escribiria el, con los dos tipos importados del indice: sin ellos no compila.
+ */
+describe('#129: las reglas del motivo se llaman con un contexto que el consumidor puede nombrar', () => {
+  const textos = { ...TEXTOS_DEL_INTERPRETE, ...TEXTOS_DE_LAS_PIEZAS };
+  const traducir = (texto: string) => texto;
+
+  it('`ContextoDeUnaAccion`: una accion que nadie atiende lo dice, y atendida se puede pulsar', () => {
+    const accion: DefinicionDeAccion = { rotulo: 'Volver a leer', hace: 'releer' };
+    const contexto: ContextoDeUnaAccion = {
+      nombrados: undefined,
+      traducir,
+      textos,
+      actos: undefined,
+      alHacer: undefined,
+      navegacion: undefined,
+      enCurso: false,
+    };
+    expect(motivoDeLaAccion(accion, contexto)).toBe(textos.sinQuienLoAtienda('releer'));
+    expect(motivoDeLaAccion(accion, { ...contexto, alHacer: { releer: () => undefined } })).toBeUndefined();
+  });
+
+  it('`ContextoDeUnActo`: un acto sin quien lo atienda lo dice antes que la observacion', () => {
+    const acto: DefinicionDeActo = {
+      tipo: 'acto',
+      clave: 'anular',
+      titulo: 'Anular',
+      campos: [],
+      observacion: { etiqueta: 'Motivo', largo: { minimo: 5, maximo: 500 } },
+    };
+    const contexto: ContextoDeUnActo = {
+      valores: {},
+      observacion: '',
+      enCurso: false,
+      nombrados: undefined,
+      traducir,
+      textos,
+      atendido: false,
+    };
+    expect(motivoDelActo(acto, contexto)).toBe(textos.sinQuienLoAtienda('anular'));
+    expect(motivoDelActo(acto, { ...contexto, atendido: true, observacion: 'Por error' })).toBeUndefined();
   });
 });
