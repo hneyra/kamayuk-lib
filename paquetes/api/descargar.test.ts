@@ -8,6 +8,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ErrorDeLaApi, NoEsUnDocumento, crearCliente, type Cliente } from './cliente.ts';
+import { fetchQueContesta, problema } from './respuestas-de-prueba.ts';
 
 /**
  * `Cliente.descargar()`: un documento binario por la misma puerta que una lectura.
@@ -29,13 +30,6 @@ const PREFIJO = '/un-sistema/api/v1';
 let elToken: string | null = null;
 let cliente: Cliente;
 
-/** Clona en cada llamada: un `Response` solo se lee una vez (lo mismo que en `cliente.test.ts`). */
-function fetchQueContesta(respuesta: Response) {
-  const espia = vi.fn<typeof fetch>(() => Promise.resolve(respuesta.clone()));
-  vi.stubGlobal('fetch', espia);
-  return espia;
-}
-
 /** Los primeros bytes de un PDF de verdad: `%PDF-1.7` y un binario que no es texto. */
 const BYTES_DE_PDF = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x37, 0x0a, 0xe2, 0xe3, 0xcf, 0xd3]);
 
@@ -43,14 +37,6 @@ function unPdf(cabeceras: Record<string, string> = {}): Response {
   return new Response(BYTES_DE_PDF, {
     status: 200,
     headers: { 'content-type': 'application/pdf', ...cabeceras },
-  });
-}
-
-/** Un `problem+json` con la forma que publica la cadena de identidad: CUATRO miembros. */
-function problema(estado: number, codigo: string, mensaje: string): Response {
-  return new Response(JSON.stringify({ status: estado, title: mensaje, codigo, mensaje }), {
-    status: estado,
-    headers: { 'content-type': 'application/problem+json' },
   });
 }
 

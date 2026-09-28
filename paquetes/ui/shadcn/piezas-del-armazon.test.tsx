@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeAll, describe, expect, it } from 'vitest';
 
+import { remendarElDom } from '../../verificaciones/arnes-del-dom.ts';
+
 import {
   Avisos,
   BuscadorDeLaPaleta,
@@ -72,38 +74,13 @@ import {
  *     TypeError: window.matchMedia is not a function      node_modules/sonner/dist/index.mjs:1072
  *
  * Esa ausencia es la que hace que `useEsEstrecho()` del armazon pregunte por ella antes de usarla.
+ *
+ * Se midieron aqui y se escribian aqui; desde #127 viven en `verificaciones/arnes-del-dom.ts`, que
+ * las ocho suites que los necesitan llaman en su `beforeAll`.
  */
 
-beforeAll(() => {
-  // Ver #11: jsdom mueve `rAF` con un temporizador de 16 ms y el bucle de cuadros de una capa no
-  // se detiene solo. Sincrono es ademas lo que una prueba quiere: que la maquetacion ocurra YA.
-  globalThis.requestAnimationFrame = ((cb: FrameRequestCallback) => {
-    cb(0);
-    return 0;
-  }) as typeof requestAnimationFrame;
-  globalThis.cancelAnimationFrame = (() => {}) as typeof cancelAnimationFrame;
-  Element.prototype.scrollIntoView = () => {};
-  globalThis.ResizeObserver = class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  } as unknown as typeof ResizeObserver;
-  // Y el tercero, que se gano aqui: **jsdom no trae `matchMedia`**. `sonner` la llama para el modo
-  // `system`, que es el que sale cuando nadie eligio modo:
-  //     TypeError: window.matchMedia is not a function    node_modules/sonner/dist/index.mjs:1072
-  // Es la misma ausencia por la que `useEsEstrecho()` del armazon pregunta por ella antes de
-  // usarla en vez de darla por hecha.
-  window.matchMedia = ((consulta: string) => ({
-    matches: false,
-    media: consulta,
-    onchange: null,
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    addListener: () => {},
-    removeListener: () => {},
-    dispatchEvent: () => false,
-  })) as unknown as typeof window.matchMedia;
-});
+// Los remiendos que Radix, `cmdk` y `sonner` le piden a jsdom: escritos una vez, en el arnes (#127).
+beforeAll(remendarElDom);
 
 describe('la miga', () => {
   it('es una LISTA, marca el paso actual y esconde el separador', () => {

@@ -167,6 +167,28 @@ el analizador de TypeScript, y lo busca junto a esta librería y, si no, **en el
 la CI de un consumidor la librería es un clon sin `node_modules`. Sin `typescript` en ninguno de los
 dos sale con RC=2 diciéndolo; sus argumentos, su RC=0/1 y sus líneas no cambian.
 
+## El arnés del DOM (#127)
+
+`arnes-del-dom.ts` da `remendarElDom()`: los cuatro remiendos que Radix, `cmdk` y `sonner` le piden a
+jsdom —`requestAnimationFrame` síncrono, `scrollIntoView`, `ResizeObserver` y `matchMedia`—, que
+estaban copiados en ocho suites. **Se llama**, en el `beforeAll` de la suite que los necesita, y no
+se monta al importar ni en `vitest.setup.ts`: tapan ausencias de verdad, y una prueba que quiera
+medir la falta de `matchMedia` necesita un jsdom sin remendar. **No se publica por `exports`**:
+publicarlo para quien monta el `Armazon` en su suite es un paso siguiente que #127 deja dicho.
+
+Los otros tres arneses de #127 viven con lo que prueban —`api/respuestas-de-prueba.ts`,
+`shell/arnes-del-armazon.tsx` y `ui/interprete/arnes-del-interprete.tsx`—, sin `.test.` en el
+nombre porque no tienen pruebas; `sin-suponer-un-sistema` y `el-texto-visible-es-dato` los barren
+como producción **a propósito**, y sus centinelas lo exigen.
+
+**Y no se vuelven a copiar**: `los-arneses-de-prueba-no-se-copian.test.ts` saca del árbol sintáctico
+lo que exporta cada uno de los cuatro, y sale rojo si en `paquetes/` otra declaración lleva ese
+nombre —en una prueba a cualquier profundidad, dentro de un `describe` también; en producción sólo
+la de primer nivel— o si `ResizeObserver` se instala fuera de `arnes-del-dom.ts`: por asignación
+—`=`, `??=`, `||=` o `&&=`—, por `vi.stubGlobal`, `Object.defineProperty` o `Reflect.set`, o como
+clave de un literal de objeto, que es lo que recibe `Object.assign` u `Object.defineProperties`.
+Con su muestra, `muestras/arnes-de-prueba-copiado.ts`, que las lleva las once.
+
 ## Lo que le falta
 
 Los tokens contra el artboard y el contraste.

@@ -1,11 +1,11 @@
 import { act, fireEvent, render, renderHook, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
 
+import { ConHoja } from './arnes-del-interprete.tsx';
 import type { DatosDeLaPantalla, FilaDeLaTabla } from './datos.ts';
 import { useEnElMarcoOAqui } from './en-el-marco-o-aqui.ts';
-import { type CambioDeLaRuta, type HojaDelMarco, type RutaDeLaHoja, useSitioDeLaHoja } from './hoja.ts';
+import { type CambioDeLaRuta, type HojaDelMarco, useSitioDeLaHoja } from './hoja.ts';
 import { MUESTRAS_DE_LA_COMPOSICION } from './muestras-de-la-composicion.ts';
 import { Pantalla } from './Pantalla.tsx';
 import { queDiceSinFilas, type LoQueDiceSinFilas } from './reglas-de-las-tablas.ts';
@@ -84,36 +84,6 @@ describe('`destinoDeLaTecla`: el tabulador itinerante de las tres piezas, en una
 });
 
 // ── El maestro, montado: en el ultimo, ↓ se queda ───────────────────────────────────────────────
-
-/** Una hoja de prueba: la ruta en un estado, y cada cambio anotado. */
-function ConHoja({
-  inicial,
-  cambios,
-  definicion,
-  datos,
-}: {
-  readonly inicial: RutaDeLaHoja;
-  readonly cambios: CambioDeLaRuta[];
-  readonly definicion: DefinicionDePantalla<PiezaDeLaPantalla>;
-  readonly datos: DatosDeLaPantalla;
-}) {
-  const [ruta, setRuta] = useState<RutaDeLaHoja>(inicial);
-  const hoja: HojaDelMarco = {
-    ruta,
-    moverLaRuta: (cambio) => {
-      cambios.push(cambio);
-      setRuta((antes) => ({
-        sujeto: cambio.sujeto === undefined ? antes.sujeto : cambio.sujeto,
-        parametros: Object.fromEntries(
-          Object.entries({ ...antes.parametros, ...cambio.parametros }).filter(
-            (par): par is [string, string] => par[1] !== null,
-          ),
-        ),
-      }));
-    },
-  };
-  return <Pantalla definicion={definicion} datos={datos} tonoDeLaInsignia={() => 'info'} hoja={hoja} />;
-}
 
 describe('el maestro, con `destinoDeLaTecla`: la lista no da la vuelta', () => {
   it('en el ultimo, ↓ se queda; en el primero, ↑ tambien; y moverse no elige', async () => {

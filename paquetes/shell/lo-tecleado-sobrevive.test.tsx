@@ -1,10 +1,11 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { Pantalla, type DefinicionDePantalla, type PiezaDeLaPantalla } from '../ui/index.ts';
+import { remendarElDom } from '../verificaciones/arnes-del-dom.ts';
 
-import { Armazon } from './Armazon.tsx';
+import { montarElArmazon, type OpcionesDelArmazon } from './arnes-del-armazon.tsx';
 import type { Catalogo } from './catalogo.ts';
 import { useHoja, type HojaAbierta } from './contexto.tsx';
 
@@ -28,30 +29,8 @@ import { useHoja, type HojaAbierta } from './contexto.tsx';
  * «SIN GUARDAR» sobre un formulario vacio.
  */
 
-beforeAll(() => {
-  // Los mismos remiendos de `armazon.test.tsx`: jsdom no los trae y Radix, `cmdk` y `sonner` los usan.
-  globalThis.requestAnimationFrame = ((cb: FrameRequestCallback) => {
-    cb(0);
-    return 0;
-  }) as typeof requestAnimationFrame;
-  globalThis.cancelAnimationFrame = (() => {}) as typeof cancelAnimationFrame;
-  Element.prototype.scrollIntoView = () => {};
-  globalThis.ResizeObserver = class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  } as unknown as typeof ResizeObserver;
-  window.matchMedia = ((consulta: string) => ({
-    matches: false,
-    media: consulta,
-    onchange: null,
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    addListener: () => {},
-    removeListener: () => {},
-    dispatchEvent: () => false,
-  })) as unknown as typeof window.matchMedia;
-});
+// Los remiendos que Radix, `cmdk` y `sonner` le piden a jsdom: escritos una vez, en el arnes (#127).
+beforeAll(remendarElDom);
 
 /** Un campo que se teclea, una accion que abre un acto y el acto. La hoja cambia por destino. */
 function definicionCon(hoja: DefinicionDePantalla<PiezaDeLaPantalla>['hoja']): DefinicionDePantalla<PiezaDeLaPantalla> {
@@ -84,7 +63,7 @@ const DEFINICIONES: Readonly<Record<string, DefinicionDePantalla<PiezaDeLaPantal
   ninguna: definicionCon(undefined),
 };
 
-const CATALOGO: Catalogo = [
+const CATALOGO_DE_LAS_MARCAS: Catalogo = [
   {
     clave: 'registro',
     rotulo: 'Registro',
@@ -119,20 +98,12 @@ function HojaInterpretada({ clave }: { readonly clave: string }) {
   );
 }
 
-function montar(hash: string) {
-  window.location.hash = hash;
-  return render(
-    <Armazon
-      titulo="Sistema de prueba"
-      entidad="Entidad de prueba"
-      catalogo={CATALOGO}
-      cuenta={{ nombre: 'J. Ruiz', iniciales: 'JR' }}
-      opcionesDeSesion={[]}
-      acciones={{ guardar: () => {} }}
-      pantalla={(hoja) => <HojaInterpretada clave={hoja.destino.clave} />}
-    />,
-  );
-}
+/** Lo que esta suite le pasa siempre al armazon: su catalogo, la accion de guardar y la hoja interpretada. */
+const DE_ESTA_SUITE = {
+  catalogo: CATALOGO_DE_LAS_MARCAS,
+  acciones: { guardar: () => {} },
+  pantalla: (hoja) => <HojaInterpretada clave={hoja.destino.clave} />,
+} satisfies OpcionesDelArmazon;
 
 /** Sale escribiendo la direccion, como un enlace o la barra: NO pasa por `irA`, y no pregunta. */
 function salirPorLaDireccion(hash: string): void {
@@ -173,7 +144,7 @@ beforeEach(() => {
 
 describe('EL INVARIANTE: «SIN GUARDAR» en el arbol si y solo si lo tecleado espera al volver', () => {
   it('(1) sucia, se sale por la direccion y se vuelve: el arbol lo decia, y lo tecleado esta', () => {
-    montar('#/las-dos');
+    montarElArmazon({ ...DE_ESTA_SUITE, hash: '#/las-dos' });
     escribir('Apunte', 'lo escrito');
     expect(marcadaSinGuardar('Con las dos'), 'teclear no ensucio la hoja').toBe(true);
 
@@ -188,7 +159,7 @@ describe('EL INVARIANTE: «SIN GUARDAR» en el arbol si y solo si lo tecleado es
 
   it('(2) NO sucia, se sale y se vuelve: el formulario esta vacio (lo que normativa#58 pedia)', () => {
     // Sin `suciaAlTeclear`, y sin que el sistema la marque: lo tecleado no hace sucia la hoja.
-    montar('#/solo-conserva');
+    montarElArmazon({ ...DE_ESTA_SUITE, hash: '#/solo-conserva' });
     escribir('Apunte', 'lo escrito');
     expect(marcadaSinGuardar('Solo conserva')).toBe(false);
 
@@ -198,7 +169,7 @@ describe('EL INVARIANTE: «SIN GUARDAR» en el arbol si y solo si lo tecleado es
   });
 
   it('(3a) «Salir y perder los cambios»: al volver, vacio y sin marca', () => {
-    montar('#/las-dos');
+    montarElArmazon({ ...DE_ESTA_SUITE, hash: '#/las-dos' });
     escribir('Apunte', 'lo escrito');
     volverPorElArbol('Otra hoja');
     fireEvent.click(screen.getByRole('button', { name: 'Salir y perder los cambios' }));
@@ -209,7 +180,7 @@ describe('EL INVARIANTE: «SIN GUARDAR» en el arbol si y solo si lo tecleado es
   });
 
   it('(3b) «Guardar y cerrar»: al volver, vacio y sin marca', () => {
-    montar('#/las-dos');
+    montarElArmazon({ ...DE_ESTA_SUITE, hash: '#/las-dos' });
     escribir('Apunte', 'lo escrito');
     volverPorElArbol('Otra hoja');
     fireEvent.click(screen.getByRole('button', { name: 'Guardar y cerrar' }));
@@ -219,7 +190,7 @@ describe('EL INVARIANTE: «SIN GUARDAR» en el arbol si y solo si lo tecleado es
   });
 
   it('(4) lo mismo con un acto abierto: sucia, se sale, se vuelve y se reabre, y lo escrito esta', () => {
-    montar('#/las-dos');
+    montarElArmazon({ ...DE_ESTA_SUITE, hash: '#/las-dos' });
     fireEvent.click(screen.getByRole('button', { name: 'Corregir el registro' }));
     escribir('Codigo', 'R-7');
     escribir('Observacion', 'Lo dice el acta.');
@@ -233,7 +204,7 @@ describe('EL INVARIANTE: «SIN GUARDAR» en el arbol si y solo si lo tecleado es
   });
 
   it('(4b) y salir perdiendo los cambios vacia tambien el acto', () => {
-    montar('#/las-dos');
+    montarElArmazon({ ...DE_ESTA_SUITE, hash: '#/las-dos' });
     fireEvent.click(screen.getByRole('button', { name: 'Corregir el registro' }));
     escribir('Codigo', 'R-7');
     volverPorElArbol('Otra hoja');
@@ -247,7 +218,7 @@ describe('EL INVARIANTE: «SIN GUARDAR» en el arbol si y solo si lo tecleado es
     // Es lo unico que solo `limpiar` puede hacer: al salir, el efecto del destino ya olvida lo de una
     // hoja limpia. Quedandose, una hoja guardada con lo tecleado todavia en el marco ensenaria encima
     // de lo que el sistema acaba de leer lo que ya se guardo, y volveria a aparecer si se ensucia.
-    montar('#/las-dos');
+    montarElArmazon({ ...DE_ESTA_SUITE, hash: '#/las-dos' });
     escribir('Apunte', 'lo escrito');
     act(() => {
       vista?.marcarGuardada();
@@ -258,7 +229,7 @@ describe('EL INVARIANTE: «SIN GUARDAR» en el arbol si y solo si lo tecleado es
   });
 
   it('SIN los datos de #86, la hoja de antes: teclear no la marca, y lo tecleado muere al salir', () => {
-    montar('#/ninguna');
+    montarElArmazon({ ...DE_ESTA_SUITE, hash: '#/ninguna' });
     escribir('Apunte', 'lo escrito');
     expect(marcadaSinGuardar('Sin ninguna')).toBe(false);
     salirPorLaDireccion('#/otra');
@@ -271,7 +242,7 @@ describe('`la-hoja-se-marca-sucia-al-teclear`: guardada, PUEDE volver a ensuciar
   it('el sistema la da por guardada por su cuenta, y la siguiente tecla la vuelve a marcar', () => {
     // Solo `suciaAlTeclear`: lo tecleado vive en la pantalla y guardar desde fuera no lo vacia. Es el
     // caso en que «avisar solo con la primera tecla» deja la hoja limpia con cambios dentro.
-    montar('#/solo-sucia');
+    montarElArmazon({ ...DE_ESTA_SUITE, hash: '#/solo-sucia' });
     escribir('Apunte', 'uno');
     expect(marcadaSinGuardar('Solo sucia')).toBe(true);
     act(() => {
@@ -283,7 +254,7 @@ describe('`la-hoja-se-marca-sucia-al-teclear`: guardada, PUEDE volver a ensuciar
   });
 
   it('guardar un acto la deja limpia, y teclear otra vez la ensucia', () => {
-    montar('#/las-dos');
+    montarElArmazon({ ...DE_ESTA_SUITE, hash: '#/las-dos' });
     escribir('Apunte', 'uno');
     fireEvent.click(screen.getByRole('button', { name: 'Corregir el registro' }));
     escribir('Codigo', 'R-7');
@@ -297,7 +268,7 @@ describe('`la-hoja-se-marca-sucia-al-teclear`: guardada, PUEDE volver a ensuciar
 
   it('TECLADO: lo tecleado con el teclado marca la hoja y sobrevive a salir y volver', async () => {
     const teclado = userEvent.setup({ delay: null });
-    montar('#/las-dos');
+    montarElArmazon({ ...DE_ESTA_SUITE, hash: '#/las-dos' });
     act(() => {
       screen.getByLabelText('Apunte').focus();
     });

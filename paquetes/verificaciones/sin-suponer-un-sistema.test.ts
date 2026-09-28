@@ -54,6 +54,17 @@ describe('ninguna libreria comun supone un sistema', () => {
       PRODUCCION.length,
       'no se leyo ni un archivo de produccion: la guarda no mide nada',
     ).toBeGreaterThan(8);
+    // Y los arneses de prueba de #127 se leen, a proposito: no llevan `.test.` en el nombre porque no
+    // tienen pruebas, y para esta guarda son codigo de produccion. Ninguno nombra un sistema —su
+    // catalogo habla de un almacen y una flota— y el que lo hiciera tiene que salir aqui. El del DOM
+    // vive en `verificaciones` y queda fuera con su paquete, como el del `Request`.
+    for (const arnes of [
+      join('api', 'respuestas-de-prueba.ts'),
+      join('shell', 'arnes-del-armazon.tsx'),
+      join('ui', 'interprete', 'arnes-del-interprete.tsx'),
+    ]) {
+      expect(PRODUCCION.some((a) => a.endsWith(arnes)), `no se leyo el arnes «${arnes}»`).toBe(true);
+    }
   });
 
   it('EL CENTINELA: la exclusion es UNO y se sabe cual', () => {

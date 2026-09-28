@@ -1,8 +1,9 @@
-import { render, screen, within } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
 import { PIEZA_POR_TIPO } from '../shadcn/campos.ts';
+import { montadorDeLaPantalla } from './arnes-del-interprete.tsx';
 import type { Ausencia } from './datos.ts';
 import { coordenada } from './datos.ts';
 import { Pantalla, type PantallaProps } from './Pantalla.tsx';
@@ -38,15 +39,11 @@ const SIN_DATO: Ausencia = {
 /** Un reparto de tonos inventado: lo que cada sistema escribe con SU vocabulario. */
 const TONO_DE_PRUEBA = (texto: string): TonoDeInsignia => (/cerrado/i.test(texto) ? 'mal' : 'ok');
 
-const monta = (definicion: DefinicionDePantalla, extra: Partial<PantallaProps> = {}) =>
-  render(
-    <Pantalla
-      definicion={definicion}
-      datos={{ ausencia: SIN_DATO }}
-      tonoDeLaInsignia={TONO_DE_PRUEBA}
-      {...extra}
-    />,
-  );
+const CON_EL_TONO_DE_PRUEBA = montadorDeLaPantalla({ ausencia: SIN_DATO, tonoDeLaInsignia: TONO_DE_PRUEBA });
+
+/** Con la ausencia y el tono de esta suite. Lo segundo son las `props` de encima, `datos` incluidos. */
+const montaConElTono = (definicion: DefinicionDePantalla, extra: Partial<PantallaProps> = {}) =>
+  CON_EL_TONO_DE_PRUEBA(definicion, {}, extra);
 
 describe('los siete tipos de campo, cada uno con su pieza', () => {
   it('EL CENTINELA: la tabla de piezas sigue teniendo los siete', () => {
@@ -56,13 +53,13 @@ describe('los siete tipos de campo, cada uno con su pieza', () => {
   });
 
   it('«s» es un desplegable de LISTA CERRADA, no un cuadro de texto', () => {
-    monta(campo({ etiqueta: 'Turno', tipo: 's', opciones: ['Manana', 'Tarde'] }));
+    montaConElTono(campo({ etiqueta: 'Turno', tipo: 's', opciones: ['Manana', 'Tarde'] }));
     expect(screen.getByRole('combobox', { name: 'Turno' })).toBeTruthy();
     expect(screen.queryByRole('textbox')).toBeNull();
   });
 
   it('«r» es un dato de solo lectura, y NO un campo desactivado', () => {
-    monta(campo({ etiqueta: 'Cobrado', tipo: 'r' }), {
+    montaConElTono(campo({ etiqueta: 'Cobrado', tipo: 'r' }), {
       datos: { ausencia: SIN_DATO, valores: new Map([[coordenada(0, 0), 'S/ 1,842.60']]) },
     });
     const dato = document.querySelector('[data-slot="dato"]');
@@ -73,7 +70,7 @@ describe('los siete tipos de campo, cada uno con su pieza', () => {
   });
 
   it('«r» sin dato DICE por que, y nunca pinta un cero', () => {
-    monta(campo({ etiqueta: 'Cobrado', tipo: 'r' }));
+    montaConElTono(campo({ etiqueta: 'Cobrado', tipo: 'r' }));
     const dato = document.querySelector('[data-slot="dato"]');
     expect(dato?.textContent).toBe('sin conectar');
     expect(dato?.hasAttribute('data-sin-dato')).toBe(true);
@@ -82,20 +79,20 @@ describe('los siete tipos de campo, cada uno con su pieza', () => {
   });
 
   it('«c» es una casilla, y su texto se lee AL LADO de la marca', () => {
-    monta(campo({ etiqueta: 'Aviso', tipo: 'c', casilla: 'Avisar por correo' }));
+    montaConElTono(campo({ etiqueta: 'Aviso', tipo: 'c', casilla: 'Avisar por correo' }));
     expect(screen.getByRole('checkbox', { name: 'Avisar por correo' })).toBeTruthy();
   });
 
   it('«a» es un area, y «» un campo de una linea', () => {
-    const { unmount } = monta(campo({ etiqueta: 'Observaciones', tipo: 'a' }));
+    const { unmount } = montaConElTono(campo({ etiqueta: 'Observaciones', tipo: 'a' }));
     expect(screen.getByLabelText('Observaciones').tagName).toBe('TEXTAREA');
     unmount();
-    monta(campo({ etiqueta: 'Nombre', tipo: '' }));
+    montaConElTono(campo({ etiqueta: 'Nombre', tipo: '' }));
     expect(screen.getByLabelText('Nombre').tagName).toBe('INPUT');
   });
 
   it('«d» abre un calendario y NO un `input type=date`', () => {
-    monta(campo({ etiqueta: 'Desde', tipo: 'd' }));
+    montaConElTono(campo({ etiqueta: 'Desde', tipo: 'd' }));
     // El nativo no se puede pintar y cambia de formato con el idioma del SISTEMA operativo: en una
     // fecha, «03/04» leido al reves no es una molestia, es otro dia.
     expect(document.querySelector('input[type="date"]')).toBeNull();
@@ -103,14 +100,14 @@ describe('los siete tipos de campo, cada uno con su pieza', () => {
   });
 
   it('el `1` estira el campo y NO cambia el control', () => {
-    monta(campo({ etiqueta: 'Observaciones', tipo: 'a1' }));
+    montaConElTono(campo({ etiqueta: 'Observaciones', tipo: 'a1' }));
     const etiqueta = document.querySelector('[data-slot="etiqueta"]');
     expect(etiqueta?.getAttribute('data-ancho')).toBe('1');
     expect(screen.getByLabelText('Observaciones').tagName).toBe('TEXTAREA');
   });
 
   it('un tipo que no existe REVIENTA en vez de dibujarse como texto', () => {
-    expect(() => monta(campo({ etiqueta: 'Raro', tipo: 'x' as 's', opciones: [] }))).toThrow(
+    expect(() => montaConElTono(campo({ etiqueta: 'Raro', tipo: 'x' as 's', opciones: [] }))).toThrow(
       /no es un tipo de campo/,
     );
   });
@@ -120,7 +117,7 @@ describe('lo que se escribe, se escribe', () => {
   it('teclear cambia el valor y ENSUCIA la pantalla, una sola vez', async () => {
     const usuario = userEvent.setup({ delay: null });
     const sucias: number[] = [];
-    monta(campo({ etiqueta: 'Nombre', tipo: '' }), { alEnsuciar: () => sucias.push(1) });
+    montaConElTono(campo({ etiqueta: 'Nombre', tipo: '' }), { alEnsuciar: () => sucias.push(1) });
 
     await usuario.type(screen.getByLabelText('Nombre'), 'Rufina');
     expect((screen.getByLabelText('Nombre') as HTMLInputElement).value).toBe('Rufina');
@@ -130,7 +127,7 @@ describe('lo que se escribe, se escribe', () => {
   it('lo que llega de la API NO pisa lo que alguien esta escribiendo', async () => {
     const usuario = userEvent.setup({ delay: null });
     const definicion = campo({ etiqueta: 'Nombre', tipo: '' });
-    const { rerender } = monta(definicion);
+    const { rerender } = montaConElTono(definicion);
     await usuario.type(screen.getByLabelText('Nombre'), 'Rufina');
 
     rerender(
@@ -181,25 +178,25 @@ describe('la tabla de un bloque', () => {
   };
 
   it('la columna de cifras va a la derecha, y la primera identifica la fila', () => {
-    monta(conTabla, { datos: CON_FILAS });
+    montaConElTono(conTabla, { datos: CON_FILAS });
     expect(screen.getByRole('cell', { name: '1,842.60' }).className).toContain('tabular-nums');
     expect(screen.getByRole('cell', { name: 'Puesto 14' }).className).toContain('whitespace-nowrap');
   });
 
   it('la insignia lleva el tono que el SISTEMA dice, no uno de la libreria', () => {
-    monta(conTabla, { datos: CON_FILAS });
+    montaConElTono(conTabla, { datos: CON_FILAS });
     expect(screen.getByText('Cerrado').className).toContain('bg-mal-fondo');
     expect(screen.getByText('Abierto').className).toContain('bg-ok-fondo');
   });
 
   it('la nota va FUERA de la tabla, y el conteo se cuenta solo', () => {
-    monta(conTabla, { datos: CON_FILAS });
+    montaConElTono(conTabla, { datos: CON_FILAS });
     expect(within(screen.getByRole('table')).queryByText(/no es lo contado/)).toBeNull();
     expect(screen.getByText('2 registros')).toBeTruthy();
   });
 
   it('sin filas no se escribe «0 registros»: se dice por que', () => {
-    monta(conTabla);
+    montaConElTono(conTabla);
     expect(screen.queryByText(/registro/)).toBeNull();
     expect(document.querySelector('p[data-sin-dato]')?.textContent).toBe('sin conectar');
   });
@@ -221,7 +218,7 @@ describe('lo que cambia de un sistema a otro entra por props', () => {
         },
       ],
     };
-    monta(definicion, {
+    montaConElTono(definicion, {
       traducir: (texto) => `«${texto}»`,
       datos: { ausencia: SIN_DATO, valores: new Map([[coordenada(0, 1), '1,842.60']]) },
     });
@@ -235,7 +232,7 @@ describe('lo que cambia de un sistema a otro entra por props', () => {
   });
 
   it('las tres palabras propias se pueden cambiar sin tocar las otras', () => {
-    monta(campo({ etiqueta: 'Desde', tipo: 'd' }), { textos: { marcadorDeFecha: 'jj/mm/aaaa' } });
+    montaConElTono(campo({ etiqueta: 'Desde', tipo: 'd' }), { textos: { marcadorDeFecha: 'jj/mm/aaaa' } });
     expect(screen.getByRole('button', { name: /jj\/mm\/aaaa/ })).toBeTruthy();
   });
 });

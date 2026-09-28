@@ -1,12 +1,11 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { TEXTOS_DE_LAS_PIEZAS } from '../textos.tsx';
+import { ConHoja } from './arnes-del-interprete.tsx';
 import { resolverTexto } from './componer.ts';
-import type { DatosDeLaPantalla } from './datos.ts';
-import type { CambioDeLaRuta, HojaDelMarco, RutaDeLaHoja } from './hoja.ts';
+import type { CambioDeLaRuta } from './hoja.ts';
 import { MUESTRAS_DE_LA_ELECCION } from './muestras-de-la-eleccion.ts';
 import { Pantalla, type PantallaProps } from './Pantalla.tsx';
 import { valorDeLaFila } from './reglas-de-las-tablas.ts';
@@ -30,46 +29,10 @@ type Definicion = DefinicionDePantalla<PiezaDeLaPantalla>;
 const TABLA = MUESTRAS_DE_LA_ELECCION['fila-elegible-en-la-ruta'];
 const MAESTRO = MUESTRAS_DE_LA_ELECCION['detalle-sin-eleccion-que-se-dibuja'];
 
-function ConHoja({
-  inicial,
-  cambios,
-  definicion,
-  datos,
-  extra = {},
-}: {
-  readonly inicial: RutaDeLaHoja;
-  readonly cambios: CambioDeLaRuta[];
-  readonly definicion: Definicion;
-  readonly datos: DatosDeLaPantalla;
-  readonly extra?: Partial<PantallaProps>;
-}) {
-  const [ruta, setRuta] = useState<RutaDeLaHoja>(inicial);
-  const hoja: HojaDelMarco = {
-    ruta,
-    moverLaRuta: (cambio) => {
-      cambios.push(cambio);
-      setRuta((antes) => ({
-        sujeto: cambio.sujeto === undefined ? antes.sujeto : cambio.sujeto,
-        parametros: Object.fromEntries(
-          Object.entries({ ...antes.parametros, ...cambio.parametros }).filter(
-            (par): par is [string, string] => par[1] !== null,
-          ),
-        ),
-      }));
-    },
-  };
-  return (
-    // El desplegable del orden se lee por su `<select>` nativo, que Radix solo pone en un formulario.
-    <form>
-      <Pantalla definicion={definicion} datos={datos} tonoDeLaInsignia={() => 'info'} hoja={hoja} {...extra} />
-    </form>
-  );
-}
-
 const montaConRuta = (parametros: Readonly<Record<string, string>>, extra: Partial<PantallaProps> = {}) => {
   const cambios: CambioDeLaRuta[] = [];
   const montada = render(
-    <ConHoja inicial={{ sujeto: null, parametros }} cambios={cambios} definicion={TABLA.definicion} datos={TABLA.datos} extra={extra} />,
+    <ConHoja enUnFormulario inicial={{ sujeto: null, parametros }} cambios={cambios} definicion={TABLA.definicion} datos={TABLA.datos} extra={extra} />,
   );
   return { cambios, ...montada };
 };
@@ -131,7 +94,7 @@ describe('`fila-elegible-en-la-ruta`: la fila se elige, y lo elegido vive en la 
       bloques: [{ ...bloque, tabla: { ...bloque.tabla, eleccion: { enLaRuta: 'sujeto', desde: 'codigo' } } }, detalle],
     };
     const cambios: CambioDeLaRuta[] = [];
-    render(<ConHoja inicial={{ sujeto: 'M-2', parametros: {} }} cambios={cambios} definicion={enElSujeto} datos={TABLA.datos} />);
+    render(<ConHoja enUnFormulario inicial={{ sujeto: 'M-2', parametros: {} }} cambios={cambios} definicion={enElSujeto} datos={TABLA.datos} />);
     expect(fila('M-2').getAttribute('aria-selected')).toBe('true');
     fireEvent.click(fila('M-1'));
     expect(cambios).toEqual([{ sujeto: 'M-1' }]);
@@ -244,7 +207,7 @@ describe('`fila-elegible-en-la-ruta`: la fila se elige, y lo elegido vive en la 
   it('SIN el dato, la tabla es la de antes BYTE A BYTE: ni `grid`, ni foco, ni un atributo de mas', () => {
     const cambios: CambioDeLaRuta[] = [];
     const { container } = render(
-      <ConHoja inicial={{ sujeto: null, parametros: { movimiento: 'M-1' } }} cambios={cambios} definicion={sinLaEleccion()} datos={TABLA.datos} />,
+      <ConHoja enUnFormulario inicial={{ sujeto: null, parametros: { movimiento: 'M-1' } }} cambios={cambios} definicion={sinLaEleccion()} datos={TABLA.datos} />,
     );
     expect(screen.queryByRole('grid')).toBeNull();
     fireEvent.click(fila('M-1'));
@@ -277,7 +240,7 @@ describe('`detalle-sin-eleccion-que-se-dibuja`: el detalle se dibuja sin eleccio
 
   it('CON el dato y sin eleccion: la cabecera y las piezas se dibujan, cada lectura en su espera, y la frase encima', () => {
     const { container } = render(
-      <ConHoja inicial={{ sujeto: null, parametros: {} }} cambios={[]} definicion={MAESTRO.definicion} datos={MAESTRO.datos} />,
+      <ConHoja enUnFormulario inicial={{ sujeto: null, parametros: {} }} cambios={[]} definicion={MAESTRO.definicion} datos={MAESTRO.datos} />,
     );
     const detalle = container.querySelector('[data-slot="detalle"]') as HTMLElement;
     expect(detalle.querySelector('[data-sin-eleccion]')?.textContent).toBe(
@@ -292,7 +255,7 @@ describe('`detalle-sin-eleccion-que-se-dibuja`: el detalle se dibuja sin eleccio
   it('CON el dato y con eleccion: la frase se va, y el detalle es el de siempre', async () => {
     const cambios: CambioDeLaRuta[] = [];
     const { container } = render(
-      <ConHoja inicial={{ sujeto: null, parametros: {} }} cambios={cambios} definicion={MAESTRO.definicion} datos={MAESTRO.datos} />,
+      <ConHoja enUnFormulario inicial={{ sujeto: null, parametros: {} }} cambios={cambios} definicion={MAESTRO.definicion} datos={MAESTRO.datos} />,
     );
     await userEvent.setup({ delay: null }).click(screen.getByRole('option', { name: /Primero/ }));
     expect(cambios).toEqual([{ sujeto: '41' }]);
@@ -306,7 +269,7 @@ describe('`detalle-sin-eleccion-que-se-dibuja`: el detalle se dibuja sin eleccio
       bloques: [{ ...pieza, detalle: { ...pieza.detalle, sinEleccionSeDibuja: undefined } }],
     };
     const { container } = render(
-      <ConHoja inicial={{ sujeto: null, parametros: {} }} cambios={[]} definicion={todoONada} datos={MAESTRO.datos} />,
+      <ConHoja enUnFormulario inicial={{ sujeto: null, parametros: {} }} cambios={[]} definicion={todoONada} datos={MAESTRO.datos} />,
     );
     expect(container.querySelector('[data-slot="sin-eleccion"]')?.textContent).toBe(
       'Nada elegido todavia: el detalle se llena al elegir uno de la lista.',

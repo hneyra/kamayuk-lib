@@ -243,6 +243,16 @@ repositorio, con su muestra; no en `PROHIBICIONES`, por lo mismo que el XHR.
 
 Un ejemplo por hueco en `interprete/muestras*.ts`, que las pruebas montan uno a uno.
 
+## El arnés de las pruebas (#127)
+
+`arnes-del-interprete.tsx` da lo que las suites se copiaban: `SIN_FRASE`, `monta` y
+`montadorDeLaPantalla({ ausencia, tonoDeLaInsignia, enUnFormulario })`, `ConHoja` —la hoja de
+prueba: la ruta en un estado y cada cambio anotado, con `marco` y `conElActoEnLaRuta` si la suite
+los quiere—, `hojaEspiada` y `descripcionDe`. Lo que `ConHoja` hace con la ruta —`rutaTrasElCambio`, el marco sin
+el hash— lo fija `arnes-del-interprete.test.ts`. Todo monta por `<Pantalla>`, con su entorno. No sale
+por `index.ts`. La prueba de #86 va por tema desde entonces: el filtro en el cliente (H02) está en
+`tablas.test.tsx` y guardar como archivo (H30a) en `actos.test.tsx`.
+
 ---
 
 Este archivo dice **el estado** del intérprete, y salió de la tabla de

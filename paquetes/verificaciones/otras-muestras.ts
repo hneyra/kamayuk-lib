@@ -21,4 +21,6 @@ export const OTRAS_MUESTRAS: Readonly<Record<string, string>> = {
   'switch-sin-agotar': 'reglas-de-eslint',
   // Las cinco formas de llegar a la sesion y a la api desde el marco (#112).
   'marco-que-decide-permisos': 'el-marco-no-decide-permisos',
+  // Un ayudante de un arnes y el remiendo de `ResizeObserver`, copiados otra vez (#127).
+  'arnes-de-prueba-copiado': 'los-arneses-de-prueba-no-se-copian',
 };

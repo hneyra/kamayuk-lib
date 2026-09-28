@@ -302,6 +302,18 @@ describe('EL AC1: el texto literal visible vive SOLO en los dos sacos', () => {
       ARCHIVOS.some((a) => rutaDesde(RAIZ, a).includes(join('ui', 'interprete'))),
       'el barrido no llego al interprete de pantallas',
     ).toBe(true);
+    // Y a los arneses de prueba de #127, que DIBUJAN —montan el armazon y la pantalla— y no llevan
+    // `.test.` en el nombre porque no tienen pruebas. Se barren a proposito: el arnes no escribe ni
+    // una palabra, y la pantalla con texto la pone cada suite. Uno que la escribiera saldria abajo.
+    for (const arnes of [
+      join('shell', 'arnes-del-armazon.tsx'),
+      join('ui', 'interprete', 'arnes-del-interprete.tsx'),
+    ]) {
+      expect(
+        ARCHIVOS.some((a) => a.endsWith(arnes)),
+        `el barrido no llego al arnes «${arnes}»: una palabra escrita en el no la veria nadie`,
+      ).toBe(true);
+    }
     // Y que el analizador ve texto cuando lo hay: los sacos lo tienen, a proposito.
     expect(
       textoLiteralVisible(join(RAIZ, 'paquetes', 'ui', 'textos.tsx')).length,

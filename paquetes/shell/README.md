@@ -36,6 +36,12 @@ tecleado en un **reductor puro**, `cambiarElRegistro`, con sus pruebas sin DOM),
 en un solo `resolver`) y `useHojaAbierta` con `useRutaDeLaHoja` (`hoja-abierta.ts`). `Cascara` queda
 en la maquetación, y `la-cascara-solo-compone.test.ts` la mide: como mucho 150 líneas y 8 hooks.
 
+## El armazón en las pruebas (#127)
+
+`arnes-del-armazon.tsx` da `catalogoInventado()` —un almacén y una flota, que no son de ningún
+sistema—, `armazonDePrueba`, `montarElArmazon({ hash, …props })` e `irPorElArbol`. Las cinco suites
+que montan el `Armazon` entero pasan encima lo suyo. No sale por `index.ts`.
+
 ## Dos cosas que no se tocan
 
 - El marco **no decide permisos**: `Destino` lleva `acceso`/`tambien` y `accesosDe` los da, pero

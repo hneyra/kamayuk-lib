@@ -1,16 +1,16 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
 
 import { TEXTOS_DE_LAS_PIEZAS } from '../textos.tsx';
+import { ConHoja, SIN_FRASE } from './arnes-del-interprete.tsx';
 import { piezasSinRegistrar } from './componer.ts';
 import { indicesDeLasPiezas, nombradosConLaHoja, pestanaAbierta, recorrerLasPiezas } from './composicion.ts';
 import type { DatosDeLaPantalla } from './datos.ts';
-import { actoEnLaRuta, type CambioDeLaRuta, type HojaDelMarco, type RutaDeLaHoja } from './hoja.ts';
+import { actoEnLaRuta, type CambioDeLaRuta, type HojaDelMarco } from './hoja.ts';
 import { MUESTRAS_DE_LA_COMPOSICION } from './muestras-de-la-composicion.ts';
 import { MUESTRAS_DE_LOS_ACTOS } from './muestras.ts';
-import { Pantalla, type PantallaProps } from './Pantalla.tsx';
+import { Pantalla } from './Pantalla.tsx';
 import type { DefinicionDePantalla, DefinicionDePestanas, PiezaDeLaPantalla } from './tipos.ts';
 
 /**
@@ -24,41 +24,8 @@ import type { DefinicionDePantalla, DefinicionDePestanas, PiezaDeLaPantalla } fr
 
 type Definicion = DefinicionDePantalla<PiezaDeLaPantalla>;
 
-const SIN_FRASE = { enElCampo: '—', explicacion: '', tono: 'info' } as const;
-
-/** Una hoja de prueba: la ruta en un estado, y cada cambio anotado. Es el marco, sin el hash. */
-function ConHoja({
-  inicial,
-  cambios,
-  definicion,
-  datos,
-  extra = {},
-}: {
-  readonly inicial: RutaDeLaHoja;
-  readonly cambios: CambioDeLaRuta[];
-  readonly definicion: Definicion;
-  readonly datos: DatosDeLaPantalla;
-  readonly extra?: Partial<PantallaProps>;
-}) {
-  const [ruta, setRuta] = useState<RutaDeLaHoja>(inicial);
-  const hoja: HojaDelMarco = {
-    ruta,
-    marco: { ejercicio: '2026' },
-    moverLaRuta: (cambio) => {
-      cambios.push(cambio);
-      setRuta((antes) => ({
-        sujeto: cambio.sujeto === undefined ? antes.sujeto : cambio.sujeto,
-        parametros: Object.fromEntries(
-          Object.entries({ ...antes.parametros, ...cambio.parametros }).filter(
-            (par): par is [string, string] => par[1] !== null,
-          ),
-        ),
-      }));
-    },
-  };
-  const conActo = extra.actoAbierto === null ? actoEnLaRuta(hoja) : {};
-  return <Pantalla definicion={definicion} datos={datos} tonoDeLaInsignia={() => 'ok'} hoja={hoja} {...extra} {...conActo} />;
-}
+/** El marco de esta suite pone el ejercicio en la hoja: las cabeceras lo citan. */
+const EJERCICIO = { ejercicio: '2026' };
 
 const MAESTRO = MUESTRAS_DE_LA_COMPOSICION['maestro-detalle'];
 const PESTANAS = MUESTRAS_DE_LA_COMPOSICION.pestanas;
@@ -150,6 +117,7 @@ describe('`pestanas`', () => {
   it('LA RUTA LA RESTITUYE: con `?ver=historial` sale abierta, y solo se dibuja la abierta', () => {
     render(
       <ConHoja
+        marco={EJERCICIO}
         inicial={{ sujeto: null, parametros: { ver: 'historial' } }}
         cambios={[]}
         definicion={PESTANAS.definicion}
@@ -170,6 +138,7 @@ describe('`pestanas`', () => {
     const teclado = userEvent.setup({ delay: null });
     render(
       <ConHoja
+        marco={EJERCICIO}
         inicial={{ sujeto: '42', parametros: { filtro: 'x' } }}
         cambios={cambios}
         definicion={PESTANAS.definicion}
@@ -186,6 +155,7 @@ describe('`pestanas`', () => {
     const teclado = userEvent.setup({ delay: null });
     render(
       <ConHoja
+        marco={EJERCICIO}
         inicial={{ sujeto: null, parametros: {} }}
         cambios={cambios}
         definicion={PESTANAS.definicion}
@@ -231,12 +201,13 @@ describe('`pestanas`', () => {
       ],
     };
     const { rerender } = render(
-      <ConHoja inicial={{ sujeto: null, parametros: {} }} cambios={[]} definicion={definicion} datos={{ ausencia: SIN_FRASE }} />,
+      <ConHoja marco={EJERCICIO} inicial={{ sujeto: null, parametros: {} }} cambios={[]} definicion={definicion} datos={{ ausencia: SIN_FRASE }} />,
     );
     expect(screen.getByText('Ejercicio 2026')).toBeTruthy();
     expect(screen.queryByText('Solo en el historial')).toBeNull();
     rerender(
       <ConHoja
+        marco={EJERCICIO}
         key="otra"
         inicial={{ sujeto: null, parametros: { ver: 'historial' } }}
         cambios={[]}
@@ -262,6 +233,7 @@ describe('`maestro-detalle`', () => {
   it('LA RUTA LO RESTITUYE: el elegido sale con `aria-selected`, y el detalle con su cabecera', () => {
     render(
       <ConHoja
+        marco={EJERCICIO}
         inicial={{ sujeto: '42', parametros: {} }}
         cambios={[]}
         definicion={MAESTRO.definicion}
@@ -281,7 +253,7 @@ describe('`maestro-detalle`', () => {
   it('ELEGIR ESCRIBE LA RUTA: el sujeto, y nada mas', async () => {
     const cambios: CambioDeLaRuta[] = [];
     const teclado = userEvent.setup({ delay: null });
-    render(<ConHoja inicial={{ sujeto: null, parametros: { ver: 'x' } }} cambios={cambios} definicion={MAESTRO.definicion} datos={MAESTRO.datos} />);
+    render(<ConHoja marco={EJERCICIO} inicial={{ sujeto: null, parametros: { ver: 'x' } }} cambios={cambios} definicion={MAESTRO.definicion} datos={MAESTRO.datos} />);
     expect(screen.getByText('Elija uno de la lista.')).toBeTruthy();
     await teclado.click(screen.getByRole('option', { name: /Primero/ }));
     expect(cambios, 'elegir en el maestro no escribio la ruta').toEqual([{ sujeto: '41' }]);
@@ -291,7 +263,7 @@ describe('`maestro-detalle`', () => {
   it('EL TECLADO: el tabulador entra por el elegido, las flechas mueven el foco e Intro elige', async () => {
     const cambios: CambioDeLaRuta[] = [];
     const teclado = userEvent.setup({ delay: null });
-    render(<ConHoja inicial={{ sujeto: '42', parametros: {} }} cambios={cambios} definicion={MAESTRO.definicion} datos={MAESTRO.datos} />);
+    render(<ConHoja marco={EJERCICIO} inicial={{ sujeto: '42', parametros: {} }} cambios={cambios} definicion={MAESTRO.definicion} datos={MAESTRO.datos} />);
     await teclado.tab();
     expect(document.activeElement, 'el tabulador no entro por el elegido').toBe(
       screen.getByRole('option', { name: /Segundo/ }),
@@ -312,7 +284,7 @@ describe('`maestro-detalle`', () => {
     const cambios: CambioDeLaRuta[] = [];
     const [pieza] = MAESTRO.definicion.bloques;
     const definicion: Definicion = { instruccion: '', bloques: [{ ...pieza, enLaRuta: 'registro' }] };
-    render(<ConHoja inicial={{ sujeto: null, parametros: { registro: '41' } }} cambios={cambios} definicion={definicion} datos={MAESTRO.datos} />);
+    render(<ConHoja marco={EJERCICIO} inicial={{ sujeto: null, parametros: { registro: '41' } }} cambios={cambios} definicion={definicion} datos={MAESTRO.datos} />);
     expect(screen.getByRole('option', { name: /Primero/ }).getAttribute('aria-selected')).toBe('true');
     await userEvent.setup({ delay: null }).click(screen.getByRole('option', { name: /Segundo/ }));
     expect(cambios).toEqual([{ parametros: { registro: '42' } }]);
@@ -320,7 +292,7 @@ describe('`maestro-detalle`', () => {
 
   it('un elegido que NO vino en la lista: el detalle se dibuja igual, y lo dice encima', () => {
     const { container } = render(
-      <ConHoja inicial={{ sujeto: '99', parametros: {} }} cambios={[]} definicion={MAESTRO.definicion} datos={MAESTRO.datos} />,
+      <ConHoja marco={EJERCICIO} inicial={{ sujeto: '99', parametros: {} }} cambios={[]} definicion={MAESTRO.definicion} datos={MAESTRO.datos} />,
     );
     expect(container.querySelector('[data-no-esta-en-la-lista="99"]')?.textContent).toBe(
       'El elegido no esta en esta pagina de la lista.',
@@ -332,6 +304,7 @@ describe('`maestro-detalle`', () => {
   it('con la lista PIDIENDO: sus barras en su columna, y no se dice que el elegido no esta', () => {
     const { container } = render(
       <ConHoja
+        marco={EJERCICIO}
         inicial={{ sujeto: '99', parametros: {} }}
         cambios={[]}
         definicion={MAESTRO.definicion}
@@ -348,7 +321,7 @@ describe('`maestro-detalle`', () => {
 
   it('con la lista declarada y SIN estado, lo dice; con la lista vacia, su frase', () => {
     const { container, unmount } = render(
-      <ConHoja inicial={{ sujeto: null, parametros: {} }} cambios={[]} definicion={MAESTRO.definicion} datos={{ ausencia: SIN_FRASE }} />,
+      <ConHoja marco={EJERCICIO} inicial={{ sujeto: null, parametros: {} }} cambios={[]} definicion={MAESTRO.definicion} datos={{ ausencia: SIN_FRASE }} />,
     );
     expect(container.querySelector('[data-lectura-sin-estado="lista"]')?.textContent).toBe(
       TEXTOS_DE_LAS_PIEZAS.lecturaSinEstado('lista'),
@@ -356,6 +329,7 @@ describe('`maestro-detalle`', () => {
     unmount();
     const vacia = render(
       <ConHoja
+        marco={EJERCICIO}
         inicial={{ sujeto: null, parametros: {} }}
         cambios={[]}
         definicion={MAESTRO.definicion}
@@ -381,9 +355,9 @@ describe('el acto abierto, en la ruta (`actoEnLaRuta`)', () => {
   it('abrir el acto ESCRIBE la ruta con lo que la accion le pasa, y la ruta lo RESTITUYE', async () => {
     const cambios: CambioDeLaRuta[] = [];
     const teclado = userEvent.setup({ delay: null });
-    // `actoAbierto: null` en `extra` es la senal de `ConHoja` para cablear `actoEnLaRuta`.
+    // `conElActoEnLaRuta` es lo que le pide a `ConHoja` que cablee `actoEnLaRuta`.
     const { unmount } = render(
-      <ConHoja inicial={{ sujeto: '1', parametros: { ver: 'x' } }} cambios={cambios} definicion={definicion} datos={datos} extra={{ actoAbierto: null, actos: { abrir: () => {} } }} />,
+      <ConHoja marco={EJERCICIO} inicial={{ sujeto: '1', parametros: { ver: 'x' } }} cambios={cambios} definicion={definicion} datos={datos} conElActoEnLaRuta extra={{ actos: { abrir: () => {} } }} />,
     );
     expect(screen.queryByRole('heading', { name: 'Abrir un grupo' })).toBeNull();
     await teclado.click(screen.getByRole('button', { name: 'Abrir un grupo' }));
@@ -394,11 +368,13 @@ describe('el acto abierto, en la ruta (`actoEnLaRuta`)', () => {
     // Recargar: la ruta que quedo escrita, y nada mas.
     render(
       <ConHoja
+        marco={EJERCICIO}
         inicial={{ sujeto: '1', parametros: { ver: 'x', desde: '7', acto: 'abrir' } }}
         cambios={[]}
         definicion={definicion}
         datos={datos}
-        extra={{ actoAbierto: null, actos: { abrir: () => {} } }}
+        conElActoEnLaRuta
+        extra={{ actos: { abrir: () => {} } }}
       />,
     );
     expect(screen.getByRole('heading', { name: 'Abrir un grupo' }), 'recargar no restituyo el acto abierto').toBeTruthy();
