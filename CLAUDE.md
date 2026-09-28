@@ -29,13 +29,13 @@ se repite. **Y las cifras de pruebas no se escriben a mano**: las escribe `yarn 
 | [`paquetes/formato`](paquetes/formato/README.md) — `@kamayuk/formato` | **Existe.** Fechas, importes y documento de identidad: la hoja limpia del grafo. <!-- cifras:formato -->**68 pruebas** en 3 archivos<!-- /cifras -->. Le faltan `codigo predial` y `placa` |
 | [`paquetes/api`](paquetes/api/README.md) — `@kamayuk/api` | **Existe.** `crearCliente` y sus cuatro operaciones —`solicitar`, `solicitarRespuesta`, `descargar` y `subir`—, `entregarAlNavegador` y `ErrorDeLaApi` con las cinco extensiones del contrato. <!-- cifras:api -->**146 pruebas** en 6 archivos<!-- /cifras --> |
 | [`paquetes/sesion`](paquetes/sesion/README.md) — `@kamayuk/sesion` | **Existe.** `crearIdentidad` con PKCE S256, la sonda del emisor y `quienEntro()`; `peldanoDe()` con sus nueve peldaños y sus palabras como dato. <!-- cifras:sesion -->**175 pruebas** en 6 archivos<!-- /cifras --> |
-| [`paquetes/ui`](paquetes/ui/README.md) — `@kamayuk/ui` | **Existe.** Los 42 tokens, cuatro identidades × dos modos, las piezas de shadcn y el `ProveedorDeTema`; no escribe ni una palabra. <!-- cifras:ui -->**804 pruebas** en 29 archivos, más las **3** de capa<!-- /cifras --> y las barreras de tipo. Le faltan los tokens contra el artboard y el contraste |
+| [`paquetes/ui`](paquetes/ui/README.md) — `@kamayuk/ui` | **Existe.** Los 42 tokens, cuatro identidades × dos modos, las piezas de shadcn, el `ProveedorDeTema` y el `MandoDeTema`; no escribe ni una palabra. <!-- cifras:ui -->**822 pruebas** en 30 archivos, más las **3** de capa<!-- /cifras --> y las barreras de tipo. Le faltan los tokens contra el artboard y el contraste |
 | [`paquetes/ui/interprete`](paquetes/ui/interprete/README.md) — el intérprete de pantallas | **Existe**, y dibuja una hoja entera como **dato**: bloques, avisos, pie, actos, maestro-detalle, pestañas y piezas del consumidor, con lo elegido en la ruta. Sus pruebas cuentan en `paquetes/ui` |
 | [`paquetes/shell`](paquetes/shell/README.md) — `@kamayuk/shell` | **Existe.** El armazón de V8, con el catálogo por parámetro y el estado de la hoja en la ruta; no decide permisos ni escribe una palabra. <!-- cifras:shell -->**152 pruebas** en 14 archivos<!-- /cifras --> |
-| [`paquetes/verificaciones`](paquetes/verificaciones/README.md) — `@kamayuk/verificaciones` | **Existe.** Las prohibiciones de ESLint con sus muestras, las guardas del árbol, los guiones de la CI y el arnés del `Request`. <!-- cifras:verificaciones -->**368 pruebas** en 24 archivos<!-- /cifras -->. Le faltan los tokens contra el artboard y el contraste |
+| [`paquetes/verificaciones`](paquetes/verificaciones/README.md) — `@kamayuk/verificaciones` | **Existe.** Las prohibiciones de ESLint con sus muestras, las guardas del árbol, los guiones de la CI y el arnés del `Request`. <!-- cifras:verificaciones -->**371 pruebas** en 24 archivos<!-- /cifras -->. Le faltan los tokens contra el artboard y el contraste |
 | La guarda de la fila del registro | **Existe**, con su autoprueba de **catorce muestras**, adaptada a la forma de este repositorio; desde #128 exige además una fila por issue |
 
-<!-- cifras:total -->**En total: 1713 pruebas en 82 archivos, más las 3 de capa.**<!-- /cifras -->
+<!-- cifras:total -->**En total: 1734 pruebas en 83 archivos, más las 3 de capa.**<!-- /cifras -->
 
 ## La regla que gobierna este repositorio
 
@@ -82,6 +82,7 @@ paquetes/
              el interprete (hoja.ts, composicion.ts y sus piezas) y textos.tsx;
              shadcn/campos.ts (COMPORTAMIENTO_POR_TIPO, la unica tabla por tipo de campo) y
              temas/ejes.ts (las identidades, los modos y su cruce, Combinacion) (#124);
+             temas/MandoDeTema.tsx (el cajon de «Preferencias», que subio de `rentas`, #53);
              en el interprete, teclado.ts (destinoDeLaTecla), en-el-marco-o-aqui.ts
              (useEnElMarcoOAqui, y encima useSitioDeLaHoja en hoja.ts), lo-tecleado.ts y
              queDiceSinFilas en reglas-de-las-tablas.ts: lo que la tabla, el maestro, las
@@ -152,7 +153,7 @@ peticiones sin ninguna de las cuatro prohibiciones de importes.
 | — | **Una clase nueva no compila hasta que cada `switch` tenga la suya** | los retornos anotados y los `never` del intérprete —TS2366/TS2322 con el `tsconfig` de cada consumidor, y lo vigila `la-exhaustividad-viaja.test.ts` compilando con las opciones mínimas de uno— y, para lo que el compilador no ve, `switch-exhaustiveness-check` en el lint de aquí, con su muestra. **No es una prohibición**, por lo mismo que el XHR (#111) |
 | — | **Nada supone un sistema** | `sin-suponer-un-sistema`, con su muestra |
 | — | **Ningún paquete se importa por su nombre público** | `sin-nombre-publico-entre-paquetes`, con su muestra. Mira el **especificador** que saca el árbol sintáctico de TypeScript (`imports.mjs`), no la línea: ve el import de efecto, el dinámico, `export * as x from` y el subcamino (#112) |
-| — | **Ninguna palabra visible escrita dentro de un componente** | `el-texto-visible-es-dato` (el barrido, con el analizador de TypeScript) más las dos guardas que **montan** el armazón y las piezas con el saco marcado (#19). En `sesion`, la cuarta forma —la frase devuelta— **sin excepciones** desde #118 |
+| — | **Ninguna palabra visible escrita dentro de un componente** | `el-texto-visible-es-dato` (el barrido, con el analizador de TypeScript) más las dos guardas que **montan** el armazón y las piezas con el saco marcado (#19). En `sesion`, la cuarta forma —la frase devuelta— **sin excepciones** desde #118. Desde #53 el barrido ve también una `prop` de texto con un literal (`rotulo="…"`) y un literal entre llaves (`{'…'}`), con sus dos muestras, y `marcarElSaco` baja a un saco anidado |
 | — | **El arnés del `Request` se importa, no se copia** | `el-arnes-del-request-se-publica.test.ts`, con su muestra: en este árbol el `Request` global se instala en **un solo archivo** —el que lo publica— y `vitest.setup.ts` lo **importa** por ruta relativa. Lo que no puede vigilar es el árbol de un consumidor que no está clonado, y por eso se publica además `el-arnes-del-request-no-se-copia.mjs`, que él corre contra el suyo (#92) |
 | — | **Los arneses de las pruebas se importan, no se copian** | `los-arneses-de-prueba-no-se-copian.test.ts`, con su muestra: lo que exporta cada arnés de #127 no se declara en otro archivo, y `ResizeObserver` sólo lo instala `remendarElDom` (#127) |
 | — | **Ninguna entrada de `exports` promete un archivo que no está** | `lo-que-exports-promete-existe`, que lee los seis manifiestos tal cual y sale en rojo también ante una forma de `exports` que no sepa leer (#24) |

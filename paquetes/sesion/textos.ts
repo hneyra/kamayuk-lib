@@ -20,10 +20,11 @@
  *
  * <h2>UNO plano, y no uno por peldano</h2>
  *
- * El saco es **plano a proposito**: `marcarElSaco` (`verificaciones/marcas.ts:48-55`) recorre
- * `Object.entries` y sustituye cada valor por su clave marcada, asi que un saco anidado dejaria
- * un objeto entero convertido en la cadena `⟦…⟧` y la guarda no mediria nada. Por eso las claves
- * llevan el peldano en el nombre en vez de agruparse.
+ * El saco es **plano a proposito**: cuando se escribio, `marcarElSaco` (`verificaciones/marcas.ts`)
+ * recorria solo el primer nivel de `Object.entries`, asi que un saco anidado dejaba un objeto
+ * entero convertido en la cadena `⟦…⟧` y la guarda no media nada. Por eso las claves llevan el
+ * peldano en el nombre en vez de agruparse. Desde #53 `marcarElSaco` baja a un saco anidado —el del
+ * mando de los temas lo es—; este se queda plano, que es la forma que ya miden sus pruebas.
  *
  * <h2>Lo que NO esta aqui: lo que dijo el backend</h2>
  *
@@ -238,9 +239,10 @@ export const TEXTOS_DE_LA_ESCALERA: TextosDeLaEscalera = {
  *
  * <h2>La misma forma que el saco de la escalera, y por lo mismo</h2>
  *
- * Plano —`marcarElSaco` no baja a un saco anidado—, con el castellano de hoy por omision, y como
- * `Partial` por el segundo argumento de `crearIdentidad`: con uno solo, la puerta dice palabra por
- * palabra lo que decia. **Sin motor de traduccion**: `PEER_DECLARADAS.sesion` sigue siendo `[]`.
+ * Plano —`marcarElSaco` no bajaba a un saco anidado hasta #53—, con el castellano de hoy por
+ * omision, y como `Partial` por el segundo argumento de `crearIdentidad`: con uno solo, la puerta
+ * dice palabra por palabra lo que decia. **Sin motor de traduccion**: `PEER_DECLARADAS.sesion`
+ * sigue siendo `[]`.
  *
  * <h2>Lo que NO esta aqui: lo que dijeron el emisor y el navegador</h2>
  *

@@ -7,7 +7,9 @@
  * pantalla, y la tabla de que pieza dibuja cada uno de los siete tipos de campo. **Capa 4**
  * (#13): las SIETE piezas que el armazon de V8 necesita —`Miga`, `Plegable`, `Menu`,
  * `Confirmacion`, `Cajon`, `PaletaDeMando` y `Avisos`—, que dibuja `@kamayuk/shell`. **Capa 5**
- * (#27): el interprete de pantallas, que sube de `rentas` cuando llega el segundo consumidor.
+ * (#27): el interprete de pantallas, que sube de `rentas` cuando llega el segundo consumidor. Y
+ * **el mando de los temas** (#53), `MandoDeTema`: el cajon de «Preferencias» con que una persona
+ * elige la identidad y el modo, que sube de `rentas` para que cada sistema lo monte sin copiarlo.
  *
  * <h2>Lo que NO trae todavia, dicho aqui y no descubierto luego</h2>
  *
@@ -113,6 +115,13 @@ export { cn } from './utilidades.ts';
 export { ProveedorDeTema, useTema, IDENTIDADES, MODOS } from './temas/ProveedorDeTema.tsx';
 export type { ConfiguracionDeTema, Modo } from './temas/ProveedorDeTema.tsx';
 export type { Identidad } from './temas/derivar.ts';
+// El mando de los temas (#53): el cajon de «Preferencias», con sus palabras en el saco. Lo que tiene
+// que poner quien lo monta —el proveedor por encima, la opcion que lo abre, `abierto` y `alCerrar`—
+// lo dice su docblock.
+export { MandoDeTema } from './temas/MandoDeTema.tsx';
+export type { MandoDeTemaProps } from './temas/MandoDeTema.tsx';
+export { TEXTOS_DEL_MANDO_DE_TEMA } from './textos.tsx';
+export type { TextosDelMandoDeTema } from './textos.tsx';
 export { Miga, PasoDeLaMiga } from './shadcn/miga.tsx';
 export type { MigaProps, PasoDeLaMigaProps } from './shadcn/miga.tsx';
 export { Plegable, DisparadorDelPlegable, CuerpoDelPlegable } from './shadcn/plegable.tsx';

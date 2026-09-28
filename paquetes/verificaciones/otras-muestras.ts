@@ -15,6 +15,10 @@ export const OTRAS_MUESTRAS: Readonly<Record<string, string>> = {
   // inservible: hace falta demostrar que ademas sabe callarse.
   'frase-escrita-dentro': 'el-texto-visible-es-dato',
   'frase-que-sale-del-saco': 'el-texto-visible-es-dato',
+  // Y las dos formas JSX que el barrido no veia (#53): una `prop` de texto con un literal y un literal
+  // entre llaves. Las dos mitades, por lo mismo que las de arriba.
+  'texto-escrito-en-el-jsx': 'el-texto-visible-es-dato',
+  'texto-del-jsx-que-sale-del-saco': 'el-texto-visible-es-dato',
   'arnes-del-request-copiado': 'el-arnes-del-request-se-publica',
   'formato-con-number-o-date': 'formato-sin-number-ni-date',
   // La regla con tipos que vive en `eslint.config.js` y no en `PROHIBICIONES` (#111).
